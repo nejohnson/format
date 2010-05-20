@@ -29,7 +29,7 @@ The format string `fmt` is composed of zero or more directives: ordinary charact
 void * cons( void *a, const char *s, size_t n )
 }}}
 
-The consumer function `cons` takes an opaque pointer `a`, a pointer to an array of characters `s` and the number `n` of characters to consume from `s`.  It returns another opaque pointer which may be equal or different to `a` which will be passed to the next call to `cons`.  The consumer function returns NULL to indicate an error condition, which will cease any further format processing and cause the format function to terminate with the `EXBADFORMAT` error code.
+The consumer function `cons` takes an opaque pointer `a`, a pointer to an array of characters `s` and the number `n` of characters to consume from `s`.  It returns another opaque pointer which may be equal or different to `a` which will be passed to the next call to `cons`.  The consumer function returns NULL to indicate an error condition, which will cease any further format processing and cause the `format` function to terminate with the `EXBADFORMAT` error code.
 
 The first opaque pointer passed to the first call to `cons` is supplied as the argument `arg` to the call to `format` (see above).
 
