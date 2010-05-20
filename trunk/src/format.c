@@ -80,6 +80,27 @@
 #define MAX(a,b)        ( (a) > (b) ? (a) : (b) )
 #define MIN(a,b)        ( (a) < (b) ? (a) : (b) )
 
+/* The following is inspired from code from the kannel project.
+   See http://www.kannel.org
+ */
+/**
+    Some platforms va_list is an array type, on others it is a pointer (such as
+    pointer to char).  These macros hide this important difference.
+**/
+#if (defined(__linux__) && (defined(__powerpc__)    \
+                           || defined(__s390__)     \
+                           || defined(__x86_64)))   \
+    || (defined(__FreeBSD__) && defined(__amd64__)) \
+    || (defined(DARWIN) && defined(__x86_64__))
+#define VARGS(x)        (x)
+#define VALPARM(y)      va_list y
+#define VALST(z)        (z)
+#else 
+#define VARGS(x)        (&x)
+#define VALPARM(y)      va_list *y
+#define VALST(z)        (*z)
+#endif 
+
 /*****************************************************************************/
 /**
     Emit @p n characters from string @p s.
@@ -249,7 +270,7 @@ static void * memcpy( void *dst, const void *src, size_t len )
     Handle a single format conversion for a given type.
     
     @param pspec    Pointer to format specification.
-    @param pap      Pointer to current varargs list.
+    @param ap       Reference to optional format arguments list.
     @param code     Conversion specifier code.
     @param cons     Pointer to consumer function.
     @param parg     Pointer to opaque pointer updated by cons.
@@ -257,7 +278,7 @@ static void * memcpy( void *dst, const void *src, size_t len )
     @returns Number of emitted characters, or EXBADFORMAT if failure
 **/
 static int do_conv( T_FormatSpec * pspec,
-                    va_list *      pap, 
+                    VALPARM(ap), 
                     char           code,
                     void *      (* cons)(void *, const char *, size_t),
                     void * *       parg )
@@ -274,11 +295,11 @@ static int do_conv( T_FormatSpec * pspec,
     if ( code == 'n' )
     {
         if ( pspec->qual == 'h' )
-            *va_arg(*pap, short *) = (short) pspec->nChars;
+            *va_arg(VALST(ap), short *) = (short) pspec->nChars;
         else if ( pspec->qual == 'l' )
-            *va_arg(*pap, long *) = (long) pspec->nChars;
+            *va_arg(VALST(ap), long *) = (long) pspec->nChars;
         else
-            *va_arg(*pap, int *) = (int) pspec->nChars;
+            *va_arg(VALST(ap), int *) = (int) pspec->nChars;
             
         return 0;
     }
@@ -288,7 +309,7 @@ static int do_conv( T_FormatSpec * pspec,
         char cc;
             
         if ( code == 'c' )
-            cc = (char)va_arg(*pap, int);
+            cc = (char)va_arg(VALST(ap), int);
         else
             cc = (char)code;
         
@@ -299,7 +320,7 @@ static int do_conv( T_FormatSpec * pspec,
     
     if ( code == 's' )
     {
-        char *s = va_arg(*pap, char *);
+        char *s = va_arg(VALST(ap), char *);
                 
         length = STRLEN( s );
             
@@ -326,8 +347,8 @@ static int do_conv( T_FormatSpec * pspec,
         length = 0;
         
         /* get the value */
-        v = pspec->qual == 'l' ? va_arg(*pap, long) 
-                               : va_arg(*pap, int);            
+        v = pspec->qual == 'l' ? va_arg(VALST(ap), long) 
+                               : va_arg(VALST(ap), int);            
         if ( pspec->qual == 'h' )
             v = (short)v;
         
@@ -412,8 +433,8 @@ static int do_conv( T_FormatSpec * pspec,
         length = 0;
             
         /* get the value */
-        uv = pspec->qual == 'l' ? va_arg(*pap, unsigned long) 
-                                : va_arg(*pap, unsigned int );
+        uv = pspec->qual == 'l' ? va_arg(VALST(ap), unsigned long) 
+                                : va_arg(VALST(ap), unsigned int );
         if ( pspec->qual == 'h' )
             uv = (unsigned short)uv;
             
@@ -607,7 +628,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             fspec.qual = STRCHR( "hl", *s ) ? *s++: '\0';
 
             /* now process the conversion type */
-            n = do_conv( &fspec, &ap, *s, cons, &arg );
+            n = do_conv( &fspec, VARGS(ap), *s, cons, &arg );
             if ( n < 0 )
                 return EXBADFORMAT;
             else
