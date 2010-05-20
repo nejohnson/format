@@ -1,4 +1,4 @@
-#summary `format` User Guide.
+#summary User Guide
 
 = Introduction =
 
