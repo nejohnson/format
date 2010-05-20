@@ -248,23 +248,53 @@ static void test_s( void )
 /**
     Execute tests on 'p' conversion specifier
     
-    Assume 32-bit platform
+    *May* work for 16,32 and 64-bit pointers.  Its a bit iffy really.
+    On really weird architectures this is just wild.
 **/
 static void test_p( void )
 {
-    int * p0 = (int *)0x00000000;
-    int * p1 = (int *)0x12345678;
-    int * p2 = (int *)0x09ABCDEF;
+	int ptr_size = sizeof( int * );
+    int * p0 = (int *)0x0;
+	int * p1 = (int *)0x1234;                          
+	int * p2 = (int *)(-1);
     
-    printf( "Testing \"%%p\"\n" );
+    printf( "Testing \"%%p\" on platform with %d-byte pointers\n", ptr_size );
     
-    TEST( "0x00000000", 10, "%p", p0 );
-    TEST( "0x12345678", 10, "%p", p1 );
-    TEST( "0x09ABCDEF", 10, "%p", p2 );
-    
-    /* Check all flags, precision, width, length are ignored */
-    TEST( "0x09ABCDEF", 10, "%-+ #0!12.24lp", p2 );
-    TEST( "0x09ABCDEF", 10, "%-+ #0!12.24hp", p2 );
+    if ( ptr_size == 2 )
+    {
+		TEST( "0x0000", 6, "%p", p0 );
+		TEST( "0x1234", 6, "%p", p1 );
+		TEST( "0xFFFF", 6, "%p", p2 );
+		
+		/* Check all flags, precision, width, length are ignored */
+		TEST( "0xFFFF", 6, "%-+ #0!12.24lp", p2 );
+		TEST( "0xFFFF", 6, "%-+ #0!12.24hp", p2 );
+	}
+	else if ( ptr_size == 4 )
+	{		
+		TEST( "0x00000000", 10, "%p", p0 );
+		TEST( "0x00001234", 10, "%p", p1 );
+		TEST( "0xFFFFFFFF", 10, "%p", p2 );
+		
+		/* Check all flags, precision, width, length are ignored */
+		TEST( "0xFFFFFFFF", 10, "%-+ #0!12.24lp", p2 );
+		TEST( "0xFFFFFFFF", 10, "%-+ #0!12.24hp", p2 );
+	}
+	else if ( ptr_size == 8 )
+	{
+		TEST( "0x0000000000000000", 18, "%p", p0 );
+		TEST( "0x0000000000001234", 18, "%p", p1 );
+		TEST( "0xFFFFFFFFFFFFFFFF", 18, "%p", p2 );
+		
+		/* Check all flags, precision, width, length are ignored */
+		TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!24.48lp", p2 );
+		TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!24.48hp", p2 );
+	}
+	else
+	{
+		printf( "ERROR: unknown pointer size (%d bytes)\n", ptr_size );
+		f |= 1;
+	}
 }
 
 /*****************************************************************************/
