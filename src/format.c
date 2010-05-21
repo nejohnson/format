@@ -190,7 +190,7 @@ static const char zeroes[] = "0000000000000000";
 /* Private function prototypes.  Declare as static.                          */
 /*****************************************************************************/
 
-static int do_conv( T_FormatSpec *, va_list *, char, 
+static int do_conv( T_FormatSpec *, VALPARM(), char, 
                     void *(*)(void *, const char *, size_t), void * * );
 
 /* Only declare these prototypes in a freestanding environment */
@@ -413,6 +413,8 @@ static int do_conv( T_FormatSpec * pspec,
         pspec->flags  = FHASH | FBANG;
         pspec->width  = sizeof( int * ) * 2;
         pspec->prec   = sizeof( int * ) * 2;
+		if ( sizeof(int *) > sizeof( int ) )
+			pspec->qual = 'l';
     }
     
     base = -1;
