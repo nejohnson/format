@@ -409,12 +409,10 @@ static int do_conv( T_FormatSpec * pspec,
     if ( code == 'p' )
     {
         code          = 'X';
-        pspec->qual   = 0;
+        pspec->qual   = ( sizeof(int *) > sizeof( int ) ) ? 'l' : 0;
         pspec->flags  = FHASH | FBANG;
         pspec->width  = sizeof( int * ) * 2;
         pspec->prec   = sizeof( int * ) * 2;
-		if ( sizeof(int *) > sizeof( int ) )
-			pspec->qual = 'l';
     }
     
     base = -1;
