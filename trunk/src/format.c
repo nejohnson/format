@@ -42,6 +42,7 @@
 
 #if defined(CONFIG_HAVE_LIBC)
     #include <string.h>
+    #include <ctype.h>
 #else
     /** Define some things we need **/
     #define NULL        ((void*)0)
@@ -97,7 +98,7 @@
 #define VALST(z)        (z)
 #else 
 #define VARGS(x)        (&x)
-#define VALPARM(y)      va_list *y
+#define VALPARM(y)      const va_list *y
 #define VALST(z)        (*z)
 #endif 
 
@@ -124,7 +125,7 @@
     This macro is specific to do_conv().
 **/
 #define PAD(s, n)   do { if ((n) > 0) {                         \
-                        int i, j = (n);                         \
+                        size_t i, j = (size_t)(n);              \
                         for ( ; 0 < j; j -= i) {                \
                             i = MIN( (sizeof(s) - 1), j );      \
                             EMIT((s),i);                        \
@@ -218,7 +219,7 @@ static size_t xx_strlen( const char *s )
     const char *p;
     for ( p = s; *p != '\0'; p++ )
         ;
-    return (p-s);
+    return (size_t)(p-s);
 }
 #endif
 
@@ -234,7 +235,7 @@ static size_t xx_strlen( const char *s )
 #if !defined( CONFIG_HAVE_LIBC )
 static char * xx_strchr( const char *s, int c )
 {
-    char ch = c;
+    char ch = (char)c;
     for ( ; *s != ch; s++ )
         if ( *s == '\0' )
             return NULL;
@@ -244,7 +245,7 @@ static char * xx_strchr( const char *s, int c )
 
 /*****************************************************************************/
 /**
-    Freestanding implementation of memcpy().
+    Freestanding implementation of memcpy() needed by GCC.
     
     @param dst        Pointer to destination.
     @param src        Pointer to source.
@@ -252,7 +253,7 @@ static char * xx_strchr( const char *s, int c )
     
     @returns Original value of dst.
 **/
-#if !defined( CONFIG_HAVE_LIBC )
+#if !defined( CONFIG_HAVE_LIBC ) && defined( __GNUC__ )
 static void * memcpy( void *dst, const void *src, size_t len )
 {
     char *d = dst;
@@ -283,35 +284,41 @@ static int do_conv( T_FormatSpec * pspec,
                     void *      (* cons)(void *, const char *, size_t),
                     void * *       parg )
 {
-    int i, j;
-    int emitted = 0, length = 0;
+    int length = 0;
     int width, numWidth, digitWidth, pfxWidth = 0;
-    int base;
-    char cc;
-    char numBuffer[BUFLEN];        
-    static const char digits[] = "0123456789ABCDEF";
-    unsigned long uv;
+    unsigned int base = 0;
+    char numBuffer[BUFLEN];
     
     if ( code == 'n' )
     {
         if ( pspec->qual == 'h' )
-            *va_arg(VALST(ap), short *) = (short) pspec->nChars;
+        {
+            short *sp = va_arg(VALST(ap), short *);
+            if ( sp )
+                *sp = (short) pspec->nChars;
+        }
         else if ( pspec->qual == 'l' )
-            *va_arg(VALST(ap), long *) = (long) pspec->nChars;
+        {
+            long *lp = va_arg(VALST(ap), long *);
+            if ( lp )
+                *lp = (long) pspec->nChars;
+        }
         else
-            *va_arg(VALST(ap), int *) = (int) pspec->nChars;
-            
+        {
+            int *ip = va_arg(VALST(ap), int *);
+            if ( ip )
+                *ip = (int) pspec->nChars;
+        }
+        
         return 0;
     }
     
     if ( code == 'c' || code == '%' )
     {
-        char cc;
+        char cc = (char)code;
             
         if ( code == 'c' )
             cc = (char)va_arg(VALST(ap), int);
-        else
-            cc = (char)code;
         
         EMIT( &cc, 1 );
         
@@ -321,8 +328,11 @@ static int do_conv( T_FormatSpec * pspec,
     if ( code == 's' )
     {
         char *s = va_arg(VALST(ap), char *);
+        
+        if ( s == NULL )
+            s = "(null)";
                 
-        length = STRLEN( s );
+        length = (int)STRLEN( s );
             
         if ( 0 <= pspec->prec && pspec->prec < length )
             length = pspec->prec;
@@ -342,33 +352,32 @@ static int do_conv( T_FormatSpec * pspec,
     
     if ( code == 'd' || code == 'i' )
     {
-        long v, x;
+        long v;
+        unsigned long uv;
             
-        length = 0;
-        
         /* get the value */
-        v = pspec->qual == 'l' ? va_arg(VALST(ap), long) 
-                               : va_arg(VALST(ap), int);            
+        v = pspec->qual == 'l' ? va_arg(VALST(ap), long)
+                               : va_arg(VALST(ap), int);
         if ( pspec->qual == 'h' )
             v = (short)v;
         
         if ( v < 0 )
         {
-            x = -v;
+            uv = -v;
             ++length;   /* allow for '-' sign */
         }
         else
         {
-            x = v;
+            uv = v;
             if ( pspec->flags & (FPLUS | FSPACE) )
                 ++length;
         }
         
         /* work out how many digits in v */
-        for( numWidth = 0; x; x /= 10 )
+        for( numWidth = 0; uv; uv /= 10 )
         {
             ++numWidth;
-            numBuffer[sizeof(numBuffer) - numWidth] = '0' + (x % 10);
+            numBuffer[sizeof(numBuffer) - numWidth] = '0' + (uv % 10);
         }
         
         digitWidth = numWidth;
@@ -415,8 +424,6 @@ static int do_conv( T_FormatSpec * pspec,
         pspec->prec   = sizeof( int * ) * 2;
     }
     
-    base = -1;
-    
     if ( code == 'x' || code == 'X' )
         base = 16;
     else if ( code == 'u' )
@@ -428,10 +435,9 @@ static int do_conv( T_FormatSpec * pspec,
         
     if ( base > 0 )
     {
+        unsigned long uv;
         char prefix[2] = { '0', '0' };
         
-        length = 0;
-            
         /* get the value */
         uv = pspec->qual == 'l' ? va_arg(VALST(ap), unsigned long) 
                                 : va_arg(VALST(ap), unsigned int );
@@ -454,7 +460,7 @@ static int do_conv( T_FormatSpec * pspec,
                 prefix[1] |= 0x20;
         }
         
-        /* work out how many digits in v */
+        /* work out how many digits in uv */
         /* Note: splitting it out like this avoids calling out to libgcc.
          *  In the case of decimal, gcc can produce tight code for dividing
          *  by a known constant (it applies "Division by Invariant Integers 
@@ -473,13 +479,14 @@ static int do_conv( T_FormatSpec * pspec,
         }
         else /* base is 2, 8 or 16 */
         {
-            int mask  = base - 1;
-            int shift = base == 16 ? 4
-                                   : base == 8 ? 3 : 1;
-                                   
+            unsigned int mask  = base - 1;
+            unsigned int shift = base == 16 ? 4
+                                            : base == 8 ? 3 : 1;
+            static const char digits[] = "0123456789ABCDEF";
+            
             for( numWidth = 0; uv; uv >>= shift )
             {
-                cc = digits[uv & mask];
+                char cc = digits[uv & mask];
                 
                 /* convert to lower case? */
                 if ( code == 'x' ) 
@@ -553,9 +560,12 @@ int format( void *    (* cons) (void *, const char * , size_t),
 {
     T_FormatSpec fspec;
     int n;
+    
+    if ( fmt == NULL )
+        return EXBADFORMAT;
 
     fspec.nChars = 0;
-    while ( 1 )
+    while ( *fmt )
     {
         const char *s = fmt;
 
@@ -565,7 +575,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
         while ( *s && *s != '%' )
         {
             s++;
-        n++;
+            n++;
         }
 
         if ( n > 0 )
@@ -575,9 +585,6 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
                 return EXBADFORMAT;
         }
-
-        if ( *s == '\0' )
-            return fspec.nChars;
 
         fmt = s;
 
@@ -590,6 +597,13 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 FSPACE, FPLUS, FMINUS, FHASH, FZERO, FBANG, 0};
 
             ++s;    /* skip the % sign */
+            
+            /* Continuation feature */
+            if ( *s == '\0' )
+            {
+                fmt = va_arg( ap, const char * );
+                continue;
+            }
 
             /* process conversion flags */
             for ( fspec.flags = 0; ( t = STRCHR(fchar, *s) ) != NULL; ++s )
@@ -636,9 +650,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
             fmt = s + 1;
         }
-        else
-            return fspec.nChars;
     }
+    
+    return fspec.nChars;
 }
 
 /*****************************************************************************/
