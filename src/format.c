@@ -598,15 +598,8 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
             ++s;    /* skip the % sign */
             
-            /* Continuation feature */
-            if ( *s == '\0' )
-            {
-                fmt = va_arg( ap, const char * );
-                continue;
-            }
-
             /* process conversion flags */
-            for ( fspec.flags = 0; ( t = STRCHR(fchar, *s) ) != NULL; ++s )
+            for ( fspec.flags = 0; *s != '\0' && ( t = STRCHR(fchar, *s) ) != NULL; ++s )
                 fspec.flags |= fbit[t - fchar];
 
             /* process width */
@@ -639,7 +632,14 @@ int format( void *    (* cons) (void *, const char * , size_t),
                         fspec.prec = fspec.prec * 10 + *s - '0';
 
             /* test for qualifier */
-            fspec.qual = STRCHR( "hl", *s ) ? *s++: '\0';
+            fspec.qual = ( *s != '\0' && STRCHR( "hl", *s ) ) ? *s++: '\0';
+
+            /* Continuation feature */
+            if ( *s == '\0' )
+            {
+                fmt = va_arg( ap, const char * );
+                continue;
+            }
 
             /* now process the conversion type */
             n = do_conv( &fspec, VARGS(ap), *s, cons, &arg );
