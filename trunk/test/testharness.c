@@ -135,6 +135,8 @@ static void test( void )
 {
     printf( "Testing basic strings\n" );
     
+    TEST( "", EXBADFORMAT, NULL );
+    
     /* Empty string */
     TEST( "", 0, "" );
     
@@ -217,6 +219,11 @@ static void test_n( void )
     TEST( "hello", 5, "hello%ln", &l ); CHECK( l, 5 );
     TEST( "hello", 5, "hello%hn", &s ); CHECK( s, 5 );
     
+    /* NULL pointer - should silently ignore */
+    TEST( "hello", 5, "hello%n", NULL );
+    TEST( "hello", 5, "hello%hn", NULL );
+    TEST( "hello", 5, "hello%ln", NULL );
+    
     /* Check all flags, precision, and width are ignored */
     TEST( "hello", 5, "hello%-+ #0!12.24n", &n ); CHECK( n, 5 );
 }
@@ -238,7 +245,10 @@ static void test_s( void )
     TEST( "     hel", 8, "%8.3s", "hello" );
     TEST( "hel     ", 8, "%-8.3s", "hello" );
     TEST( "hel", 3, "%.3s", "hello" );
-    
+        
+    /* NULL pointer handled specially */
+    TEST( "(null)", 6, "%s", NULL );
+
     /* Check unused flags and lengths are ignored */
     TEST( "hello", 5, "%+ #0!ls", "hello" );
     TEST( "hello", 5, "%+ #0!hs", "hello" );
@@ -358,7 +368,7 @@ static void test_di( void )
     TEST( "1234", 4, "%!#d", 1234 );
     
     /* lengths */
-    TEST( "24", 2, "%hd", 24 );
+    TEST( "24", 2, "%hd", si );
     TEST( "1234567890", 10, "%ld", li );
 }
 
@@ -376,7 +386,7 @@ b,o,u,x,X  The unsigned int argument is converted to unsigned binary (b),
            expanded with leading zeros.  The default precision is 1. The result
            of converting a zero value with a precision of zero is no characters.
 **/
-static test_bouxX( void )
+static void test_bouxX( void )
 {
     printf( "Testing \"%%b\", \"%%o\", \"%%u\", \"%%x\" and \"%%X\"\n" );
     
@@ -521,6 +531,26 @@ static void test_asterisk( void )
 
 /*****************************************************************************/
 /**
+    Test format continuation.
+**/
+static void test_cont( void )
+{
+	printf( "Testing format continuation\n" );
+	
+	/* Basic string continuation */
+	TEST( "hello world", 11, "hello %", "world" );
+	TEST( "hello old world", 15, "hello %", "old %", "world" );
+	
+	/* Interspersed conversions */
+	TEST( "One: 1,Two: 2,Three: 3", 22, "One: %d,%", 1, 
+	                                    "Two: %c,%", '2', 
+	                                    "Three: %s", "3" );
+
+
+}
+
+/*****************************************************************************/
+/**
     Run all tests on format library.
 **/
 static void run_tests( void )
@@ -534,6 +564,7 @@ static void run_tests( void )
     test_di();
     test_bouxX();
     test_asterisk();
+    test_cont();
     
     printf( "-----------------------\n"
             "Overall: %s\n", f ? "FAIL" : "PASS" );
