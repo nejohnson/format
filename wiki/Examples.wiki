@@ -1,0 +1,23 @@
+#summary Further examples of the format library
+
+= Introduction =
+
+The ReadMe page describes in detail the functionality that the `format` library provides.  This page provides illustrations of the additional features provided by `format` that extend the base C99-compatible functionality.
+
+
+= Binary Conversion = 
+
+The `b` conversion specification formats the unsigned integer argument into a binary base-2 number.  For example
+
+{{{
+n = format( cons, "GPIO = %8.8b", 37 );
+}}}
+
+would send to the `cons` function the characters representing the output
+
+{{{
+GPIO = 00100101
+}}}
+
+= Continuation Conversion Specifier  =
+
