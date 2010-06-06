@@ -168,7 +168,8 @@ s          The argument is a pointer to the initial element of an array of
            including) the terminating null character. If the precision is 
            specified, no more than that many bytes are written. If the precision 
            is not specified or is greater than the size of the array, the array 
-           must contain a null character. 
+           must contain a null character.  A NULL argument is treated as pointer
+           to the string "(null)".
 
 p          The argument is a pointer to void. The value of the pointer is 
            converted to a sequence of printing characters using the conversion
@@ -178,10 +179,15 @@ p          The argument is a pointer to void. The value of the pointer is
 n          The argument is a pointer to signed integer into which is written
            the number of characters passed to the consumer function so far by 
            this call to "format".  No argument is converted, but one is 
-           consumed. Any flags, a field width, or a precision will be ignored. 
+           consumed. Any flags, a field width, or a precision will be ignored.
+           A NULL argument is silently ignored.
 
 %          A "%" character is written. No argument is converted. The complete 
            conversion specification is %%. 
+           
+"          The argument is treated as a continuation of the format
+           specification.  Any flags, width, precision or length will be 
+           ignored.
 
 If a conversion specification is invalid, "format" returns an error code. If any 
 argument is not the correct type for the corresponding conversion specification, 
