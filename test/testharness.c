@@ -546,7 +546,8 @@ static void test_cont( void )
 	                                    "Two: %c,%", '2', 
 	                                    "Three: %s", "3" );
 
-
+	/* Check that flags, precision, width and length are ignored */
+    TEST( "hello world", 11, "hello % +-!#12.24l", "world" );
 }
 
 /*****************************************************************************/
