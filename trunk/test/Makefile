@@ -1,14 +1,14 @@
-CFLAGS = -g -I../src
+CFLAGS = -g -I../src -Wall -pedantic -Wunused 
 LDFLAGS = -g
 
 all: testharness
 	./testharness
 
 format.o: ../src/format.c
-	$(CC) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 	
 testharness: testharness.o format.o
-	$(CC) testharness.o format.o -o testharness
+	$(CC) $(CFLAGS) testharness.o format.o -o testharness
 
 clean:
 	rm testharness
