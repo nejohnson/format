@@ -211,4 +211,4 @@ And an example call to this function might look like this:
     }
 }}}
 
-For further examples please refer to the Examples page.
+For further examples please refer to the http://code.google.com/p/format/wiki/Examples page.
