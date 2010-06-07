@@ -40,6 +40,8 @@ struct {
 format( cons, arg, "A = %#!8.8X, X = %#!8.8X, Y = %#!8.8X", cpu.acc, cpu.x, cpu.y );
 }}}
 
+where `cons` and `arg` are placeholders for the corresponding arguments to `format`.
+
 I think it looks ugly - there is no easy visual connection between the conversion specifiers and their corresponding arguments.  The situation only gets worse as fields are added, changed or removed - it is very easy to lose track of which conversion specifier relates to which argument!
 
 With continuation this takes on a more natural look, allowing format specifications and arguments to be interspersed, much like in languages like Java and C++:
