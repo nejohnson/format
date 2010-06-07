@@ -210,3 +210,5 @@ And an example call to this function might look like this:
     	/* error handler */
     }
 }}}
+
+For further examples please refer to the Examples page.
