@@ -46,6 +46,6 @@ With continuation this takes on a more natural look, allowing format specificati
 
 {{{
 format( cons, arg, "A = %#!8.8X, %", cpu.acc, 
-              "X = %#!8.8X, %", cpu.x, 
-              "Y = %#!8.8X",    cpu.y );
+                   "X = %#!8.8X, %", cpu.x, 
+                   "Y = %#!8.8X",    cpu.y );
 }}}
