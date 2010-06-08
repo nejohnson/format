@@ -32,7 +32,6 @@
 #define FORMAT_H
 
 #include <stdarg.h>
-#include <stddef.h>
 
 /* Error code returned when problem with format specification */
 
