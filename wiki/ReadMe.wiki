@@ -87,6 +87,11 @@ In no case does a nonexistent or small field width cause truncation of a field; 
 The `format` function returns the number of characters sent to the consumer function, or the negative value `EXBADFORMAT` if an output or encoding error occurred. 
 
 
+== Limits ==
+
+The maximum width and precision are 500.  It is an error if values larger than this are specified.
+
+
 == Examples ==
 
 The first example implements the same behaviour as the standard C library function `printf`.  First, the consumer function:
