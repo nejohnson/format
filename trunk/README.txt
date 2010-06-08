@@ -205,6 +205,12 @@ function, or the negative value EXBADFORMAT if an output or encoding error
 occurred. 
 
 
+LIMITS
+
+The maximum width and precision are 500.  It is an error if values larger than
+this are specified.
+
+
 EXAMPLES
 
 The first example implements the same behaviour as the standard C library
