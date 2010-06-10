@@ -110,9 +110,9 @@
      
     This macro is specific to do_conv().
 **/
-#define EMIT(s, n)  do { if ((n)>0 && (*parg=(*cons)(*parg,(s),(n)))==NULL)   \
-                            return EXBADFORMAT;                               \
-                    } while(0);
+#define EMIT(s, n)      do { if(emit((s),(n),cons,parg) < 0)                  \
+                                return EXBADFORMAT;                           \
+                        } while(0);
 
 /*****************************************************************************/
 /**
@@ -123,13 +123,9 @@
     
     This macro is specific to do_conv().
 **/
-#define PAD(s, n)   do { if ((n) > 0) {                         \
-                        size_t i, j = (size_t)(n);              \
-                        for ( ; 0 < j; j -= i) {                \
-                            i = MIN( (sizeof(s) - 1), j );      \
-                            EMIT((s),i);                        \
-                        } }                                     \
-                    } while(0);
+#define PAD(s, n)       do { if(pad((s),(n),cons,parg) < 0)		              \
+                                return EXBADFORMAT;                           \
+                        } while(0);
 
 /*****************************************************************************/
 /**
@@ -192,6 +188,12 @@ static const char zeroes[] = "0000000000000000";
 
 static int do_conv( T_FormatSpec *, VALPARM(), char, 
                     void *(*)(void *, const char *, size_t), void * * );
+					
+static int emit( const char *, size_t, 
+                 void * (*)(void *, const char *, size_t ), void * * );
+				 
+static int pad( const char *, size_t, 
+                void * (*)(void *, const char *, size_t), void * * );
 
 /* Only declare these prototypes in a freestanding environment */
 #if !defined(CONFIG_HAVE_LIBC)
@@ -212,7 +214,7 @@ static void * memcpy( void *, const void *, size_t );
     
     @param s        Pointer to string.
     
-    @returns Length of string s excluding the terminating null character.
+    @return Length of string s excluding the terminating null character.
 **/
 #if !defined(CONFIG_HAVE_LIBC)
 static size_t xx_strlen( const char *s )
@@ -231,7 +233,7 @@ static size_t xx_strlen( const char *s )
     @param s        Pointer to pattern string.
     @param c        Character to find in s.
     
-    @returns Address of first matching character, or NULL if not found.
+    @return Address of first matching character, or NULL if not found.
 **/
 #if !defined(CONFIG_HAVE_LIBC)
 static char * xx_strchr( const char *s, int c )
@@ -252,7 +254,7 @@ static char * xx_strchr( const char *s, int c )
     @param src        Pointer to source.
     @param len        Number of bytes to copy.
     
-    @returns Original value of dst.
+    @return Original value of dst.
 **/
 #if !defined(CONFIG_HAVE_LIBC) && defined(__GNUC__)
 static void * memcpy( void *dst, const void *src, size_t len )
@@ -267,6 +269,48 @@ static void * memcpy( void *dst, const void *src, size_t len )
 }
 #endif
 
+/*****************************************************************************/
+/**
+    Emit @p n characters from string @p s.
+    
+    @param s        Pointer to source string
+    @param n        Number of characters to emit
+	@param cons		Pointer to consumer function
+    @param parg		Pointer to opaque pointer arg for @p cons
+	 
+    @return 0 if successful, or EXBADFORMAT if failed.
+**/
+static int emit( const char *s, size_t n, 
+                 void * (* cons)(void *, const char *, size_t), void * * parg )
+{
+	if ( ( *parg = ( *cons )( *parg, s, n ) ) == NULL )
+        return EXBADFORMAT;
+	else
+		return 0;
+}
+
+/*****************************************************************************/
+/**
+    Emit @p n padding characters from padding string @p s.
+    
+    @param s        Name of padding string.
+    @param n        Number of padding characters to emit.
+	@param cons		Pointer to consumer function
+    @param parg		Pointer to opaque pointer arg for @p cons
+    
+    @return 0 if successful, or EXBADFORMAT if failed.
+**/
+static int pad( const char *s, size_t n, 
+                void * (* cons)(void *, const char *, size_t), void * * parg )
+{
+	while ( n > 0 )
+	{
+		size_t j = MIN( STRLEN(s), n );
+		EMIT((s),j);
+		n -= j;
+	}
+	return 0;
+}
 /*****************************************************************************/
 /**
     Handle a single format conversion for a given type.
