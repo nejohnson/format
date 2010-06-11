@@ -188,15 +188,16 @@ static const char zeroes[] = "0000000000000000";
 
 static int do_conv( T_FormatSpec *, VALPARM(), char, 
                     void *(*)(void *, const char *, size_t), void * * );
-					
+
 static int emit( const char *, size_t, 
                  void * (*)(void *, const char *, size_t ), void * * );
-				 
+
 static int pad( const char *, size_t, 
                 void * (*)(void *, const char *, size_t), void * * );
                 
 static int gen_out( void *(*)(void *, const char *, size_t), void * *,
-                    size_t, const char *, size_t, size_t, const char *, size_t, size_t );
+                    size_t, const char *, size_t, size_t, 
+                    const char *, size_t, size_t );
 
 /* Only declare these prototypes in a freestanding environment */
 #if !defined(CONFIG_HAVE_LIBC)
@@ -278,18 +279,18 @@ static void * memcpy( void *dst, const void *src, size_t len )
     
     @param s        Pointer to source string
     @param n        Number of characters to emit
-	@param cons		Pointer to consumer function
-    @param parg		Pointer to opaque pointer arg for @p cons
-	 
+    @param cons     Pointer to consumer function
+    @param parg     Pointer to opaque pointer arg for @p cons
+
     @return 0 if successful, or EXBADFORMAT if failed.
 **/
 static int emit( const char *s, size_t n, 
                  void * (* cons)(void *, const char *, size_t), void * * parg )
 {
-	if ( ( *parg = ( *cons )( *parg, s, n ) ) == NULL )
+    if ( ( *parg = ( *cons )( *parg, s, n ) ) == NULL )
         return EXBADFORMAT;
-	else
-		return 0;
+    else
+        return 0;
 }
 
 /*****************************************************************************/
@@ -298,29 +299,29 @@ static int emit( const char *s, size_t n,
     
     @param s        Name of padding string.
     @param n        Number of padding characters to emit.
-	@param cons		Pointer to consumer function
-    @param parg		Pointer to opaque pointer arg for @p cons
+    @param cons     Pointer to consumer function
+    @param parg     Pointer to opaque pointer arg for @p cons
     
     @return 0 if successful, or EXBADFORMAT if failed.
 **/
 static int pad( const char *s, size_t n, 
                 void * (* cons)(void *, const char *, size_t), void * * parg )
 {
-	while ( n > 0 )
-	{
-		size_t j = MIN( STRLEN(s), n );
-		EMIT((s),j);
-		n -= j;
-	}
-	return 0;
+    while ( n > 0 )
+    {
+        size_t j = MIN( STRLEN(s), n );
+        EMIT((s),j);
+        n -= j;
+    }
+    return 0;
 }
 
 /*****************************************************************************/
 /**
     Generate output with spacing, zero padding and prefixing.
     
-    @param cons		Pointer to consumer function
-    @param parg		Pointer to opaque pointer arg for @p cons
+    @param cons     Pointer to consumer function
+    @param parg     Pointer to opaque pointer arg for @p cons
     @param ps1      Number of space padding to prefix
     @param pfx_s    Pointer to prefix string
     @param pfx_n    Length of prefix
