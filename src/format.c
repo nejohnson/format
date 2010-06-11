@@ -194,6 +194,9 @@ static int emit( const char *, size_t,
 				 
 static int pad( const char *, size_t, 
                 void * (*)(void *, const char *, size_t), void * * );
+                
+static int gen_out( void *(*)(void *, const char *, size_t), void * *,
+                    size_t, const char *, size_t, size_t, const char *, size_t, size_t );
 
 /* Only declare these prototypes in a freestanding environment */
 #if !defined(CONFIG_HAVE_LIBC)
@@ -311,6 +314,53 @@ static int pad( const char *s, size_t n,
 	}
 	return 0;
 }
+
+/*****************************************************************************/
+/**
+    Generate output with spacing, zero padding and prefixing.
+    
+    @param cons		Pointer to consumer function
+    @param parg		Pointer to opaque pointer arg for @p cons
+    @param ps1      Number of space padding to prefix
+    @param pfx_s    Pointer to prefix string
+    @param pfx_n    Length of prefix
+    @param pz       Number of zero padding to prefix
+    @param e_s      Pointer to emitted string
+    @param e_n      Length of emitted string
+    @param ps2      Number of space padding to suffix
+    
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
+                    size_t ps1, 
+                    const char *pfx_s, size_t pfx_n, 
+                    size_t pz, 
+                    const char *e_s, size_t e_n, 
+                    size_t ps2 )
+{
+    size_t n = 0;
+    
+    PAD( spaces, ps1 );
+    n += ps1;
+    
+    if ( pfx_s )
+    {
+        EMIT( pfx_s, pfx_n );
+        n += pfx_n;
+    }
+    
+    PAD( zeroes, pz );
+    n += pz;
+    
+    EMIT( e_s, e_n );
+    n += e_n;
+    
+    PAD( spaces, ps2 );
+    n += ps2;
+    
+    return (int)n;
+}
+
 /*****************************************************************************/
 /**
     Handle a single format conversion for a given type.
@@ -321,7 +371,7 @@ static int pad( const char *s, size_t n,
     @param cons     Pointer to consumer function.
     @param parg     Pointer to opaque pointer updated by cons.
     
-    @returns Number of emitted characters, or EXBADFORMAT if failure
+    @return Number of emitted characters, or EXBADFORMAT if failure
 **/
 static int do_conv( T_FormatSpec * pspec,
                     VALPARM(ap), 
@@ -330,9 +380,11 @@ static int do_conv( T_FormatSpec * pspec,
                     void * *       parg )
 {
     size_t length = 0;
-    unsigned int padWidth, numWidth, digitWidth, pfxWidth = 0;
+    size_t padWidth, numWidth, digitWidth;
     unsigned int base = 0;
     char numBuffer[BUFLEN];
+    size_t ps1 = 0, ps2 = 0, pz = 0, pfx_n = 0;
+    const char * pfx_s = NULL;
     
     if ( code == 'n' )
     {
@@ -357,9 +409,7 @@ static int do_conv( T_FormatSpec * pspec,
         if ( code == 'c' )
             cc = (char)va_arg(VALST(ap), int);
         
-        EMIT( &cc, 1 );
-        
-        return 1;
+        return gen_out( cons, parg, 0, NULL, 0, 0, &cc, 1, 0 );
     }
     
     if ( code == 's' )
@@ -375,16 +425,13 @@ static int do_conv( T_FormatSpec * pspec,
         padWidth = 0;
         if ( length < pspec->width )
             padWidth = pspec->width - length;
-        
-        if ( !(pspec->flags & FMINUS) )
-            PAD( spaces, padWidth );
             
-        EMIT( s, length );
-        
         if ( pspec->flags & FMINUS )
-            PAD( spaces, padWidth );
-            
-        return (int)( length + padWidth );
+            ps2 = padWidth;
+        else
+            ps1 = padWidth;
+
+        return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
     }
     
     if ( code == 'd' || code == 'i' )
@@ -435,23 +482,22 @@ static int do_conv( T_FormatSpec * pspec,
         /* got necessary info, now emit the number */
         
         if ( pspec->flags & FMINUS )
-            ;
+            ps2 = padWidth;
         else if ( pspec->flags & FZERO )
             numWidth = pspec->width;
         else
-            PAD( spaces, padWidth );
-        
-        if ( v < 0 )                        { EMIT( "-", 1 ); }
-        else if ( pspec->flags & FPLUS )    { EMIT( "+", 1 ); }
-        else if ( pspec->flags & FSPACE )   { EMIT( " ", 1 ); }
-        
-        PAD( zeroes, (numWidth - digitWidth) );
-        EMIT( &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth );
-        
-        if ( pspec->flags & FMINUS )
-            PAD( spaces, padWidth );
-        
-        return (int)( length + padWidth );
+            ps1 = padWidth;
+            
+        if ( v < 0 )                        { pfx_s = "-"; pfx_n = 1; }
+        else if ( pspec->flags & FPLUS )    { pfx_s = "+"; pfx_n = 1; }
+        else if ( pspec->flags & FSPACE )   { pfx_s = " "; pfx_n = 1; }
+    
+        return gen_out( cons, parg, 
+                        ps1, 
+                        pfx_s, pfx_n, 
+                        numWidth - digitWidth, 
+                        &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth,
+                        ps2 );
     }
     
     if ( code == 'p' )
@@ -476,6 +522,7 @@ static int do_conv( T_FormatSpec * pspec,
     {
         unsigned long uv;
         char prefix[2] = { '0', '0' };
+        size_t pfxWidth = 0;
         
         /* get the value */
         uv = pspec->qual == 'l' ? va_arg(VALST(ap), unsigned long) 
@@ -557,21 +604,27 @@ static int do_conv( T_FormatSpec * pspec,
         /* got necessary info, now emit the number */
         
         if ( !( pspec->flags & FMINUS ) && !( pspec->flags & FZERO ) )
-            PAD( spaces, padWidth );
+            ps1 = padWidth;
             
         if ( pspec->flags & FHASH )
-            EMIT( prefix, pfxWidth );
-            
-        if ( !( pspec->flags & FMINUS ) &&  ( pspec->flags & FZERO ) )
-                PAD( zeroes, padWidth );
-        
-        PAD( zeroes, (numWidth - digitWidth) );
-        EMIT( &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth );
-        
-        if ( pspec->flags & FMINUS )
-            PAD( spaces, padWidth );
+        {
+            pfx_s = prefix;
+            pfx_n = pfxWidth;
+        }
 
-        return (int)( length + padWidth );
+        pz = numWidth - digitWidth;
+        if ( !( pspec->flags & FMINUS ) &&  ( pspec->flags & FZERO ) )
+            pz += padWidth;
+            
+        if ( pspec->flags & FMINUS )
+            ps2 = padWidth;
+            
+        return gen_out( cons, parg,
+                        ps1,
+                        pfx_s, pfx_n,
+                        pz,
+                        &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth,
+                        ps2 );
     }
 
     return EXBADFORMAT;
@@ -593,7 +646,7 @@ static int do_conv( T_FormatSpec * pspec,
     @param fmt      Printf-compatible format specifier.
     @param ap       List of optional format string arguments.
     
-    @returns Number of characters sent to @a cons, or EXBADFORMAT.
+    @return Number of characters sent to @a cons, or EXBADFORMAT.
 **/
 int format( void *    (* cons) (void *, const char * , size_t),
             void *       arg,
