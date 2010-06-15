@@ -338,6 +338,7 @@ static void test_di( void )
     TEST( "  1234", 6, "%6d", 1234 );
     TEST( " -1234", 6, "%6d", -1234 );
     TEST( "1234", 4, "%2d", 1234);
+    TEST( "1234", 4, "%02d", 1234 );
     
     /* Precision sets minimum number of digits for the value */
     TEST( "001234", 6, "%.6d", 1234 );
@@ -423,6 +424,7 @@ static void test_bouxX( void )
     TEST( "1234", 4, "%2o", 01234);
     TEST( "  1234", 6, "%6u", 1234 );
     TEST( "1234", 4, "%2u", 1234);
+    TEST( "1234", 4, "%02u", 1234 );
     TEST( "  1234abcd", 10, "%10x", 0x1234abcd );
     TEST( "1234abcd", 8, "%2x", 0x1234abcd);
     TEST( "  1234ABCD", 10, "%10X", 0x1234ABCD );
