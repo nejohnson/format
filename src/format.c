@@ -475,7 +475,7 @@ static int do_conv( T_FormatSpec * pspec,
     if ( base > 0 )
     {
         unsigned long uv;
-        char prefix[2] = { '0', '0' };
+        char prefix[2];
         size_t pfxWidth = 0;
         
         /* Get the value.
@@ -496,21 +496,16 @@ static int do_conv( T_FormatSpec * pspec,
             uv = v < 0 ? -v : v;
             
             /* Based on original sign and flags work out any prefix */
-            if ( v < 0 )                      
-            {
+            prefix[0] = '\0';
+            if ( v < 0 )   
                 prefix[0]     = '-'; 
-                pfxWidth      = 1; 
-                pspec->flags |= FHASH;
-            }
             else if ( pspec->flags & FPLUS )  
-            {
                 prefix[0]     = '+'; 
-                pfxWidth      = 1; 
-                pspec->flags |= FHASH;
-            }
             else if ( pspec->flags & FSPACE ) 
-            {
                 prefix[0]     = ' '; 
+            
+            if ( prefix[0] != '\0' )
+            {
                 pfxWidth      = 1; 
                 pspec->flags |= FHASH;
             }
@@ -521,6 +516,8 @@ static int do_conv( T_FormatSpec * pspec,
                                     : va_arg(VALST(ap), unsigned int );
             if ( pspec->qual == 'h' )
                 uv = (unsigned short)uv;
+                
+            prefix[0] = '0';
         }
             
         if ( code == 'o' && uv )
@@ -529,10 +526,11 @@ static int do_conv( T_FormatSpec * pspec,
         if ( code == 'x' || code == 'X' || code == 'b' ) 
         {
             /* if non-zero or bang flag, add prefix for hex and binary */
-            if ( ( pspec->flags & FBANG ) || uv )   
-                pfxWidth = 2;
-                
-            prefix[1] = code;
+            if ( ( pspec->flags & FBANG ) || uv )
+            {
+                prefix[1] = code;
+                pfxWidth  = 2;
+            }
             
             /* Bang flag forces lower-case */
             if ( pspec->flags & FBANG )
