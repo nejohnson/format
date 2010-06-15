@@ -66,6 +66,7 @@
 #define FHASH           ( 0x08 )
 #define FZERO           ( 0x10 )
 #define FBANG           ( 0x20 )
+#define F_IS_SIGNED     ( 0x40 )
 
 /**
     Set limits.
@@ -381,7 +382,7 @@ static int do_conv( T_FormatSpec * pspec,
                     void * *       parg )
 {
     size_t length = 0;
-    size_t padWidth, numWidth, digitWidth;
+    size_t padWidth = 0, numWidth, digitWidth;
     unsigned int base = 0;
     char numBuffer[BUFLEN];
     size_t ps1 = 0, ps2 = 0, pz = 0, pfx_n = 0;
@@ -423,7 +424,6 @@ static int do_conv( T_FormatSpec * pspec,
         length = STRLEN( s );
         length = MIN( pspec->prec, length );
         
-        padWidth = 0;
         if ( length < pspec->width )
             padWidth = pspec->width - length;
             
@@ -435,72 +435,11 @@ static int do_conv( T_FormatSpec * pspec,
         return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
     }
     
-    if ( code == 'd' || code == 'i' )
-    {
-        long v;
-        unsigned long uv;
-            
-        /* get the value */
-        v = pspec->qual == 'l' ? va_arg(VALST(ap), long)
-                               : va_arg(VALST(ap), int);
-        if ( pspec->qual == 'h' )
-            v = (short)v;
-        
-        if ( v < 0 )
-        {
-            uv = -v;
-            ++length;   /* allow for '-' sign */
-        }
-        else
-        {
-            uv = v;
-            if ( pspec->flags & (FPLUS | FSPACE) )
-                ++length;
-        }
-        
-        /* work out how many digits in v */
-        for( numWidth = 0; uv; uv /= 10 )
-        {
-            ++numWidth;
-            numBuffer[sizeof(numBuffer) - numWidth] = '0' + (uv % 10);
-        }
-        
-        digitWidth = numWidth;
-        
-        /* apply default precision */
-        if ( pspec->prec > MAXPREC )
-            pspec->prec = 1;
-        else
-            pspec->flags &= ~FZERO;
-        
-        numWidth = MAX( numWidth, pspec->prec );
-        
-        length += numWidth;
-        padWidth = 0;
-        if ( length < pspec->width )
-            padWidth = pspec->width - length;
-        
-        /* got necessary info, now emit the number */
-        
-        if ( pspec->flags & FMINUS )
-            ps2 = padWidth;
-        else if ( pspec->flags & FZERO )
-            numWidth = pspec->width;
-        else
-            ps1 = padWidth;
-            
-        if ( v < 0 )                        { pfx_s = "-"; pfx_n = 1; }
-        else if ( pspec->flags & FPLUS )    { pfx_s = "+"; pfx_n = 1; }
-        else if ( pspec->flags & FSPACE )   { pfx_s = " "; pfx_n = 1; }
-    
-        return gen_out( cons, parg, 
-                        ps1, 
-                        pfx_s, pfx_n, 
-                        numWidth - digitWidth, 
-                        &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth,
-                        ps2 );
-    }
-    
+    /* The '%p' conversion is a meta-conversion, which we convert to a
+     *  pre-defined format.  In this case we convert it to "%!#N.NX"
+     *  where N is double the machine-word size, as each byte converts into
+     *  two characters.
+     */
     if ( code == 'p' )
     {
         code          = 'X';
@@ -510,13 +449,27 @@ static int do_conv( T_FormatSpec * pspec,
         pspec->prec   = sizeof( int * ) * 2;
     }
     
+    /* The '%d' and '%i' conversions are both decimal (base 10) and the '#'
+     *  flag is ignored.  We set the F_IS_SIGNED internal flag to guide later
+     *  processing.
+     */
+    if ( code == 'd' || code == 'i' )
+    {
+        pspec->flags |= F_IS_SIGNED;
+        base = 10;
+        pspec->flags &= ~FHASH;
+    }
+    
     if ( code == 'x' || code == 'X' )
         base = 16;
-    else if ( code == 'u' )
+    
+    if ( code == 'u' )
         base = 10;
-    else if ( code == 'o' )
+    
+    if ( code == 'o' )
         base = 8;
-    else if ( code == 'b' )
+    
+    if ( code == 'b' )
         base = 2;
         
     if ( base > 0 )
@@ -525,11 +478,50 @@ static int do_conv( T_FormatSpec * pspec,
         char prefix[2] = { '0', '0' };
         size_t pfxWidth = 0;
         
-        /* get the value */
-        uv = pspec->qual == 'l' ? va_arg(VALST(ap), unsigned long) 
-                                : va_arg(VALST(ap), unsigned int );
-        if ( pspec->qual == 'h' )
-            uv = (unsigned short)uv;
+        /* Get the value.
+         * Signed values need special handling for negative values and the 
+         *  extra options for sign output which don't apply to the unsigned 
+         *  values.
+         */
+        if ( pspec->flags & F_IS_SIGNED )
+        {
+            long v;
+            
+            v = pspec->qual == 'l' ? va_arg(VALST(ap), long)
+                                   : va_arg(VALST(ap), int);
+            if ( pspec->qual == 'h' )
+                v = (short)v;
+
+            /* Get absolute value */
+            uv = v < 0 ? -v : v;
+            
+            /* Based on original sign and flags work out any prefix */
+            if ( v < 0 )                      
+            {
+                prefix[0]     = '-'; 
+                pfxWidth      = 1; 
+                pspec->flags |= FHASH;
+            }
+            else if ( pspec->flags & FPLUS )  
+            {
+                prefix[0]     = '+'; 
+                pfxWidth      = 1; 
+                pspec->flags |= FHASH;
+            }
+            else if ( pspec->flags & FSPACE ) 
+            {
+                prefix[0]     = ' '; 
+                pfxWidth      = 1; 
+                pspec->flags |= FHASH;
+            }
+        }
+        else
+        {
+            uv = pspec->qual == 'l' ? va_arg(VALST(ap), unsigned long) 
+                                    : va_arg(VALST(ap), unsigned int );
+            if ( pspec->qual == 'h' )
+                uv = (unsigned short)uv;
+        }
             
         if ( code == 'o' && uv )
             pfxWidth = 1;
@@ -545,6 +537,13 @@ static int do_conv( T_FormatSpec * pspec,
             /* Bang flag forces lower-case */
             if ( pspec->flags & FBANG )
                 prefix[1] |= 0x20;
+        }
+        
+        if ( pspec->flags & FHASH )
+        {
+            length += pfxWidth;
+            pfx_s = prefix;
+            pfx_n = pfxWidth;
         }
         
         /* work out how many digits in uv */
@@ -595,10 +594,6 @@ static int do_conv( T_FormatSpec * pspec,
         numWidth = MAX( numWidth, pspec->prec );
         
         length += numWidth;
-        if ( pspec->flags & FHASH )
-            length += pfxWidth;
-            
-        padWidth = 0;
         if ( length < pspec->width )
             padWidth = pspec->width - length;
         
@@ -606,12 +601,6 @@ static int do_conv( T_FormatSpec * pspec,
         
         if ( !( pspec->flags & FMINUS ) && !( pspec->flags & FZERO ) )
             ps1 = padWidth;
-            
-        if ( pspec->flags & FHASH )
-        {
-            pfx_s = prefix;
-            pfx_n = pfxWidth;
-        }
 
         pz = numWidth - digitWidth;
         if ( !( pspec->flags & FMINUS ) &&  ( pspec->flags & FZERO ) )
