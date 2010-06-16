@@ -308,9 +308,11 @@ static int emit( const char *s, size_t n,
 static int pad( const char *s, size_t n, 
                 void * (* cons)(void *, const char *, size_t), void * * parg )
 {
+    size_t len_s = STRLEN(s);
+    
     while ( n > 0 )
     {
-        size_t j = MIN( STRLEN(s), n );
+        size_t j = MIN( len_s, n );
         EMIT((s),j);
         n -= j;
     }
