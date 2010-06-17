@@ -51,3 +51,25 @@ format( cons, arg, "A = %#!8.8X, %", cpu.acc,
                    "X = %#!8.8X, %", cpu.x, 
                    "Y = %#!8.8X",    cpu.y );
 }}}
+
+= Caret Flag =
+
+The new `^` flag centres the result of an `%s` conversion within the field if the field is wider than the argument string.
+
+For example, printing `hello` in a delimited field 8 characters wide
+
+{{{
+format( cons, arg, "[%^8s]", "hello");
+}}}
+
+produces the output
+
+{{{
+[ hello  ]
+}}}
+
+How is this done?  During formating the `format` function calculates how many space padding characters are required to satisfy the given field width.  The default is to put the space padding on the left, resulting in right-justified text.  The `-` flag puts the space padding on the right, giving left-justified text.  The new `^` flag splits any space padding equally between left and right, centering the text.
+
+Note that if the number of space padding characters is odd (such as in the above example) the odd space padding character is placed to the right of the text.  In the above example you can see that of the three space padding characters there is one to the left of the `hello`, and two to the right.
+
+_One future option I may consider is to use the `-` flag in combination with the `^` flag to specify whether any odd space padding character is put on the left or the right.  Comments welcome._
