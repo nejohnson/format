@@ -53,6 +53,7 @@ As noted above, a field width, or precision, or both, may be indicated by an ast
 The flag characters and their meanings are: 
 
 ||`-`||         The result of the conversion is left-justified within the field.  It is right-justified if this flag is not specified.||
+||`^`||          For `s` conversions the result of the conversion is centre-justified within the field.  It is right-justified if this flag is not specified.||
 ||`+`||        The result of a signed conversion always begins with a plus or minus sign.  It begins with a sign only when a negative value is converted if this flag is not specified.||
 ||space||    If the first character of a signed conversion is not a sign, or if a signed conversion results in no characters, a space is prefixed to the result. If the space and `+` flags both appear, the space flag is ignored.||
 ||`#`||        The result is converted to an _alternative form_. For o conversion, it increases the precision, if and only if necessary, to force the first digit of the result to be a zero (if the value and precision are both 0, a single 0 is printed). For `x` (or `X` or `b`) conversion, a nonzero result has `0x` (or `0X` or `0b`) prefixed to it. For other conversions, the flag is ignored.||
