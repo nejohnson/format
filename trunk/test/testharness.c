@@ -169,7 +169,7 @@ static void test_pc( void )
     TEST( "%", 1, "%%" );
     
     /* Check all flags, precision, width, length are ignored */
-    TEST( "%", 1, "%-+ #0!12.24h%" );
+    TEST( "%", 1, "%-+ #0!^12.24h%" );
     
     /* Check sequential conversions */
     TEST( "%c", 2, "%%c" );
@@ -189,8 +189,8 @@ static void test_c( void )
     TEST( "a", 1, "%c", 'a' );
     
     /* Check all flags, precision, width, length are ignored */
-    TEST( "a", 1, "%-+ #0!12.24hc", 'a' );
-    TEST( "a", 1, "%-+ #0!12.24lc", 'a' );
+    TEST( "a", 1, "%-+ #0!^12.24hc", 'a' );
+    TEST( "a", 1, "%-+ #0!^12.24lc", 'a' );
     
     /* Check sequential conversions */
     TEST( "ac", 2, "%cc", 'a' );
@@ -225,7 +225,7 @@ static void test_n( void )
     TEST( "hello", 5, "hello%ln", NULL );
     
     /* Check all flags, precision, and width are ignored */
-    TEST( "hello", 5, "hello%-+ #0!12.24n", &n ); CHECK( n, 5 );
+    TEST( "hello", 5, "hello%-+ #0!^12.24n", &n ); CHECK( n, 5 );
 }
 
 /*****************************************************************************/
@@ -246,6 +246,11 @@ static void test_s( void )
     TEST( "hel     ", 8, "%-8.3s", "hello" );
     TEST( "hel", 3, "%.3s", "hello" );
         
+    /* Check new ^ centering flag */
+    TEST( "  hello  ", 9, "%^9s", "hello" );
+    TEST( " hello  ", 8, "%^8s", "hello" );
+    TEST( "hello", 5, "%^3s", "hello" );
+    
     /* NULL pointer handled specially */
     TEST( "(null)", 6, "%s", NULL );
 
@@ -277,8 +282,8 @@ static void test_p( void )
         TEST( "0xFFFF", 6, "%p", p2 );
         
         /* Check all flags, precision, width, length are ignored */
-        TEST( "0xFFFF", 6, "%-+ #0!12.24lp", p2 );
-        TEST( "0xFFFF", 6, "%-+ #0!12.24hp", p2 );
+        TEST( "0xFFFF", 6, "%-+ #0!^12.24lp", p2 );
+        TEST( "0xFFFF", 6, "%-+ #0!^12.24hp", p2 );
     }
     else if ( ptr_size == 4 )
     {       
@@ -287,8 +292,8 @@ static void test_p( void )
         TEST( "0xFFFFFFFF", 10, "%p", p2 );
         
         /* Check all flags, precision, width, length are ignored */
-        TEST( "0xFFFFFFFF", 10, "%-+ #0!12.24lp", p2 );
-        TEST( "0xFFFFFFFF", 10, "%-+ #0!12.24hp", p2 );
+        TEST( "0xFFFFFFFF", 10, "%-+ #0!^12.24lp", p2 );
+        TEST( "0xFFFFFFFF", 10, "%-+ #0!^12.24hp", p2 );
     }
     else if ( ptr_size == 8 )
     {
@@ -297,8 +302,8 @@ static void test_p( void )
         TEST( "0xFFFFFFFFFFFFFFFF", 18, "%p", p2 );
         
         /* Check all flags, precision, width, length are ignored */
-        TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!24.48lp", p2 );
-        TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!24.48hp", p2 );
+        TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!^24.48lp", p2 );
+        TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!^24.48hp", p2 );
     }
     else
     {
@@ -367,6 +372,7 @@ static void test_di( void )
     
     /* no effect */
     TEST( "1234", 4, "%!#d", 1234 );
+    TEST( "  1234", 6, "%^6d", 1234 );
     
     /* lengths */
     TEST( "24", 2, "%hd", si );
@@ -506,11 +512,12 @@ static void test_bouxX( void )
     TEST( "0x00001234abcd  ", 16, "%-#16.12x", 0x1234abcd );
     TEST( "0X00001234ABCD  ", 16, "%-#16.12X", 0x1234abcd );
     
-    /* No effect: +,space */
+    /* No effect: +,space,^ */
     TEST( "1101", 4, "%+ b", 13 );
     TEST( "1234", 4, "%+ o", 01234 );
     TEST( "1234abcd", 8, "%+ x", 0x1234abcd );
     TEST( "1234ABCD", 8, "%+ X", 0x1234abcd );
+    TEST( "  1234", 6, "%^6u", 1234 );
 }
 
 /*****************************************************************************/
@@ -604,7 +611,7 @@ static void test_cont( void )
 	                                    "Three: %s", "3" );
 
 	/* Check that flags, precision, width and length are ignored */
-    TEST( "hello world", 11, "hello % +-!#12.24l", "world" );
+    TEST( "hello world", 11, "hello % +-!#^12.24l", "world" );
 }
 
 /*****************************************************************************/

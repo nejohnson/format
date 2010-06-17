@@ -66,7 +66,8 @@
 #define FHASH           ( 0x08 )
 #define FZERO           ( 0x10 )
 #define FBANG           ( 0x20 )
-#define F_IS_SIGNED     ( 0x40 )
+#define FCARET          ( 0x40 )
+#define F_IS_SIGNED     ( 0x80 )
 
 /**
     Set limits.
@@ -433,6 +434,13 @@ static int do_conv( T_FormatSpec * pspec,
             ps2 = padWidth;
         else
             ps1 = padWidth;
+            
+        if ( pspec->flags & FCARET )
+        {
+            size_t tot = ps1 + ps2;
+            ps1 = tot / 2;
+            ps2 = tot - ps1;
+        }
 
         return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
     }
@@ -677,9 +685,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
             /* found conversion specifier */
             char *t;
             int nn;
-            static const char fchar[] = {" +-#0!"};
+            static const char fchar[] = {" +-#0!^"};
             static const unsigned int fbit[] = {
-                FSPACE, FPLUS, FMINUS, FHASH, FZERO, FBANG, 0};
+                FSPACE, FPLUS, FMINUS, FHASH, FZERO, FBANG, FCARET, 0};
 
             ++s;    /* skip the % sign */
             
