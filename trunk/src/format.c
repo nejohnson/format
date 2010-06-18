@@ -617,6 +617,13 @@ static int do_conv( T_FormatSpec * pspec,
         if ( pspec->flags & FMINUS )
             ps2 = padWidth;
             
+        if ( pspec->flags & FCARET )
+        {
+            size_t tot = ps1 + ps2;
+            ps1 = tot / 2;
+            ps2 = tot - ps1;
+        }
+            
         return gen_out( cons, parg,
                         ps1,
                         pfx_s, pfx_n,

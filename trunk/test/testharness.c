@@ -370,9 +370,11 @@ static void test_di( void )
     TEST( "-1234", 5, "%+ d", -1234); /* '+' kills space */
     TEST( "+", 1, "%+ .0d", 0 ); /* '+' kills space */
     
+    /* Centering */
+    TEST( "  1234  ", 8, "%^8d", 1234 );
+    
     /* no effect */
     TEST( "1234", 4, "%!#d", 1234 );
-    TEST( "  1234", 6, "%^6d", 1234 );
     
     /* lengths */
     TEST( "24", 2, "%hd", si );
@@ -512,12 +514,16 @@ static void test_bouxX( void )
     TEST( "0x00001234abcd  ", 16, "%-#16.12x", 0x1234abcd );
     TEST( "0X00001234ABCD  ", 16, "%-#16.12X", 0x1234abcd );
     
-    /* No effect: +,space,^ */
+    /* Centering */
+    TEST( "  ABCD  ", 8, "%^8X", 0xABCD );
+    TEST( " 0XABCD ", 8, "%^#8X", 0xABCD );
+    TEST( " 0X0000ABCD ", 12, "%^#12.8X", 0xABCD );
+    
+    /* No effect: +,space */
     TEST( "1101", 4, "%+ b", 13 );
     TEST( "1234", 4, "%+ o", 01234 );
     TEST( "1234abcd", 8, "%+ x", 0x1234abcd );
     TEST( "1234ABCD", 8, "%+ X", 0x1234abcd );
-    TEST( "  1234", 6, "%^6u", 1234 );
 }
 
 /*****************************************************************************/
