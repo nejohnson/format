@@ -96,11 +96,11 @@ negative precision argument is taken as if the precision were omitted.
 The flag characters and their meanings are: 
 
 -          The result of the conversion is left-justified within the field.  It
-           is right-justified if this flag is not specified.
+           is right-justified if this flag is not specified.  If the ^ flag is
+           specified this flag will be ignored.
 
-^          For s conversions the result of the conversion is centre-justified
-           within the field.  It is right-justified if this flag is not
-           specified.
+^          The result of the conversion is centre-justified within the field.
+           It is right-justified if this flag is not specified.
 
 +          The result of a signed conversion always begins with a plus or minus 
            sign.  It begins with a sign only when a negative value is converted
