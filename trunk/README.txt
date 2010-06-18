@@ -96,8 +96,8 @@ negative precision argument is taken as if the precision were omitted.
 The flag characters and their meanings are: 
 
 -          The result of the conversion is left-justified within the field.  It
-           is right-justified if this flag is not specified.  If the ^ flag is
-           specified this flag will be ignored.
+           is right-justified if this flag is not specified.  If the ^ flag 
+           appears this flag will be ignored.
 
 ^          The result of the conversion is centre-justified within the field.
            It is right-justified if this flag is not specified.
