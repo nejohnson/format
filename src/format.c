@@ -556,19 +556,29 @@ static int do_conv( T_FormatSpec * pspec,
         
         /* work out how many digits in uv */
         /* Note: splitting it out like this avoids calling out to libgcc.
-         *  In the case of decimal, gcc can produce tight code for dividing
-         *  by a known constant (it applies "Division by Invariant Integers 
+         *  In the case of decimal, we can produce tight code for dividing
+         *  by a known constant by applying "Division by Invariant Integers 
          *  Using Multiplication" algorithm from the 1994 paper by Torbjorn 
-         *  Granlund and Peter L. Montgomery).
-         *  For the other cases we can implement the necessary math through
+         *  Granlund and Peter L. Montgomery.
+         * For the magic number see:
+         *            http://www.hackersdelight.org/magic.htm
+         * We compute the remainder in the obvious way.
+         *
+         * For the other cases we can implement the necessary math through
          *  bit ops - masking and shifting.
          */
         if ( base == 10 )
         {
-            for( numWidth = 0; uv; uv /= 10 )
+            for( numWidth = 0; uv; )
             {
+                unsigned long long div_a = uv * 0xCCCCCCCDULL;
+                unsigned long div_uv = (div_a >> 32) >> 3;
+                unsigned long div_5uv = div_uv + (div_uv << 2);
+                unsigned long div_rem = uv - (div_5uv << 1);
+                
                 ++numWidth;
-                numBuffer[sizeof(numBuffer) - numWidth] = '0' + (uv % 10);
+                numBuffer[sizeof(numBuffer) - numWidth] = '0' + div_rem;
+                uv = div_uv;            
             }
         }
         else /* base is 2, 8 or 16 */
