@@ -1,4 +1,4 @@
-CFLAGS = -g -I../src -Wall -pedantic -Wunused 
+CFLAGS = -g -I../src -std=c99 -Wall -pedantic -Wunused 
 LDFLAGS = -g
 
 all: testharness
