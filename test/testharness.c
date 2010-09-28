@@ -207,6 +207,7 @@ static void test_n( void )
     int n;
     short s;
     long l;
+    char c;
     
     printf( "Testing \"%%n\"\n" );
     
@@ -218,6 +219,30 @@ static void test_n( void )
     /* Length modifiers */
     TEST( "hello", 5, "hello%ln", &l ); CHECK( (int)l, 5 );
     TEST( "hello", 5, "hello%hn", &s ); CHECK( s, 5 );
+    
+    /* Check the 'hh' length qual with a string longer than can be
+       written in a valid signed char type.  In this case 320, which should
+       wrap round to (320 % 256) = 64.
+    */
+    TEST( "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello",
+          320,
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "hellohellohellohellohellohellohellohello"
+          "%hhn",
+          &n ); CHECK( n, 64 );
     
     /* NULL pointer - should silently ignore */
     TEST( "hello", 5, "hello%n", NULL );

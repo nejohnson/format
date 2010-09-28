@@ -36,6 +36,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <limits.h>
+#include <stdint.h>
 
 /** Query the environment about what capabilities are available **/
 #if defined(__STDC_HOSTED__)
@@ -68,6 +69,17 @@
 #define FBANG           ( 0x20 )
 #define FCARET          ( 0x40 )
 #define F_IS_SIGNED     ( 0x80 )
+
+/**
+    Some length qualifiers are doubled-up (e.g., "hh").  
+    
+    This little hack works on the basis that all the valid length qualifiers
+    (h,l,j,z,t,L) ASCII values are all even, so we use the LSB to tag double
+    qualifiers.  I'm not sure if this was the intent of the spec writers but
+    it is certainly convenient!  If this ever changes then we need to review
+    this hack and come up with something else.
+**/
+#define DOUBLE_QUAL(q)  ( (q) | 1 )
 
 /**
     Set limits.
@@ -399,8 +411,16 @@ static int do_conv( T_FormatSpec * pspec,
         {
             if ( pspec->qual == 'h' )
                 *(short *)vp = (short)pspec->nChars;
+            else if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
+                *(signed char *)vp = (signed char)pspec->nChars;
             else if ( pspec->qual == 'l' )
                 *(long *)vp = (long)pspec->nChars;
+            else if ( pspec->qual == 'j' )
+                *(intmax_t *)vp = (intmax_t)pspec->nChars;
+            else if ( pspec->qual == 'z' )
+                *(size_t *)vp = (size_t)pspec->nChars;
+            else if ( pspec->qual == 't' )
+                *(ptrdiff_t *)vp = (ptrdiff_t)pspec->nChars;
             else
                 *(int *)vp = (int)pspec->nChars;
         }
@@ -498,9 +518,15 @@ static int do_conv( T_FormatSpec * pspec,
             long v;
             
             v = pspec->qual == 'l' ? va_arg(VALST(ap), long)
+              : pspec->qual == 'j' ? va_arg(VALST(ap), intmax_t)
+              : pspec->qual == 'z' ? va_arg(VALST(ap), size_t)
+              : pspec->qual == 't' ? va_arg(VALST(ap), ptrdiff_t)
                                    : va_arg(VALST(ap), int);
+            
             if ( pspec->qual == 'h' )
                 v = (short)v;
+            if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
+                v = (signed char)v;
 
             /* Get absolute value */
             uv = v < 0 ? -v : v;
@@ -523,9 +549,15 @@ static int do_conv( T_FormatSpec * pspec,
         else
         {
             uv = pspec->qual == 'l' ? va_arg(VALST(ap), unsigned long) 
+               : pspec->qual == 'j' ? va_arg(VALST(ap), uintmax_t)
+               : pspec->qual == 'z' ? va_arg(VALST(ap), size_t)
+               : pspec->qual == 't' ? va_arg(VALST(ap), ptrdiff_t)
                                     : va_arg(VALST(ap), unsigned int );
+            
             if ( pspec->qual == 'h' )
                 uv = (unsigned short)uv;
+            if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
+                uv = (unsigned char)uv;
                 
             prefix[0] = '0';
         }
@@ -760,8 +792,15 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
 
             /* test for length qualifier */
-            fspec.qual = ( *s && STRCHR( "hl", *s ) ) ? *s++: '\0';
-
+            fspec.qual = ( *s && STRCHR( "hljztL", *s ) ) ? *s++ : '\0';
+            
+            /* catch double qualifiers */
+            if ( *s && *s == fspec.qual )
+            {
+                fspec.qual = DOUBLE_QUAL( fspec.qual );
+                s++;
+            }
+            
             /* Continuation */
             if ( *s == '\0' )
             {
