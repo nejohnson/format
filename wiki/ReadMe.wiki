@@ -62,8 +62,12 @@ The flag characters and their meanings are:
 
 The length modifiers and their meanings are: 
 
+||'hh'|| Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to a `signed char` or `unsigned char` argument (the argument will have been promoted according to the integer promotions, but its value shall be converted to `signed char` or `unsigned char` before printing); or that a following `n` conversion specifier applies to a pointer to a `signed char` argument. ||
 ||`h`||        Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to a `short int` or `unsigned short int` argument (the argument will have been promoted according to the integer promotions, but its value shall be converted to `short int` or `unsigned short int` before consuming); or that a following `n` conversion specifier applies to a pointer to a `short int` argument.||
 ||`l`(ell)||     Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to a `long int` or `unsigned long int` argument; or that a following `n` conversion specifier applies to a pointer to a `long int` argument.||
+||'j'|| Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to an `intmax_t` or `uintmax_t` argument; or that a following `n` conversion specifier applies to a pointer to an `intmax_t` argument.  ||
+||'z'|| Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to a `size_t` or the corresponding signed integer type argument; or that a following `n` conversion specifier applies to a pointer to a signed integer type corresponding to `size_t` argument. ||
+||'t'|| Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to a `ptrdiff_t` or the corresponding unsigned integer type argument; or that a following `n` conversion specifier applies to a pointer to a `ptrdiff_t` argument.  ||
 
 If a length modifier appears with any conversion specifier other than as specified above, the length modifier is ignored. 
 
