@@ -242,7 +242,7 @@ static void test_n( void )
           "hellohellohellohellohellohellohellohello"
           "hellohellohellohellohellohellohellohello"
           "%hhn",
-          &n ); CHECK( n, 64 );
+          &c ); CHECK( c, 64 );
     
     /* NULL pointer - should silently ignore */
     TEST( "hello", 5, "hello%n", NULL );
