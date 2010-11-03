@@ -65,7 +65,7 @@
     strictly need to (if at all).
 **/
 #if !defined(CONFIG_HAVE_LIBC) && defined(__GNUC__)
-  #define CONFIG_NEED_LOCAL_MALLOC
+  #define CONFIG_NEED_LOCAL_MEMCPY
 #endif
 
  
