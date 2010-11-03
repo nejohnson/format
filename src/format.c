@@ -39,19 +39,18 @@
 #include <stdint.h>
 
 /** Query the environment about what capabilities are available **/
-#if defined(__STDC_HOSTED__)
-    #define CONFIG_HAVE_LIBC
-#endif
+#include "format_config.h"
 
 #if defined(CONFIG_HAVE_LIBC)
-    #include <string.h>
-    #include <ctype.h>
+  #include <string.h>
+  #include <ctype.h>
 #endif
 
 /*****************************************************************************/
 /* Project Includes                                                          */
 /*****************************************************************************/
 
+/** Pull in our public header **/
 #include "format.h"
 
 /*****************************************************************************/
@@ -94,52 +93,16 @@
 #define MAX(a,b)        ( (a) > (b) ? (a) : (b) )
 #define MIN(a,b)        ( (a) < (b) ? (a) : (b) )
 
-/* The following is inspired from code from the kannel project.
-   See http://www.kannel.org
- */
-/**
-    Some platforms va_list is an array type, on others it is a pointer (such as
-    pointer to char).  These macros hide this important difference.
-**/
-#if (defined(__linux__) && (defined(__powerpc__)    \
-                           || defined(__s390__)     \
-                           || defined(__x86_64)))   \
-    || (defined(__FreeBSD__) && defined(__amd64__)) \
-    || (defined(DARWIN) && defined(__x86_64__))
-#define VARGS(x)        (x)
-#define VALPARM(y)      va_list y
-#define VALST(z)        (z)
+/** Set up platform-dependent access to variable arguments **/
+#if defined(CONFIG_VA_LIST_AS_ARRAY_TYPE)
+  #define VARGS(x)        (x)
+  #define VALPARM(y)      va_list y
+  #define VALST(z)        (z)
 #else 
-#define VARGS(x)        (&x)
-#define VALPARM(y)      const va_list *y
-#define VALST(z)        (*z)
+  #define VARGS(x)        (&x)
+  #define VALPARM(y)      const va_list *y
+  #define VALST(z)        (*z)
 #endif 
-
-/*****************************************************************************/
-/**
-    Emit @p n characters from string @p s.
-    
-    @param s        Pointer to source string
-    @param n        Number of characters to emit
-     
-    This macro is specific to do_conv().
-**/
-#define EMIT(s, n)      do { if(emit((s),(n),cons,parg) < 0)                  \
-                                return EXBADFORMAT;                           \
-                        } while(0);
-
-/*****************************************************************************/
-/**
-    Emit @p n padding characters from padding string @p s.
-    
-    @param s        Name of padding string.
-    @param n        Number of padding characters to emit.
-    
-    This macro is specific to do_conv().
-**/
-#define PAD(s, n)       do { if(pad((s),(n),cons,parg) < 0)		              \
-                                return EXBADFORMAT;                           \
-                        } while(0);
 
 /*****************************************************************************/
 /**
@@ -191,7 +154,7 @@ typedef struct {
 /*****************************************************************************/
 
 /**
-    Padding strings, used by PAD() macro.
+    Padding strings, used by gen_out().
 **/
 static const char spaces[] = "                ";
 static const char zeroes[] = "0000000000000000";
@@ -217,9 +180,10 @@ static int gen_out( void *(*)(void *, const char *, size_t), void * *,
 #if !defined(CONFIG_HAVE_LIBC)
 static size_t xx_strlen( const char * );
 static char * xx_strchr( const char *, int );
-#if defined(__GNUC__)
-static void * memcpy( void *, const void *, size_t );
 #endif
+
+#if defined(CONFIG_NEED_LOCAL_MEMCPY)
+static void * memcpy( void *, const void *, size_t );
 #endif
 
 /*****************************************************************************/
@@ -274,7 +238,7 @@ static char * xx_strchr( const char *s, int c )
     
     @return Original value of dst.
 **/
-#if !defined(CONFIG_HAVE_LIBC) && defined(__GNUC__)
+#if defined(CONFIG_NEED_LOCAL_MEMCPY)
 static void * memcpy( void *dst, const void *src, size_t len )
 {
     char *d = dst;
@@ -326,7 +290,8 @@ static int pad( const char *s, size_t n,
     while ( n > 0 )
     {
         size_t j = MIN( len_s, n );
-        EMIT((s),j);
+        if ( emit( s, j, cons, parg ) < 0 )
+            return EXBADFORMAT;
         n -= j;
     }
     return 0;
@@ -357,22 +322,27 @@ static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
 {
     size_t n = 0;
     
-    PAD( spaces, ps1 );
+    if ( pad( spaces, ps1, cons, parg ) < 0 )
+        return EXBADFORMAT;
     n += ps1;
     
     if ( pfx_s )
     {
-        EMIT( pfx_s, pfx_n );
+        if ( emit( pfx_s, pfx_n, cons, parg ) < 0 )
+            return EXBADFORMAT;
         n += pfx_n;
     }
     
-    PAD( zeroes, pz );
+    if ( pad( zeroes, pz, cons, parg ) < 0 )
+        return EXBADFORMAT;
     n += pz;
     
-    EMIT( e_s, e_n );
+    if ( emit( e_s, e_n, cons, parg ) < 0 )
+        return EXBADFORMAT;
     n += e_n;
     
-    PAD( spaces, ps2 );
+    if ( pad( spaces, ps2, cons, parg ) < 0 )
+        return EXBADFORMAT;
     n += ps2;
     
     return (int)n;
@@ -721,10 +691,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
         if ( n > 0 )
         {
-            if ( ( arg = (*cons)( arg, fmt, n ) ) != NULL )
-                fspec.nChars += n;
-            else
+            if ( emit( fmt, n, cons, &arg ) < 0 )
                 return EXBADFORMAT;
+            fspec.nChars += n;
         }
 
         fmt = s;
