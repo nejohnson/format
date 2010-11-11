@@ -6,19 +6,23 @@ The `format` library has been successfully tested on the following platforms:
 
 == 8-bit ==
 
-|| *Processor* || *Hardware* || *Reported By* ||
+|| *Processor* || *OS* (if applicable) || *Reported By* ||
 
 
 == 16-bit ==
 
-|| *Processor* || *Hardware* || *Reported By* ||
+|| *Processor* || *OS* (if applicable) || *Reported By* ||
 
 
 == 32-bit ==
 
-|| *Processor* || *Hardware* || *Reported By* ||
+|| *Processor* || *OS* (if applicable) || *Reported By* ||
+|| Pentium-M   || Windows XP           || Neil Johnson  ||
+|| PowerPC     || OS X 10.4            || Neil Johnson  ||
+|| PA-RISC     || OpenBSD 4.4          || Neil Johnson  ||
 
 
 == 64-bit ==
 
-|| *Processor* || *Hardware* || *Reported By* ||
+|| *Processor* || *OS* (if applicable) || *Reported By* ||
+|| x86_64      || RedHat Linux (2.6.9) || Neil Johnson  ||
