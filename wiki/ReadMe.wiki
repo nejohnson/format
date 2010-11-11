@@ -222,3 +222,8 @@ And an example call to this function might look like this:
 }}}
 
 For further examples please refer to the [http://code.google.com/p/format/wiki/Examples Examples] page.
+
+
+= Testing =
+
+The `format` library has been tested on a number of platforms.  The list is maintained on the TestedPlatforms page.
