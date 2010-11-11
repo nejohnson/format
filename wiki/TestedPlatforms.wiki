@@ -1,0 +1,24 @@
+#summary Tested Platforms.
+
+= Introduction =
+
+The `format` library has been successfully tested on the following platforms:
+
+== 8-bit ==
+
+|| *Processor* || *Hardware* || *Reported By* ||
+
+
+== 16-bit ==
+
+|| *Processor* || *Hardware* || *Reported By* ||
+
+
+== 32-bit ==
+
+|| *Processor* || *Hardware* || *Reported By* ||
+
+
+== 64-bit ==
+
+|| *Processor* || *Hardware* || *Reported By* ||
