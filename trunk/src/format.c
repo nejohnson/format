@@ -487,11 +487,16 @@ static int do_conv( T_FormatSpec * pspec,
         {
             long v;
             
-            v = pspec->qual == 'l' ? va_arg(VALST(ap), long)
-              : pspec->qual == 'j' ? va_arg(VALST(ap), intmax_t)
-              : pspec->qual == 'z' ? va_arg(VALST(ap), size_t)
-              : pspec->qual == 't' ? va_arg(VALST(ap), ptrdiff_t)
-                                   : va_arg(VALST(ap), int);
+			if ( pspec->qual == 'l' )
+				v = (long)va_arg( VALST(ap), long );
+			else if ( pspec->qual == 'j' )
+				v = (long)va_arg( VALST(ap), intmax_t );
+			else if ( pspec->qual == 'z' )
+				v = (long)va_arg( VALST(ap), size_t );
+			else if ( pspec->qual == 't' )
+				v = (long)va_arg( VALST(ap), ptrdiff_t );
+			else
+				v = (long)va_arg( VALST(ap), int );
             
             if ( pspec->qual == 'h' )
                 v = (short)v;
@@ -518,12 +523,17 @@ static int do_conv( T_FormatSpec * pspec,
         }
         else
         {
-            uv = pspec->qual == 'l' ? va_arg(VALST(ap), unsigned long) 
-               : pspec->qual == 'j' ? va_arg(VALST(ap), uintmax_t)
-               : pspec->qual == 'z' ? va_arg(VALST(ap), size_t)
-               : pspec->qual == 't' ? va_arg(VALST(ap), ptrdiff_t)
-                                    : va_arg(VALST(ap), unsigned int );
-            
+            if ( pspec->qual == 'l' )
+				uv = (unsigned long)va_arg( VALST(ap), unsigned long );
+			else if ( pspec->qual == 'j' )
+				uv = (unsigned long)va_arg( VALST(ap), uintmax_t );
+			else if ( pspec->qual == 'z' )
+				uv = (unsigned long)va_arg( VALST(ap), size_t );
+			else if ( pspec->qual == 't' )
+				uv = (unsigned long)va_arg( VALST(ap), ptrdiff_t );
+			else
+				uv = (unsigned long)va_arg( VALST(ap), unsigned int );
+        
             if ( pspec->qual == 'h' )
                 uv = (unsigned short)uv;
             if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
