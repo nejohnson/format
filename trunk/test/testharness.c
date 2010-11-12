@@ -1,4 +1,4 @@
-/* ****************************************************************************
+/****************************************************************************
  * Format - lightweight string formatting library.
  * Copyright (C) 2010, Neil Johnson
  * All rights reserved.
@@ -37,6 +37,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(__AVR__)
+#include <avr/io.h>
+#endif
 
 #include "format.h"
 
@@ -433,8 +437,17 @@ static void test_bouxX( void )
     TEST( "1101", 4, "%b", 13 );
     TEST( "1234", 4, "%o", 01234 );
     TEST( "1234", 4, "%u", 1234 );
-    TEST( "1234abcd", 8, "%x", 0x1234abcd );
-    TEST( "1234ABCD", 8, "%X", 0x1234ABCD );
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "1234abcd", 8, "%x", 0x1234abcd );
+        TEST( "1234ABCD", 8, "%X", 0x1234ABCD );
+    }
+    else
+    {
+        TEST( "12cd", 4, "%x", 0x12cd );
+        TEST( "12CD", 4, "%X", 0x12CD );
+    }
     
     /* 0 value with 0 precision produces no characters */
     TEST( "", 0, "%.0b", 0 );
@@ -447,8 +460,17 @@ static void test_bouxX( void )
     TEST( "001101", 6, "%.6b", 13 );
     TEST( "001234", 6, "%.6o", 01234 );
     TEST( "001234", 6, "%.6u", 1234 );
-    TEST( "001234abcd", 10, "%.10x", 0x1234abcd );
-    TEST( "001234ABCD", 10, "%.10X", 0x1234ABCD );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "001234abcd", 10, "%.10x", 0x1234abcd );
+        TEST( "001234ABCD", 10, "%.10X", 0x1234ABCD );
+    }
+    else
+    {
+        TEST( "00000012cd", 10, "%.10x", 0x12cd );
+        TEST( "00000012CD", 10, "%.10X", 0x12CD );
+    }
     
     /* Width sets minimum field width */
     TEST( "  1101", 6, "%6b", 13 );
@@ -458,24 +480,53 @@ static void test_bouxX( void )
     TEST( "  1234", 6, "%6u", 1234 );
     TEST( "1234", 4, "%2u", 1234);
     TEST( "1234", 4, "%02u", 1234 );
-    TEST( "  1234abcd", 10, "%10x", 0x1234abcd );
-    TEST( "1234abcd", 8, "%2x", 0x1234abcd);
-    TEST( "  1234ABCD", 10, "%10X", 0x1234ABCD );
-    TEST( "1234ABCD", 8, "%2X", 0x1234ABCD);
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "  1234abcd", 10, "%10x", 0x1234abcd );
+        TEST( "1234abcd", 8, "%2x", 0x1234abcd);
+        TEST( "  1234ABCD", 10, "%10X", 0x1234ABCD );
+        TEST( "1234ABCD", 8, "%2X", 0x1234ABCD);
+    }
+    else
+    {
+        TEST( "      12cd", 10, "%10x", 0x12cd );
+        TEST( "12cd", 4, "%2x", 0x12cd);
+        TEST( "      12CD", 10, "%10X", 0x12CD );
+        TEST( "12CD", 4, "%2X", 0x12CD);
+    }
     
     /* Precision sets minimum number of digits for the value */
     TEST( "001101", 6, "%.6b", 13 );
     TEST( "001234", 6, "%.6o", 01234 );
     TEST( "001234", 6, "%.6u", 1234 );
-    TEST( "001234abcd", 10, "%.10x", 0x1234abcd );
-    TEST( "001234ABCD", 10, "%.10X", 0x1234abcd );
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "001234abcd", 10, "%.10x", 0x1234abcd );
+        TEST( "001234ABCD", 10, "%.10X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "00000012cd", 10, "%.10x", 0x12cd );
+        TEST( "00000012CD", 10, "%.10X", 0x12cd );
+    }
     
     /* '-' flag */
     TEST( "1101  ", 6, "%-6b", 13 );
     TEST( "1234  ", 6, "%-6o", 01234 );
     TEST( "1234  ", 6, "%-6u", 1234 );
-    TEST( "1234abcd  ", 10, "%-10x", 0x1234abcd );
-    TEST( "1234ABCD  ", 10, "%-10X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "1234abcd  ", 10, "%-10x", 0x1234abcd );
+        TEST( "1234ABCD  ", 10, "%-10X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "12cd      ", 10, "%-10x", 0x12cd );
+        TEST( "12CD      ", 10, "%-10X", 0x12cd );
+    }
     
     /* '0' flag */
     TEST( "001101", 6, "%06b", 13 );
@@ -487,12 +538,25 @@ static void test_bouxX( void )
     TEST( "001234", 6, "%06u", 1234 );
     TEST( "1234  ", 6, "%-06u", 1234 ); /* '-' kills '0' */
     TEST( "  1234", 6, "%06.1u", 1234 ); /* prec kills '0' */
-    TEST( "001234abcd", 10, "%010x", 0x1234abcd );
-    TEST( "1234abcd  ", 10, "%-010x", 0x1234abcd ); /* '-' kills '0' */
-    TEST( "  1234abcd", 10, "%010.1x", 0x1234abcd ); /* prec kills '0' */
-    TEST( "001234ABCD", 10, "%010X", 0x1234abcd );
-    TEST( "1234ABCD  ", 10, "%-010X", 0x1234abcd ); /* '-' kills '0' */
-    TEST( "  1234ABCD", 10, "%010.1X", 0x1234abcd ); /* prec kills '0' */
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "001234abcd", 10, "%010x", 0x1234abcd );
+        TEST( "1234abcd  ", 10, "%-010x", 0x1234abcd ); /* '-' kills '0' */
+        TEST( "  1234abcd", 10, "%010.1x", 0x1234abcd ); /* prec kills '0' */
+        TEST( "001234ABCD", 10, "%010X", 0x1234abcd );
+        TEST( "1234ABCD  ", 10, "%-010X", 0x1234abcd ); /* '-' kills '0' */
+        TEST( "  1234ABCD", 10, "%010.1X", 0x1234abcd ); /* prec kills '0' */
+    }
+    else
+    {
+        TEST( "00000012cd", 10, "%010x", 0x12cd );
+        TEST( "12cd      ", 10, "%-010x", 0x12cd ); /* '-' kills '0' */
+        TEST( "      12cd", 10, "%010.1x", 0x12cd ); /* prec kills '0' */
+        TEST( "00000012CD", 10, "%010X", 0x12cd );
+        TEST( "12CD      ", 10, "%-010X", 0x12cd ); /* '-' kills '0' */
+        TEST( "      12CD", 10, "%010.1X", 0x12cd ); /* prec kills '0' */
+    }
     
     /* Alternate form */
     TEST( "0", 1, "%#b", 0 );
@@ -502,42 +566,105 @@ static void test_bouxX( void )
     
     TEST( "0b1101", 6, "%#b", 13 );
     TEST( "01234", 5, "%#o", 01234 );
-    TEST( "0x1234abcd", 10, "%#x", 0x1234abcd );
-    TEST( "0X1234ABCD", 10, "%#X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "0x1234abcd", 10, "%#x", 0x1234abcd );
+        TEST( "0X1234ABCD", 10, "%#X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "0x12cd", 6, "%#x", 0x12cd );
+        TEST( "0X12CD", 6, "%#X", 0x12cd );
+    }
     
     /* Alternate with ! */
     TEST( "0b0", 3, "%!#b", 0 );
     TEST( "0", 1, "%!#o", 0 );
     TEST( "0x0", 3, "%!#x", 0 );
     TEST( "0x0", 3, "%!#X", 0 );
-    TEST( "0x1234abcd", 10, "%!#x", 0x1234abcd );
-    TEST( "0x1234ABCD", 10, "%!#X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "0x1234abcd", 10, "%!#x", 0x1234abcd );
+        TEST( "0x1234ABCD", 10, "%!#X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "0x12cd", 6, "%!#x", 0x12cd );
+        TEST( "0x12CD", 6, "%!#X", 0x12cd );
+    }
     
     TEST( "1101", 4, "%!b", 13 );
     TEST( "1234", 4, "%!o", 01234 );
     TEST( "1234", 4, "%!u", 1234 );
-    TEST( "1234abcd", 8, "%!x", 0x1234abcd );
-    TEST( "1234ABCD", 8, "%!X", 0x1234ABCD );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "1234abcd", 8, "%!x", 0x1234abcd );
+        TEST( "1234ABCD", 8, "%!X", 0x1234ABCD );
+    }
+    else
+    {
+        TEST( "12cd", 4, "%!x", 0x12cd );
+        TEST( "12CD", 4, "%!X", 0x12CD );
+    }
     
     TEST( "  0b1101", 8, "%#8b", 13 );
     TEST( "   01234", 8, "%#8o", 01234 );
-    TEST( "  0x1234abcd", 12, "%#12x", 0x1234abcd );
-    TEST( "  0X1234ABCD", 12, "%#12X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "  0x1234abcd", 12, "%#12x", 0x1234abcd );
+        TEST( "  0X1234ABCD", 12, "%#12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "      0x12cd", 12, "%#12x", 0x12cd );
+        TEST( "      0X12CD", 12, "%#12X", 0x12cd );
+    }
     
     TEST( "0b00001101", 10, "%#.8b", 13 );
     TEST( "000001234", 9, "%#.8o", 01234 );
-    TEST( "0x00001234abcd", 14, "%#.12x", 0x1234abcd );
-    TEST( "0X00001234ABCD", 14, "%#.12X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "0x00001234abcd", 14, "%#.12x", 0x1234abcd );
+        TEST( "0X00001234ABCD", 14, "%#.12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "0x0000000012cd", 14, "%#.12x", 0x12cd );
+        TEST( "0X0000000012CD", 14, "%#.12X", 0x12cd );
+    }
     
     TEST( "  0b00001101", 12, "%#12.8b", 13 );
     TEST( "   000001234", 12, "%#12.8o", 01234 );
-    TEST( "  0x00001234abcd", 16, "%#16.12x", 0x1234abcd );
-    TEST( "  0X00001234ABCD", 16, "%#16.12X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "  0x00001234abcd", 16, "%#16.12x", 0x1234abcd );
+        TEST( "  0X00001234ABCD", 16, "%#16.12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "  0x0000000012cd", 16, "%#16.12x", 0x12cd );
+        TEST( "  0X0000000012CD", 16, "%#16.12X", 0x12cd );
+    }
     
     TEST( "0b00001101  ", 12, "%-#12.8b", 13 );
     TEST( "000001234   ", 12, "%-#12.8o", 01234 );
-    TEST( "0x00001234abcd  ", 16, "%-#16.12x", 0x1234abcd );
-    TEST( "0X00001234ABCD  ", 16, "%-#16.12X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "0x00001234abcd  ", 16, "%-#16.12x", 0x1234abcd );
+        TEST( "0X00001234ABCD  ", 16, "%-#16.12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "0x0000000012cd  ", 16, "%-#16.12x", 0x12cd );
+        TEST( "0X0000000012CD  ", 16, "%-#16.12X", 0x12cd );
+    }
     
     /* Centering */
     TEST( "  ABCD  ", 8, "%^8X", 0xABCD );
@@ -547,8 +674,17 @@ static void test_bouxX( void )
     /* No effect: +,space */
     TEST( "1101", 4, "%+ b", 13 );
     TEST( "1234", 4, "%+ o", 01234 );
-    TEST( "1234abcd", 8, "%+ x", 0x1234abcd );
-    TEST( "1234ABCD", 8, "%+ X", 0x1234abcd );
+    
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "1234abcd", 8, "%+ x", 0x1234abcd );
+        TEST( "1234ABCD", 8, "%+ X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "12cd", 4, "%+ x", 0x12cd );
+        TEST( "12CD", 4, "%+ X", 0x12cd );
+    }
 }
 
 /*****************************************************************************/
@@ -630,18 +766,18 @@ static void test_asterisk( void )
 **/
 static void test_cont( void )
 {
-	printf( "Testing format continuation\n" );
-	
-	/* Basic string continuation */
-	TEST( "hello world", 11, "hello %", "world" );
-	TEST( "hello old world", 15, "hello %", "old %", "world" );
-	
-	/* Interspersed conversions */
-	TEST( "One: 1,Two: 2,Three: 3", 22, "One: %d,%", 1, 
-	                                    "Two: %c,%", '2', 
-	                                    "Three: %s", "3" );
+    printf( "Testing format continuation\n" );
+    
+    /* Basic string continuation */
+    TEST( "hello world", 11, "hello %", "world" );
+    TEST( "hello old world", 15, "hello %", "old %", "world" );
+    
+    /* Interspersed conversions */
+    TEST( "One: 1,Two: 2,Three: 3", 22, "One: %d,%", 1, 
+                                        "Two: %c,%", '2', 
+                                        "Three: %s", "3" );
 
-	/* Check that flags, precision, width and length are ignored */
+    /* Check that flags, precision, width and length are ignored */
     TEST( "hello world", 11, "hello % +-!#^12.24l", "world" );
 }
 
@@ -670,8 +806,42 @@ static void run_tests( void )
 /* Public functions.                                                         */
 /*****************************************************************************/
 
+/* Target platform specific functionality */
+
+#if defined(__AVR__)
+
+/* For the simulator in AVRstudio we can talk to the UART and view on HAPSIM.
+   Tested on the ATmega2560.
+   Note that in the simulator we don't need to set up the baud rate.
+*/
+static int avr_putchar( char c, FILE *fp)
+{
+    UDR0 = c;
+    return 0;
+}
+
+static void system_init( void )
+{
+    fdevopen(&avr_putchar,NULL);
+    UCSR0B = 0x08;
+}
+
+#else
+
+/* Default system initialiser does nothing */
+
+static void system_init( void )
+{
+    /* empty */
+}
+
+#endif
+
+
 int main( int argc, char *argv[] )
 {
+    system_init();
+
     printf( ":: format test harness ::\n");
     run_tests();
     return 0;
