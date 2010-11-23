@@ -73,3 +73,25 @@ How is this done?  During formating the `format` function calculates how many sp
 Note that if the number of space padding characters is odd (such as in the above example) the odd space padding character is placed to the right of the text.  In the above example you can see that of the three space padding characters there is one to the left of the `hello`, and two to the right.
 
 _One future option I may consider is to use the `-` flag in combination with the `^` flag to specify whether any odd space padding character is put on the left or the right.  Comments welcome._
+
+= Single Character Repetition =
+
+An extension to the `%c` conversion is to use the precision field to specify how many times the character is written.  A further addition is the `%C` conversion with takes its character as the next character in the format string.
+
+This repetition feature allows for long repetitious strings to be efficiently stored.  For example, to write out a screen-wide horizontal line without this feature would require a string of at least 80 characters (assuming an 80-character wide terminal).  
+
+{{{
+format( cons, arg, "---..etc...---" );
+}}}
+
+With this new feature the long string is shortened to something like 6 characters:
+
+{{{
+format( cons, arg, "%.80C-" );
+}}}
+
+Also, if your application is able to query the output device for the width then this can be specified directly.  For example:
+
+{{{
+format( cons, arg, "%.*C-", terminal.width );
+}}}
