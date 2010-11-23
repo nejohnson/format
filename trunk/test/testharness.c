@@ -173,6 +173,7 @@ static void test_pc( void )
     TEST( "%", 1, "%%" );
     
     /* Check all flags, precision, width, length are ignored */
+    TEST( "%", 1, "%-+ #0!^12.h%" );
     TEST( "%", 1, "%-+ #0!^12.24h%" );
     
     /* Check sequential conversions */
@@ -192,14 +193,24 @@ static void test_c( void )
     /* Basic test */
     TEST( "a", 1, "%c", 'a' );
     
-    /* Check all flags, precision, width, length are ignored */
-    TEST( "a", 1, "%-+ #0!^12.24hc", 'a' );
-    TEST( "a", 1, "%-+ #0!^12.24lc", 'a' );
+    /* Check all flags, width, length are ignored */
+    TEST( "a", 1, "%-+ #0!^12hc", 'a' );
+    TEST( "a", 1, "%-+ #0!^12lc", 'a' );
     
     /* Check sequential conversions */
     TEST( "ac", 2, "%cc", 'a' );
     TEST( "abc", 3, "%c%c%c", 'a', 'b', 'c' );
     TEST( "a b c", 5, "%c %c %c", 'a', 'b', 'c' );
+    
+    /* Check repetition */
+    TEST( "a", 1, "%.c", 'a' );     /* 0 precision treated as 1 */
+    TEST( "aaaa", 4, "%.4c", 'a' );
+    TEST( "aaaabbbbcccc", 12, "%.4c%.4c%.4c", 'a', 'b', 'c' );
+    TEST( "------------", 12, "%.12c", '-' );
+    
+    /* Check inline repetition */
+    TEST( "aaaa", 4, "%.4Ca" );
+    TEST( "------------", 12, "%.12C-" );
 }
 
 /*****************************************************************************/

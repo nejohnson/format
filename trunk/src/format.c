@@ -147,6 +147,7 @@ typedef struct {
     unsigned int    width;  /**< width                              **/
     unsigned int    prec;   /**< precision                          **/
     char            qual;   /**< length qualifier                   **/
+    char            repchar;/**< Repetition character               **/
 } T_FormatSpec;
 
 /*****************************************************************************/
@@ -397,15 +398,44 @@ static int do_conv( T_FormatSpec * pspec,
         return 0;
     }
     
-    if ( code == 'c' || code == '%' )
+    /* -------------------------------------------------------------------- */
+    
+    if ( code == '%' )
     {
-        char cc = (char)code;
-            
+        return gen_out( cons, parg, 0, NULL, 0, 0, &code, 1, 0 );
+    }
+    
+    /* -------------------------------------------------------------------- */
+    
+    if ( code == 'c' || code == 'C' )
+    {
+        char cc;
+        int n = 0;
+        unsigned int rep;
+        
         if ( code == 'c' )
             cc = (char)va_arg(VALST(ap), int);
+        else
+            cc = pspec->repchar;
         
-        return gen_out( cons, parg, 0, NULL, 0, 0, &cc, 1, 0 );
+        /* apply default precision */
+        if ( pspec->prec > MAXPREC )
+            pspec->prec = 1;
+        
+        rep = MAX( 1, pspec->prec );
+        
+        for ( ; rep; rep-- )
+        {
+            int r = gen_out( cons, parg, 0, NULL, 0, 0, &cc, 1, 0 );
+            if ( r == EXBADFORMAT )
+                return EXBADFORMAT;
+            n += r;
+        }
+        
+        return n;
     }
+    
+    /* -------------------------------------------------------------------- */
     
     if ( code == 's' )
     {
@@ -435,6 +465,8 @@ static int do_conv( T_FormatSpec * pspec,
         return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
     }
     
+    /* -------------------------------------------------------------------- */
+    
     /* The '%p' conversion is a meta-conversion, which we convert to a
      *  pre-defined format.  In this case we convert it to "%!#N.NX"
      *  where N is double the machine-word size, as each byte converts into
@@ -448,6 +480,8 @@ static int do_conv( T_FormatSpec * pspec,
         pspec->width  = sizeof( int * ) * 2;
         pspec->prec   = sizeof( int * ) * 2;
     }
+    
+    /* -------------------------------------------------------------------- */
     
     /* The '%d' and '%i' conversions are both decimal (base 10) and the '#'
      *  flag is ignored.  We set the F_IS_SIGNED internal flag to guide later
@@ -487,16 +521,16 @@ static int do_conv( T_FormatSpec * pspec,
         {
             long v;
             
-			if ( pspec->qual == 'l' )
-				v = (long)va_arg( VALST(ap), long );
-			else if ( pspec->qual == 'j' )
-				v = (long)va_arg( VALST(ap), intmax_t );
-			else if ( pspec->qual == 'z' )
-				v = (long)va_arg( VALST(ap), size_t );
-			else if ( pspec->qual == 't' )
-				v = (long)va_arg( VALST(ap), ptrdiff_t );
-			else
-				v = (long)va_arg( VALST(ap), int );
+            if ( pspec->qual == 'l' )
+                v = (long)va_arg( VALST(ap), long );
+            else if ( pspec->qual == 'j' )
+                v = (long)va_arg( VALST(ap), intmax_t );
+            else if ( pspec->qual == 'z' )
+                v = (long)va_arg( VALST(ap), size_t );
+            else if ( pspec->qual == 't' )
+                v = (long)va_arg( VALST(ap), ptrdiff_t );
+            else
+                v = (long)va_arg( VALST(ap), int );
             
             if ( pspec->qual == 'h' )
                 v = (short)v;
@@ -524,15 +558,15 @@ static int do_conv( T_FormatSpec * pspec,
         else
         {
             if ( pspec->qual == 'l' )
-				uv = (unsigned long)va_arg( VALST(ap), unsigned long );
-			else if ( pspec->qual == 'j' )
-				uv = (unsigned long)va_arg( VALST(ap), uintmax_t );
-			else if ( pspec->qual == 'z' )
-				uv = (unsigned long)va_arg( VALST(ap), size_t );
-			else if ( pspec->qual == 't' )
-				uv = (unsigned long)va_arg( VALST(ap), ptrdiff_t );
-			else
-				uv = (unsigned long)va_arg( VALST(ap), unsigned int );
+                uv = (unsigned long)va_arg( VALST(ap), unsigned long );
+            else if ( pspec->qual == 'j' )
+                uv = (unsigned long)va_arg( VALST(ap), uintmax_t );
+            else if ( pspec->qual == 'z' )
+                uv = (unsigned long)va_arg( VALST(ap), size_t );
+            else if ( pspec->qual == 't' )
+                uv = (unsigned long)va_arg( VALST(ap), ptrdiff_t );
+            else
+                uv = (unsigned long)va_arg( VALST(ap), unsigned int );
         
             if ( pspec->qual == 'h' )
                 uv = (unsigned short)uv;
@@ -711,6 +745,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
         if ( *s )
         {
             /* found conversion specifier */
+            char convspec;
             char *t;
             int nn;
             static const char fchar[] = {" +-#0!^"};
@@ -786,9 +821,19 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 fmt = va_arg( ap, const char * );
                 continue;
             }
+            
+            convspec = *s;
+            
+            if ( convspec == 'C' )
+            {
+                s++;
+                if ( *s == '\0' )
+                    return EXBADFORMAT;
+                fspec.repchar = *s;
+            }
 
             /* now process the conversion type */
-            nn = do_conv( &fspec, VARGS(ap), *s, cons, &arg );
+            nn = do_conv( &fspec, VARGS(ap), convspec, cons, &arg );
             if ( nn < 0 )
                 return EXBADFORMAT;
             else
