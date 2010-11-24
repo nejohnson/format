@@ -1,4 +1,4 @@
-A historical summary of lightweight printfs for embedded systems
+#summary A historical summary of lightweight printfs for embedded systems
 
 = Introduction =
 
