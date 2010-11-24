@@ -211,6 +211,10 @@ static void test_c( void )
     /* Check inline repetition */
     TEST( "aaaa", 4, "%.4Ca" );
     TEST( "------------", 12, "%.12C-" );
+    
+    /* Check variable repetition */
+    TEST( "----", 4, "%.*c", 4, '-' );
+    TEST( "aaaa", 4, "%.*Ca", 4 );
 }
 
 /*****************************************************************************/
