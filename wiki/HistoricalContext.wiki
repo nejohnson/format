@@ -1,4 +1,4 @@
-#There have many other attempts at lightweight printf for embedded systems
+A historical summary of lightweight printfs for embedded systems
 
 = Introduction =
 
