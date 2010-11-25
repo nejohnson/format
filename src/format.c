@@ -157,6 +157,7 @@ typedef struct {
 /**
     Padding strings, used by gen_out().
 **/
+#define PAD_STRING_LEN      ( 16 )
 static const char spaces[] = "                ";
 static const char zeroes[] = "0000000000000000";
 
@@ -286,11 +287,9 @@ static int emit( const char *s, size_t n,
 static int pad( const char *s, size_t n, 
                 void * (* cons)(void *, const char *, size_t), void * * parg )
 {
-    size_t len_s = STRLEN(s);
-    
     while ( n > 0 )
     {
-        size_t j = MIN( len_s, n );
+        size_t j = MIN( PAD_STRING_LEN, n );
         if ( emit( s, j, cons, parg ) < 0 )
             return EXBADFORMAT;
         n -= j;
@@ -323,26 +322,26 @@ static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
 {
     size_t n = 0;
     
-    if ( pad( spaces, ps1, cons, parg ) < 0 )
+    if ( ps1 && pad( spaces, ps1, cons, parg ) < 0 )
         return EXBADFORMAT;
     n += ps1;
     
-    if ( pfx_s )
+    if ( pfx_s && pfx_n )
     {
         if ( emit( pfx_s, pfx_n, cons, parg ) < 0 )
             return EXBADFORMAT;
         n += pfx_n;
     }
     
-    if ( pad( zeroes, pz, cons, parg ) < 0 )
+    if ( pz && pad( zeroes, pz, cons, parg ) < 0 )
         return EXBADFORMAT;
     n += pz;
     
-    if ( emit( e_s, e_n, cons, parg ) < 0 )
+    if ( e_n && emit( e_s, e_n, cons, parg ) < 0 )
         return EXBADFORMAT;
     n += e_n;
     
-    if ( pad( spaces, ps2, cons, parg ) < 0 )
+    if ( ps2 && pad( spaces, ps2, cons, parg ) < 0 )
         return EXBADFORMAT;
     n += ps2;
     
@@ -830,6 +829,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 if ( *s == '\0' )
                     return EXBADFORMAT;
                 fspec.repchar = *s;
+            }
+            else
+            {
+                fspec.repchar = '\0';
             }
 
             /* now process the conversion type */
