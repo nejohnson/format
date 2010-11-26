@@ -350,6 +350,342 @@ static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
 
 /*****************************************************************************/
 /**
+    Process a %n conversion.
+    
+    @param pspec    Pointer to format specification.
+    @param ap       Reference to optional format arguments list.
+    
+    @return 0 as no characters are emitted.
+**/
+static int do_conv_n( T_FormatSpec * pspec,
+                      VALPARM(ap) )
+{
+    void *vp = va_arg(VALST(ap), void *);
+        
+    if ( vp )
+    {
+        if ( pspec->qual == 'h' )
+            *(short *)vp = (short)pspec->nChars;
+        else if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
+            *(signed char *)vp = (signed char)pspec->nChars;
+        else if ( pspec->qual == 'l' )
+            *(long *)vp = (long)pspec->nChars;
+        else if ( pspec->qual == 'j' )
+            *(intmax_t *)vp = (intmax_t)pspec->nChars;
+        else if ( pspec->qual == 'z' )
+            *(size_t *)vp = (size_t)pspec->nChars;
+        else if ( pspec->qual == 't' )
+            *(ptrdiff_t *)vp = (ptrdiff_t)pspec->nChars;
+        else
+            *(int *)vp = (int)pspec->nChars;
+    }
+    return 0;
+}
+
+/*****************************************************************************/
+/**
+    Process the %c and %C conversions.
+    
+    @param pspec    Pointer to format specification.
+    @param ap       Reference to optional format arguments list.
+    @param code     Conversion specifier code.
+    @param cons     Pointer to consumer function.
+    @param parg     Pointer to opaque pointer updated by cons.
+    
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_c( T_FormatSpec * pspec,
+                      VALPARM(ap), 
+                      char           code,
+                      void *      (* cons)(void *, const char *, size_t),
+                      void * *       parg )
+{
+    char cc;
+    int n = 0;
+    unsigned int rep;
+    
+    if ( code == 'c' )
+        cc = (char)va_arg(VALST(ap), int);
+    else
+        cc = pspec->repchar;
+    
+    /* apply default precision */
+    if ( pspec->prec > MAXPREC )
+        pspec->prec = 1;
+    
+    rep = MAX( 1, pspec->prec );
+    
+    for ( ; rep; rep-- )
+    {
+        int r = gen_out( cons, parg, 0, NULL, 0, 0, &cc, 1, 0 );
+        if ( r == EXBADFORMAT )
+            return EXBADFORMAT;
+        n += r;
+    }
+    
+    return n;
+}
+
+/*****************************************************************************/
+/**
+    Process a %s conversion.
+    
+    @param pspec    Pointer to format specification.
+    @param ap       Reference to optional format arguments list.
+    @param code     Conversion specifier code.
+    @param cons     Pointer to consumer function.
+    @param parg     Pointer to opaque pointer updated by cons.
+    
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_s( T_FormatSpec * pspec,
+                      VALPARM(ap), 
+                      char           code,
+                      void *      (* cons)(void *, const char *, size_t),
+                      void * *       parg )
+{
+    size_t length = 0;
+    size_t padWidth = 0;
+    size_t ps1 = 0, ps2 = 0;
+    
+    char *s = va_arg(VALST(ap), char *);
+    
+    if ( s == NULL )
+        s = "(null)";
+    
+    length = STRLEN( s );
+    length = MIN( pspec->prec, length );
+    
+    if ( length < pspec->width )
+        padWidth = pspec->width - length;
+        
+    if ( pspec->flags & FMINUS )
+        ps2 = padWidth;
+    else
+        ps1 = padWidth;
+        
+    if ( pspec->flags & FCARET )
+    {
+        size_t tot = ps1 + ps2;
+        ps1 = tot / 2;
+        ps2 = tot - ps1;
+    }
+
+    return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
+}
+    
+/*****************************************************************************/
+/**
+    Process the numeric conversions (%b, %d, %i, %o, %u, %x, %X).
+    
+    @param pspec    Pointer to format specification.
+    @param ap       Reference to optional format arguments list.
+    @param code     Conversion specifier code.
+    @param cons     Pointer to consumer function.
+    @param parg     Pointer to opaque pointer updated by cons.
+    
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_numeric( T_FormatSpec * pspec,
+                            VALPARM(ap), 
+                            char           code,
+                            void *      (* cons)(void *, const char *, size_t),
+                            void * *       parg,
+                            unsigned int base )
+{
+    size_t length = 0;
+    size_t padWidth = 0, numWidth, digitWidth;
+    char numBuffer[BUFLEN];
+    size_t ps1 = 0, ps2 = 0, pz = 0, pfx_n = 0;
+    const char * pfx_s = NULL;
+    unsigned long uv;
+    char prefix[2];
+    size_t pfxWidth = 0;
+    
+    /* Get the value.
+     * Signed values need special handling for negative values and the 
+     *  extra options for sign output which don't apply to the unsigned 
+     *  values.
+     */
+    if ( pspec->flags & F_IS_SIGNED )
+    {
+        long v;
+        
+        if ( pspec->qual == 'l' )
+            v = (long)va_arg( VALST(ap), long );
+        else if ( pspec->qual == 'j' )
+            v = (long)va_arg( VALST(ap), intmax_t );
+        else if ( pspec->qual == 'z' )
+            v = (long)va_arg( VALST(ap), size_t );
+        else if ( pspec->qual == 't' )
+            v = (long)va_arg( VALST(ap), ptrdiff_t );
+        else
+            v = (long)va_arg( VALST(ap), int );
+        
+        if ( pspec->qual == 'h' )
+            v = (short)v;
+        if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
+            v = (signed char)v;
+
+        /* Get absolute value */
+        uv = v < 0 ? -v : v;
+        
+        /* Based on original sign and flags work out any prefix */
+        prefix[0] = '\0';
+        if ( v < 0 )   
+            prefix[0]     = '-'; 
+        else if ( pspec->flags & FPLUS )  
+            prefix[0]     = '+'; 
+        else if ( pspec->flags & FSPACE ) 
+            prefix[0]     = ' '; 
+        
+        if ( prefix[0] != '\0' )
+        {
+            pfxWidth      = 1; 
+            pspec->flags |= FHASH;
+        }
+    }
+    else
+    {
+        if ( pspec->qual == 'l' )
+            uv = (unsigned long)va_arg( VALST(ap), unsigned long );
+        else if ( pspec->qual == 'j' )
+            uv = (unsigned long)va_arg( VALST(ap), uintmax_t );
+        else if ( pspec->qual == 'z' )
+            uv = (unsigned long)va_arg( VALST(ap), size_t );
+        else if ( pspec->qual == 't' )
+            uv = (unsigned long)va_arg( VALST(ap), ptrdiff_t );
+        else
+            uv = (unsigned long)va_arg( VALST(ap), unsigned int );
+    
+        if ( pspec->qual == 'h' )
+            uv = (unsigned short)uv;
+        if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
+            uv = (unsigned char)uv;
+            
+        prefix[0] = '0';
+    }
+        
+    if ( code == 'o' && uv )
+        pfxWidth = 1;
+    
+    if ( code == 'x' || code == 'X' || code == 'b' ) 
+    {
+        /* if non-zero or bang flag, add prefix for hex and binary */
+        if ( ( pspec->flags & FBANG ) || uv )
+        {
+            prefix[1] = code;
+            pfxWidth  = 2;
+        }
+        
+        /* Bang flag forces lower-case */
+        if ( pspec->flags & FBANG )
+            prefix[1] |= 0x20;
+    }
+    
+    if ( pspec->flags & FHASH )
+    {
+        length += pfxWidth;
+        pfx_s = prefix;
+        pfx_n = pfxWidth;
+    }
+    
+    /* work out how many digits in uv */
+    /* Note: splitting it out like this affords us the opportunity to
+     *  avoid calling out to libgcc.
+     *  In the case of decimal, on large word machines we can produce tight 
+     *  code for dividing by a known constant by applying "Division by
+     *  Invariant Integers Using Multiplication" algorithm from the 1994 paper
+     *  by Torbjorn Granlund and Peter L. Montgomery.
+     * For the magic number see:
+     *            http://www.hackersdelight.org/magic.htm
+     * We compute the remainder in the obvious way.
+     *
+     * For the other cases we can implement the necessary math through
+     *  bit ops - masking and shifting.
+     */
+    if ( base == 10 )
+    {
+        for( numWidth = 0; uv; )
+        {
+#if defined(CONFIG_USE_INLINE_DIV10)      
+            unsigned long long div_a = uv * 0xCCCCCCCDULL;
+            unsigned long div_uv = (div_a >> 32) >> 3;
+            unsigned long div_5uv = div_uv + (div_uv << 2);
+            unsigned long div_rem = uv - (div_5uv << 1);
+#else
+            unsigned long div_uv  = uv / 10;
+            unsigned long div_rem = uv % 10;
+#endif
+            
+            ++numWidth;
+            numBuffer[sizeof(numBuffer) - numWidth] = '0' + div_rem;
+            uv = div_uv;            
+        }
+    }
+    else /* base is 2, 8 or 16 */
+    {
+        unsigned int mask  = base - 1;
+        unsigned int shift = base == 16 ? 4
+                                        : base == 8 ? 3 : 1;
+        static const char digits[] = "0123456789ABCDEF";
+        
+        for( numWidth = 0; uv; uv >>= shift )
+        {
+            char cc = digits[uv & mask];
+            
+            /* convert to lower case? */
+            if ( code == 'x' ) 
+                cc |= 0x20;
+            
+            ++numWidth;
+            numBuffer[sizeof(numBuffer) - numWidth] = cc;
+        }
+    }
+           
+    digitWidth = numWidth;
+    
+    /* apply default precision */
+    if ( pspec->prec > MAXPREC )
+        pspec->prec = 1;
+    else
+        pspec->flags &= ~FZERO;
+    
+    numWidth = MAX( numWidth, pspec->prec );
+    
+    length += numWidth;
+    if ( length < pspec->width )
+        padWidth = pspec->width - length;
+    
+    /* got necessary info, now emit the number */
+    
+    if ( !( pspec->flags & FMINUS ) && !( pspec->flags & FZERO ) )
+        ps1 = padWidth;
+
+    pz = numWidth - digitWidth;
+    if ( !( pspec->flags & FMINUS ) &&  ( pspec->flags & FZERO ) )
+        pz += padWidth;
+        
+    if ( pspec->flags & FMINUS )
+        ps2 = padWidth;
+        
+    if ( pspec->flags & FCARET )
+    {
+        size_t tot = ps1 + ps2;
+        ps1 = tot / 2;
+        ps2 = tot - ps1;
+    }
+        
+    return gen_out( cons, parg,
+                    ps1,
+                    pfx_s, pfx_n,
+                    pz,
+                    &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth,
+                    ps2 );
+}
+    
+/*****************************************************************************/
+/**
     Handle a single format conversion for a given type.
     
     @param pspec    Pointer to format specification.
@@ -366,103 +702,19 @@ static int do_conv( T_FormatSpec * pspec,
                     void *      (* cons)(void *, const char *, size_t),
                     void * *       parg )
 {
-    size_t length = 0;
-    size_t padWidth = 0, numWidth, digitWidth;
     unsigned int base = 0;
-    char numBuffer[BUFLEN];
-    size_t ps1 = 0, ps2 = 0, pz = 0, pfx_n = 0;
-    const char * pfx_s = NULL;
     
     if ( code == 'n' )
-    {
-        void *vp = va_arg(VALST(ap), void *);
-        
-        if ( vp )
-        {
-            if ( pspec->qual == 'h' )
-                *(short *)vp = (short)pspec->nChars;
-            else if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
-                *(signed char *)vp = (signed char)pspec->nChars;
-            else if ( pspec->qual == 'l' )
-                *(long *)vp = (long)pspec->nChars;
-            else if ( pspec->qual == 'j' )
-                *(intmax_t *)vp = (intmax_t)pspec->nChars;
-            else if ( pspec->qual == 'z' )
-                *(size_t *)vp = (size_t)pspec->nChars;
-            else if ( pspec->qual == 't' )
-                *(ptrdiff_t *)vp = (ptrdiff_t)pspec->nChars;
-            else
-                *(int *)vp = (int)pspec->nChars;
-        }
-        return 0;
-    }
-    
-    /* -------------------------------------------------------------------- */
+        return do_conv_n( pspec, ap );
     
     if ( code == '%' )
-    {
         return gen_out( cons, parg, 0, NULL, 0, 0, &code, 1, 0 );
-    }
-    
-    /* -------------------------------------------------------------------- */
     
     if ( code == 'c' || code == 'C' )
-    {
-        char cc;
-        int n = 0;
-        unsigned int rep;
-        
-        if ( code == 'c' )
-            cc = (char)va_arg(VALST(ap), int);
-        else
-            cc = pspec->repchar;
-        
-        /* apply default precision */
-        if ( pspec->prec > MAXPREC )
-            pspec->prec = 1;
-        
-        rep = MAX( 1, pspec->prec );
-        
-        for ( ; rep; rep-- )
-        {
-            int r = gen_out( cons, parg, 0, NULL, 0, 0, &cc, 1, 0 );
-            if ( r == EXBADFORMAT )
-                return EXBADFORMAT;
-            n += r;
-        }
-        
-        return n;
-    }
-    
-    /* -------------------------------------------------------------------- */
+        return do_conv_c( pspec, ap, code, cons, parg );
     
     if ( code == 's' )
-    {
-        char *s = va_arg(VALST(ap), char *);
-        
-        if ( s == NULL )
-            s = "(null)";
-        
-        length = STRLEN( s );
-        length = MIN( pspec->prec, length );
-        
-        if ( length < pspec->width )
-            padWidth = pspec->width - length;
-            
-        if ( pspec->flags & FMINUS )
-            ps2 = padWidth;
-        else
-            ps1 = padWidth;
-            
-        if ( pspec->flags & FCARET )
-        {
-            size_t tot = ps1 + ps2;
-            ps1 = tot / 2;
-            ps2 = tot - ps1;
-        }
-
-        return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
-    }
+        return do_conv_s( pspec, ap, code, cons, parg );
     
     /* -------------------------------------------------------------------- */
     
@@ -506,187 +758,8 @@ static int do_conv( T_FormatSpec * pspec,
         base = 2;
         
     if ( base > 0 )
-    {
-        unsigned long uv;
-        char prefix[2];
-        size_t pfxWidth = 0;
-        
-        /* Get the value.
-         * Signed values need special handling for negative values and the 
-         *  extra options for sign output which don't apply to the unsigned 
-         *  values.
-         */
-        if ( pspec->flags & F_IS_SIGNED )
-        {
-            long v;
-            
-            if ( pspec->qual == 'l' )
-                v = (long)va_arg( VALST(ap), long );
-            else if ( pspec->qual == 'j' )
-                v = (long)va_arg( VALST(ap), intmax_t );
-            else if ( pspec->qual == 'z' )
-                v = (long)va_arg( VALST(ap), size_t );
-            else if ( pspec->qual == 't' )
-                v = (long)va_arg( VALST(ap), ptrdiff_t );
-            else
-                v = (long)va_arg( VALST(ap), int );
-            
-            if ( pspec->qual == 'h' )
-                v = (short)v;
-            if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
-                v = (signed char)v;
-
-            /* Get absolute value */
-            uv = v < 0 ? -v : v;
-            
-            /* Based on original sign and flags work out any prefix */
-            prefix[0] = '\0';
-            if ( v < 0 )   
-                prefix[0]     = '-'; 
-            else if ( pspec->flags & FPLUS )  
-                prefix[0]     = '+'; 
-            else if ( pspec->flags & FSPACE ) 
-                prefix[0]     = ' '; 
-            
-            if ( prefix[0] != '\0' )
-            {
-                pfxWidth      = 1; 
-                pspec->flags |= FHASH;
-            }
-        }
-        else
-        {
-            if ( pspec->qual == 'l' )
-                uv = (unsigned long)va_arg( VALST(ap), unsigned long );
-            else if ( pspec->qual == 'j' )
-                uv = (unsigned long)va_arg( VALST(ap), uintmax_t );
-            else if ( pspec->qual == 'z' )
-                uv = (unsigned long)va_arg( VALST(ap), size_t );
-            else if ( pspec->qual == 't' )
-                uv = (unsigned long)va_arg( VALST(ap), ptrdiff_t );
-            else
-                uv = (unsigned long)va_arg( VALST(ap), unsigned int );
-        
-            if ( pspec->qual == 'h' )
-                uv = (unsigned short)uv;
-            if ( pspec->qual == DOUBLE_QUAL( 'h' ) )
-                uv = (unsigned char)uv;
-                
-            prefix[0] = '0';
-        }
-            
-        if ( code == 'o' && uv )
-            pfxWidth = 1;
-        
-        if ( code == 'x' || code == 'X' || code == 'b' ) 
-        {
-            /* if non-zero or bang flag, add prefix for hex and binary */
-            if ( ( pspec->flags & FBANG ) || uv )
-            {
-                prefix[1] = code;
-                pfxWidth  = 2;
-            }
-            
-            /* Bang flag forces lower-case */
-            if ( pspec->flags & FBANG )
-                prefix[1] |= 0x20;
-        }
-        
-        if ( pspec->flags & FHASH )
-        {
-            length += pfxWidth;
-            pfx_s = prefix;
-            pfx_n = pfxWidth;
-        }
-        
-        /* work out how many digits in uv */
-        /* Note: splitting it out like this avoids calling out to libgcc.
-         *  In the case of decimal, we can produce tight code for dividing
-         *  by a known constant by applying "Division by Invariant Integers 
-         *  Using Multiplication" algorithm from the 1994 paper by Torbjorn 
-         *  Granlund and Peter L. Montgomery.
-         * For the magic number see:
-         *            http://www.hackersdelight.org/magic.htm
-         * We compute the remainder in the obvious way.
-         *
-         * For the other cases we can implement the necessary math through
-         *  bit ops - masking and shifting.
-         */
-        if ( base == 10 )
-        {
-            for( numWidth = 0; uv; )
-            {
-                unsigned long long div_a = uv * 0xCCCCCCCDULL;
-                unsigned long div_uv = (div_a >> 32) >> 3;
-                unsigned long div_5uv = div_uv + (div_uv << 2);
-                unsigned long div_rem = uv - (div_5uv << 1);
-                
-                ++numWidth;
-                numBuffer[sizeof(numBuffer) - numWidth] = '0' + div_rem;
-                uv = div_uv;            
-            }
-        }
-        else /* base is 2, 8 or 16 */
-        {
-            unsigned int mask  = base - 1;
-            unsigned int shift = base == 16 ? 4
-                                            : base == 8 ? 3 : 1;
-            static const char digits[] = "0123456789ABCDEF";
-            
-            for( numWidth = 0; uv; uv >>= shift )
-            {
-                char cc = digits[uv & mask];
-                
-                /* convert to lower case? */
-                if ( code == 'x' ) 
-                    cc |= 0x20;
-                
-                ++numWidth;
-                numBuffer[sizeof(numBuffer) - numWidth] = cc;
-            }
-        }
-               
-        digitWidth = numWidth;
-        
-        /* apply default precision */
-        if ( pspec->prec > MAXPREC )
-            pspec->prec = 1;
-        else
-            pspec->flags &= ~FZERO;
-        
-        numWidth = MAX( numWidth, pspec->prec );
-        
-        length += numWidth;
-        if ( length < pspec->width )
-            padWidth = pspec->width - length;
-        
-        /* got necessary info, now emit the number */
-        
-        if ( !( pspec->flags & FMINUS ) && !( pspec->flags & FZERO ) )
-            ps1 = padWidth;
-
-        pz = numWidth - digitWidth;
-        if ( !( pspec->flags & FMINUS ) &&  ( pspec->flags & FZERO ) )
-            pz += padWidth;
-            
-        if ( pspec->flags & FMINUS )
-            ps2 = padWidth;
-            
-        if ( pspec->flags & FCARET )
-        {
-            size_t tot = ps1 + ps2;
-            ps1 = tot / 2;
-            ps2 = tot - ps1;
-        }
-            
-        return gen_out( cons, parg,
-                        ps1,
-                        pfx_s, pfx_n,
-                        pz,
-                        &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth,
-                        ps2 );
-    }
-
+        return do_conv_numeric( pspec, ap, code, cons, parg, base );
+    
     return EXBADFORMAT;
 }
 
