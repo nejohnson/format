@@ -188,6 +188,20 @@ static char * xx_strchr( const char *, int );
 static void * memcpy( void *, const void *, size_t );
 #endif
 
+/** Conversion handlers **/
+static int do_conv_n( T_FormatSpec *, VALPARM() );
+
+static int do_conv_c( T_FormatSpec *, VALPARM(), char, 
+                      void * (*)(void *, const char *, size_t), void * * );
+                      
+static int do_conv_s( T_FormatSpec *, VALPARM(), char,
+                      void * (*)(void *, const char *, size_t), void * * );
+                      
+static int do_conv_numeric( T_FormatSpec *, VALPARM(), char,
+                            void * (*)(void *, const char *, size_t), void * *,
+                            unsigned int );
+                      
+
 /*****************************************************************************/
 /* Private functions.  Declare as static.                                    */
 /*****************************************************************************/
