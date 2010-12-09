@@ -79,6 +79,19 @@
   #define CONFIG_USE_INLINE_DIV10
 #endif
 
- 
+/*****************************************************************************/
+/** Some machines have a separate memory space for constants.  This macro and
+     type support addressing strings in this alternate data space.
+    The default is treated as normal data accesses.
+**/
+#if defined(__AVR__)
+  #include <avr/pgmspace.h>
+  #define ROM_CHAR(p)           (pgm_read_byte((PGM_P)(p)))
+  #define ROM_PTR_T             PGM_P
+#else /* Default */
+  #define ROM_CHAR(p)           ( *(const char *)(p) )
+  #define ROM_PTR_T             const char *
+#endif
+
  
 #endif /* FORMAT_CONFIG.H */
