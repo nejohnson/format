@@ -84,13 +84,16 @@
      type support addressing strings in this alternate data space.
     The default is treated as normal data accesses.
 **/
-#if defined(__AVR__)
+#if defined(__GNUC__) && defined(__AVR__)
   #include <avr/pgmspace.h>
   #define ROM_CHAR(p)           (pgm_read_byte((PGM_P)(p)))
   #define ROM_PTR_T             PGM_P
+  #define ROM_DECL(x)           x PROGMEM
+  #define CONFIG_HAVE_ALT_PTR
 #else /* Default */
   #define ROM_CHAR(p)           ( *(const char *)(p) )
   #define ROM_PTR_T             const char *
+  #define ROM_DECL(x)           x
 #endif
 
  

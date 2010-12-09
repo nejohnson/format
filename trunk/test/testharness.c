@@ -300,8 +300,15 @@ static void test_s( void )
     TEST( "(null)", 6, "%s", NULL );
 
     /* Check unused flags and lengths are ignored */
-    TEST( "hello", 5, "%+ #0!ls", "hello" );
-    TEST( "hello", 5, "%+ #0!hs", "hello" );
+    TEST( "hello", 5, "%+ 0!ls", "hello" );
+    TEST( "hello", 5, "%+ 0!hs", "hello" );
+    
+#if defined(__AVR__)
+    {
+        static char s_string[] PROGMEM = "funky monkey";
+        TEST( "funky monkey", 12, "%#s", (PGM_P)s_string );
+    }
+#endif    
 }
 
 /*****************************************************************************/
