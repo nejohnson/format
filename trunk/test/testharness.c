@@ -39,7 +39,8 @@
 #include <string.h>
 
 #if defined(__AVR__)
-#include <avr/io.h>
+  #include <avr/io.h>
+  #include <avr/pgmspace.h>
 #endif
 
 #include "format.h"
@@ -793,7 +794,15 @@ static void test_cont( void )
                                         "Three: %s", "3" );
 
     /* Check that flags, precision, width and length are ignored */
-    TEST( "hello world", 11, "hello % +-!#^12.24l", "world" );
+    TEST( "hello world", 11, "hello % +-!^12.24l", "world" );
+
+#if defined(__AVR__)
+    {
+        static char cont_string[] PROGMEM = "brave %s %";
+        TEST( "hello brave new world", 21, 
+                         "hello %#", (PGM_P)cont_string, "new", "world" );
+    }
+#endif
 }
 
 /*****************************************************************************/

@@ -106,6 +106,16 @@
 
 /*****************************************************************************/
 /**
+    Some devices have separate memory spaces for normal data and read-only
+    (or "ROM") data.  We classify these as NORMAL and ALT memory pointers.
+**/
+enum ptr_mode            { NORMAL, ALT };
+
+/** A generic macro to read a character from memory **/
+#define READ_CHAR(m,p)   ( ((m)==NORMAL) ? *(const char *)(p) : ROM_CHAR(p) )
+
+/*****************************************************************************/
+/**
     Wrapper macro around isdigit().
 **/
 #if defined(CONFIG_HAVE_LIBC)
@@ -801,34 +811,61 @@ int format( void *    (* cons) (void *, const char * , size_t),
             va_list      ap )
 {
     T_FormatSpec fspec;
-    unsigned int n;
-    
+    enum ptr_mode  mode = NORMAL;
+    char           c;
+    const void   * ptr = (const void *)fmt;
+
     if ( fmt == NULL )
         return EXBADFORMAT;
 
     fspec.nChars = 0;
-    while ( *fmt )
+
+    while ( ( c = READ_CHAR( mode, ptr ) ) )
     {
-        const char *s = fmt;
+        const void *vs;
 
         /* scan for % or \0 */
-        n = 0;
-        while ( *s && *s != '%' )
+        if ( mode == NORMAL )
         {
-            s++;
-            n++;
+            unsigned int n = 0;
+            const char *s = (const char *)ptr;
+
+            /* For normal RAM-based strings we scan over as many input chars
+             *  as we can to minimise calls to emit().
+             */
+            
+            while ( *s && *s != '%' )
+            {
+                s++;
+                n++;
+            }
+            if ( n > 0 )
+            {
+                if ( emit( ptr, n, cons, &arg ) < 0 )
+                    return EXBADFORMAT;
+               fspec.nChars += n;
+            }
+            ptr = (const void *)s;
+        }
+        else
+        {
+            /* Strange pointers are treated one character at a time to keep 
+             *  the interface to emit() common across all string pointer
+             *  types.
+             */
+            while ( ( c = ROM_CHAR(ptr) ) && c != '%' )
+            {
+                if ( emit( &c, 1, cons, &arg ) < 0 )
+                    return EXBADFORMAT;
+                fspec.nChars++;
+                ptr++;
+            }
         }
 
-        if ( n > 0 )
-        {
-            if ( emit( fmt, n, cons, &arg ) < 0 )
-                return EXBADFORMAT;
-            fspec.nChars += n;
-        }
+        vs = ptr;
 
-        fmt = s;
-
-        if ( *s )
+        c = READ_CHAR( mode, vs );
+        if ( c )
         {
             /* found conversion specifier */
             char convspec;
@@ -838,18 +875,18 @@ int format( void *    (* cons) (void *, const char * , size_t),
             static const unsigned int fbit[] = {
                 FSPACE, FPLUS, FMINUS, FHASH, FZERO, FBANG, FCARET, 0};
 
-            ++s;    /* skip the % sign */
+            ++vs;    /* skip the % sign */
             
             /* process conversion flags */
             for ( fspec.flags = 0; 
-                  *s && ( t = STRCHR(fchar, *s) ) != NULL; 
-                  ++s )
+                  (c = READ_CHAR( mode, vs )) && (t = STRCHR(fchar, c)) != NULL;
+                  ++vs )
             {
                 fspec.flags |= fbit[t - fchar];
             }
 
             /* process width */
-            if ( *s == '*' )
+            if ( READ_CHAR( mode, vs ) == '*' )
             {
                 int v = va_arg( ap, int );
                 if ( v < 0 )
@@ -858,19 +895,25 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     fspec.flags |= FMINUS;
                 }
                 fspec.width = (unsigned int)v;
-                ++s;
+                ++vs;
             }
             else
-                for ( fspec.width = 0; ISDIGIT( *s ); ++s )
-                    fspec.width = fspec.width * 10 + *s - '0';
+            {
+                for ( fspec.width = 0; 
+                      ( c = READ_CHAR( mode, vs ) ) && ISDIGIT( c ); 
+                      ++vs )
+                {
+                    fspec.width = fspec.width * 10 + c - '0';
+                }
+            }
                     
             if ( fspec.width > MAXWIDTH )
                 return EXBADFORMAT;
 
             /* process precision */
-            if ( *s != '.' )
+            if ( READ_CHAR( mode, vs ) != '.' )
                 fspec.prec = UINT_MAX;
-            else if ( *++s == '*' )
+            else if ( READ_CHAR( mode, ++vs ) == '*' )
             {
                 int v = va_arg( ap, int );
                 
@@ -881,41 +924,56 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 else
                     fspec.prec = (unsigned int)v;
 
-                ++s;
+                ++vs;
             }
             else
             {
-                for ( fspec.prec = 0; ISDIGIT( *s ); ++s )
-                    fspec.prec = fspec.prec * 10 + *s - '0';
+                for ( fspec.prec = 0; 
+                      ( c = READ_CHAR( mode, vs ) ) && ISDIGIT( c ); 
+                      ++vs )
+                {
+                    fspec.prec = fspec.prec * 10 + c - '0';
+                }
                 if ( fspec.prec > MAXPREC )
                     return EXBADFORMAT;
             }
 
             /* test for length qualifier */
-            fspec.qual = ( *s && STRCHR( "hljztL", *s ) ) ? *s++ : '\0';
+            c = READ_CHAR( mode, vs );
+            fspec.qual = ( c && STRCHR( "hljztL", c ) ) ? (++vs, c) : '\0';
             
             /* catch double qualifiers */
-            if ( *s && *s == fspec.qual )
+            if ( fspec.qual && (c = READ_CHAR( mode, vs )) && c == fspec.qual )
             {
                 fspec.qual = DOUBLE_QUAL( fspec.qual );
-                s++;
+                vs++;
             }
             
             /* Continuation */
-            if ( *s == '\0' )
+            c = READ_CHAR( mode, vs );
+            if ( c == '\0' )
             {
-                fmt = va_arg( ap, const char * );
+                if ( fspec.flags & FHASH )
+                {
+                    mode = ALT;
+                    ptr = va_arg( ap, ROM_PTR_T );
+                }
+                else
+                {
+                    mode = NORMAL;
+                    ptr = va_arg( ap, const char * );
+                }
                 continue;
             }
             
-            convspec = *s;
+            convspec = c;
             
             if ( convspec == 'C' )
             {
-                s++;
-                if ( *s == '\0' )
+                c = READ_CHAR( mode, ++vs );
+                if ( c == '\0' )
                     return EXBADFORMAT;
-                fspec.repchar = *s;
+                fspec.repchar = c;
             }
             else
             {
@@ -929,7 +987,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
                 fspec.nChars += (unsigned int)nn;
 
-            fmt = s + 1;
+            ptr = vs + 1;
         }
     }
     
