@@ -109,10 +109,14 @@
     Some devices have separate memory spaces for normal data and read-only
     (or "ROM") data.  We classify these as NORMAL and ALT memory pointers.
 **/
-enum ptr_mode            { NORMAL, ALT };
+enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 
 /** A generic macro to read a character from memory **/
-#define READ_CHAR(m,p)   ( ((m)==NORMAL) ? *(const char *)(p) : ROM_CHAR(p) )
+#if defined(CONFIG_HAVE_ALT_PTR)
+  #define READ_CHAR(m,p)   (((m)==NORMAL_PTR) ? *(const char *)(p) : ROM_CHAR(p))
+#else
+  #define READ_CHAR(m,p)   (*(const char *)(p))
+#endif
 
 /*****************************************************************************/
 /**
@@ -133,6 +137,8 @@ enum ptr_mode            { NORMAL, ALT };
 #else
     #define STRLEN(s)       (xx_strlen(s))
 #endif
+
+#define STRLEN_ALT(s)       (xx_strlen_alt(s))
 
 /*****************************************************************************/
 /**
@@ -229,6 +235,21 @@ static size_t xx_strlen( const char *s )
 {
     const char *p;
     for ( p = s; *p != '\0'; p++ )
+        ;
+    return (size_t)(p-s);
+}
+#endif
+
+/** Additional support function that computes the length of a string held in
+     ROM memory.  Because this is a non-standard function we always use our
+     own version, irrespective of what machine-specific support libraries may
+     offer.
+**/
+#if defined(CONFIG_HAVE_ALT_PTR)
+static size_t xx_strlen_alt( ROM_PTR_T s )
+{
+    ROM_PTR_T p;
+    for ( p = s; ROM_CHAR(p) != '\0'; p++ )
         ;
     return (size_t)(p-s);
 }
@@ -472,7 +493,7 @@ static int do_conv_s( T_FormatSpec * pspec,
     size_t padWidth = 0;
     size_t ps1 = 0, ps2 = 0;
     
-    char *s = va_arg(VALST(ap), char *);
+    const char *s = va_arg(VALST(ap), const char *);
     
     if ( s == NULL )
         s = "(null)";
@@ -497,7 +518,83 @@ static int do_conv_s( T_FormatSpec * pspec,
 
     return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
 }
+
+/*****************************************************************************/
+/**
+    Process a %s conversion that uses the alternate pointer type.
     
+    We split out the alternate functionality into a separate function so that
+    platforms that do not have this behaviour are not unduly loaded with 
+    additional code, and it helps keep the main code cleaner.
+    
+    @param pspec    Pointer to format specification.
+    @param ap       Reference to optional format arguments list.
+    @param code     Conversion specifier code.
+    @param cons     Pointer to consumer function.
+    @param parg     Pointer to opaque pointer updated by cons.
+    
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+
+#if defined(CONFIG_HAVE_ALT_PTR)
+static int do_conv_s_alt( T_FormatSpec * pspec,
+                          VALPARM(ap), 
+                          char           code,
+                          void *      (* cons)(void *, const char *, size_t),
+                          void * *       parg )
+{
+    size_t length = 0;
+    size_t padWidth = 0;
+    size_t ps1 = 0, ps2 = 0;
+    size_t n = 0;
+    static ROM_DECL(char null_string[]) = "(null)";
+
+    const void *vp = (const void*)va_arg(VALST(ap), ROM_PTR_T);
+    
+    if ( vp == NULL )
+        vp = null_string;
+    
+    length = STRLEN_ALT( (ROM_PTR_T)vp);
+    length = MIN( pspec->prec, length );
+    
+    if ( length < pspec->width )
+        padWidth = pspec->width - length;
+        
+    if ( pspec->flags & FMINUS )
+        ps2 = padWidth;
+    else
+        ps1 = padWidth;
+        
+    if ( pspec->flags & FCARET )
+    {
+        size_t tot = ps1 + ps2;
+        ps1 = tot / 2;
+        ps2 = tot - ps1;
+    }
+
+    /* Inline the relevant parts of gen_out() here as we need to handle
+     *  alternate memory pointers.
+     */
+    if ( ps1 && pad( spaces, ps1, cons, parg ) < 0 )
+        return EXBADFORMAT;
+    n += ps1;
+    
+    while ( length-- )
+    {
+        char c = ROM_CHAR(vp++);
+        if ( emit( &c, 1, cons, parg ) < 0 )
+            return EXBADFORMAT;
+        n++;
+    }
+    
+    if ( ps2 && pad( spaces, ps2, cons, parg ) < 0 )
+        return EXBADFORMAT;
+    n += ps2;
+
+    return (int)n;
+}
+#endif
+
 /*****************************************************************************/
 /**
     Process the numeric conversions (%b, %d, %i, %o, %u, %x, %X).
@@ -738,7 +835,14 @@ static int do_conv( T_FormatSpec * pspec,
         return do_conv_c( pspec, ap, code, cons, parg );
     
     if ( code == 's' )
-        return do_conv_s( pspec, ap, code, cons, parg );
+    {
+#if defined(CONFIG_HAVE_ALT_PTR)
+        if ( pspec->flags & FHASH )
+            return do_conv_s_alt( pspec, ap, code, cons, parg );
+        else
+#endif        
+            return do_conv_s( pspec, ap, code, cons, parg );
+    }
     
     /* -------------------------------------------------------------------- */
     
@@ -811,7 +915,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
             va_list      ap )
 {
     T_FormatSpec fspec;
-    enum ptr_mode  mode = NORMAL;
+#if defined(CONFIG_HAVE_ALT_PTR)
+    enum ptr_mode  mode = NORMAL_PTR;
+#endif    
     char           c;
     const void   * ptr = (const void *)fmt;
 
@@ -822,34 +928,33 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
     while ( ( c = READ_CHAR( mode, ptr ) ) )
     {
-        const void *vs;
-
         /* scan for % or \0 */
-        if ( mode == NORMAL )
+#if defined(CONFIG_HAVE_ALT_PTR)
+        if ( mode == NORMAL_PTR )
+#endif        
         {
-            unsigned int n = 0;
+            unsigned int n;
             const char *s = (const char *)ptr;
 
             /* For normal RAM-based strings we scan over as many input chars
              *  as we can to minimise calls to emit().
              */
-            
-            while ( *s && *s != '%' )
-            {
-                s++;
-                n++;
-            }
+            for ( ; *s && *s != '%'; s++ )
+                ;
+                
+            n = s - (const char *)ptr;
             if ( n > 0 )
             {
-                if ( emit( ptr, n, cons, &arg ) < 0 )
+                if ( emit( (const char *)ptr, n, cons, &arg ) < 0 )
                     return EXBADFORMAT;
                fspec.nChars += n;
             }
             ptr = (const void *)s;
         }
+#if defined(CONFIG_HAVE_ALT_PTR)    
         else
         {
-            /* Strange pointers are treated one character at a time to keep 
+            /* Alternate pointers are treated one character at a time to keep 
              *  the interface to emit() common across all string pointer
              *  types.
              */
@@ -861,11 +966,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 ptr++;
             }
         }
+#endif
 
-        vs = ptr;
-
-        c = READ_CHAR( mode, vs );
-        if ( c )
+        if ( READ_CHAR( mode, ptr ) )
         {
             /* found conversion specifier */
             char convspec;
@@ -875,18 +978,18 @@ int format( void *    (* cons) (void *, const char * , size_t),
             static const unsigned int fbit[] = {
                 FSPACE, FPLUS, FMINUS, FHASH, FZERO, FBANG, FCARET, 0};
 
-            ++vs;    /* skip the % sign */
+            ++ptr;    /* skip the % sign */
             
             /* process conversion flags */
             for ( fspec.flags = 0; 
-                  (c = READ_CHAR( mode, vs )) && (t = STRCHR(fchar, c)) != NULL;
-                  ++vs )
+                  (c = READ_CHAR( mode, ptr )) && (t = STRCHR(fchar, c)) != NULL;
+                  ++ptr )
             {
                 fspec.flags |= fbit[t - fchar];
             }
 
             /* process width */
-            if ( READ_CHAR( mode, vs ) == '*' )
+            if ( READ_CHAR( mode, ptr ) == '*' )
             {
                 int v = va_arg( ap, int );
                 if ( v < 0 )
@@ -895,13 +998,13 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     fspec.flags |= FMINUS;
                 }
                 fspec.width = (unsigned int)v;
-                ++vs;
+                ++ptr;
             }
             else
             {
                 for ( fspec.width = 0; 
-                      ( c = READ_CHAR( mode, vs ) ) && ISDIGIT( c ); 
-                      ++vs )
+                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ); 
+                      ++ptr )
                 {
                     fspec.width = fspec.width * 10 + c - '0';
                 }
@@ -911,9 +1014,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 return EXBADFORMAT;
 
             /* process precision */
-            if ( READ_CHAR( mode, vs ) != '.' )
+            if ( READ_CHAR( mode, ptr ) != '.' )
                 fspec.prec = UINT_MAX;
-            else if ( READ_CHAR( mode, ++vs ) == '*' )
+            else if ( READ_CHAR( mode, ++ptr ) == '*' )
             {
                 int v = va_arg( ap, int );
                 
@@ -924,13 +1027,13 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 else
                     fspec.prec = (unsigned int)v;
 
-                ++vs;
+                ++ptr;
             }
             else
             {
                 for ( fspec.prec = 0; 
-                      ( c = READ_CHAR( mode, vs ) ) && ISDIGIT( c ); 
-                      ++vs )
+                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ); 
+                      ++ptr )
                 {
                     fspec.prec = fspec.prec * 10 + c - '0';
                 }
@@ -939,30 +1042,34 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
 
             /* test for length qualifier */
-            c = READ_CHAR( mode, vs );
-            fspec.qual = ( c && STRCHR( "hljztL", c ) ) ? (++vs, c) : '\0';
+            c = READ_CHAR( mode, ptr );
+            fspec.qual = ( c && STRCHR( "hljztL", c ) ) ? (++ptr, c) : '\0';
             
             /* catch double qualifiers */
-            if ( fspec.qual && (c = READ_CHAR( mode, vs )) && c == fspec.qual )
+            if ( fspec.qual && (c = READ_CHAR( mode, ptr )) && c == fspec.qual )
             {
                 fspec.qual = DOUBLE_QUAL( fspec.qual );
-                vs++;
+                ++ptr;
             }
             
             /* Continuation */
-            c = READ_CHAR( mode, vs );
+            c = READ_CHAR( mode, ptr );
             if ( c == '\0' )
             {
+#if defined(CONFIG_HAVE_ALT_PTR)                
                 if ( fspec.flags & FHASH )
                 {
-                    mode = ALT;
+                    mode = ALT_PTR;
                     ptr = va_arg( ap, ROM_PTR_T );
                 }
                 else
                 {
-                    mode = NORMAL;
+                    mode = NORMAL_PTR;
+#endif                    
                     ptr = va_arg( ap, const char * );
+#if defined(CONFIG_HAVE_ALT_PTR)
                 }
+#endif                
                 continue;
             }
             
@@ -970,7 +1077,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             
             if ( convspec == 'C' )
             {
-                c = READ_CHAR( mode, ++vs );
+                c = READ_CHAR( mode, ++ptr );
                 if ( c == '\0' )
                     return EXBADFORMAT;
                 fspec.repchar = c;
@@ -987,7 +1094,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
                 fspec.nChars += (unsigned int)nn;
 
-            ptr = vs + 1;
+            ++ptr;
         }
     }
     
