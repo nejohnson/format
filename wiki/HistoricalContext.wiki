@@ -40,4 +40,4 @@ Some interesting observations:
   # Adds a couple of unique features: 
     * `%c` treats the precision field as a repetition count
     * `%'` behaves the same as `%c` but takes the character from the next format string character - on its own this seems silly, but it works in combination with the `%c` repetition feature.  For example, to print 78 minus sign characters you would express this as `"%.78'-"`, which is significantly more compact than 78 minus sign characters.
-    * Both of these features have now been added to *format*, although I used `%C` instead of `%'` to indicate the similar operation to `%c`.
+    * Both of these features have now been added to *format*, although it uses `%C` instead of `%'` to indicate the similar operation to `%c`.
