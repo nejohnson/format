@@ -110,3 +110,63 @@ format( cons, arg, "%#", fmtstring, hellostr );
 Note: this example uses the AVR extensions for GCC.  Other compilers may use slightly different ways of expressing this information, but the basic principle is the same.
 
 On target platforms that do not support nor need this alternate pointer form the `#` flag is ignored by the continuation and `s` conversions.
+
+= Grouping =
+
+The new grouping feature offers a convenient way to format numeric fields in a natural way, somewhat similar to the locale functionality offered in larger C libraries.
+
+One point to note is that the ordering of the grouping specifiers is left-to-right, while the grouping itself is applied right-to-left.
+
+A good first example is printing out disk sizes:
+
+{{{
+format( cons, arg, "Disk size: [3,]d bytes", disk_size );
+}}}
+
+If disk_size is 131,238 bytes, then the result will be
+
+{{{
+Disk size: 131,238 bytes
+}}}
+
+Because of the self-repeating feature, the same format specification works for larger disks too: if disk_size is 12,345,678 then the result will be:
+
+{{{
+Disk size: 12,345,678 bytes
+}}}
+
+Currency provides another good use:
+
+{{{
+format( cons, arg, "You have $[2.3,]d left to spend", money_cents );
+}}}
+
+If your bank account contains $1,234.56, or 123,456 cents, then the above will produce:
+
+{{{
+You have $1,234.56 left to spend
+}}}
+
+The first grouping handles the cents, then the second grouping splits the dollars into groups of thousands, millions (if you're lucky!).
+
+Formatting of binary or hexadecimal fields can be easily achieved:
+
+{{{
+format( cons, arg, "Register = %[2_2_-]b", 0xF3 );
+}}}
+
+will produce
+
+{{{
+Register = 1111_00_11
+}}}
+
+In this case the number is split into two groups of two digits separated by underscore, and then all remaining digits without any further grouping.
+
+Finally, group widths can also be given at runtime using the asterisk:
+
+{{{
+format( cons, arg, "%[*,]d", number, group_width );
+}}}
+
+will format `number` split into groups of `group_width` digits.  If `group_width` is zero (no group) or negative (terminate grouping) then no grouping will be applied in this case.  Also note that unlike the width and precision cases the asterisk arguments _follow_ the numeric argument.
