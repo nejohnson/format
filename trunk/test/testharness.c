@@ -754,6 +754,7 @@ static void test_asterisk( void )
     
     /* Grouping */
     TEST( "1,2_34", 6, "%[*_*,]d", 1234, 2, 1 );
+    TEST( "1234", 4, "%[*,1_]d", 1234, -1 );
     
     /* Also check maximum precision and widths */
     TEST( "00000000000000000000000000000000000000000000000000"

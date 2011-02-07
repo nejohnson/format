@@ -797,7 +797,10 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                     
                 if ( grp == '*' )
                 {
-                    wid = (size_t)va_arg( VALST(ap), size_t );
+                    wid = (int)va_arg( VALST(ap), int );
+                    if ( wid < 0 )
+                        break;
+                        
                     INC_VOID_PTR(ptr);
                     --glen;
                     if ( glen )
