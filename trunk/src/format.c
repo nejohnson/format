@@ -85,7 +85,7 @@
 **/
 #define MAXWIDTH        ( 500 )
 #define MAXPREC         ( 500 )
-#define BUFLEN          ( 40 )  /* must be long enough for 32-bit pointers */
+#define BUFLEN          ( 128 )  /* must be long enough for 64-bit pointers */
 
 /**
     Return the maximum/minimum of two scalar values.
@@ -117,6 +117,10 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 #else
   #define READ_CHAR(m,p)   (*(const char *)(p))
 #endif
+
+/** Its nonsensical to increment a void pointer directly, so we kind-of-cheat
+    by casting it to a char pointer and then incrementing. **/
+#define INC_VOID_PTR(v)     ( (v) = ((const char *)(v))+1 )
 
 /*****************************************************************************/
 /**
@@ -164,6 +168,11 @@ typedef struct {
     unsigned int    prec;   /**< precision                          **/
     char            qual;   /**< length qualifier                   **/
     char            repchar;/**< Repetition character               **/
+    struct {
+        enum ptr_mode mode; /**< grouping spec pointer type         **/
+        const void *  ptr;  /**< ptr to grouping specification      **/
+        size_t        len;  /**< length of grouping spec            **/
+    } grouping;
 } T_FormatSpec;
 
 /*****************************************************************************/
@@ -764,6 +773,72 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         }
     }
            
+    if ( pspec->grouping.len )
+    {
+#if defined(CONFIG_HAVE_ALT_PTR)    
+        enum ptr_mode mode  = pspec->grouping.mode;
+#endif        
+        const void *  ptr   = pspec->grouping.ptr;
+        size_t        glen  = pspec->grouping.len;
+        char          grp;
+        int           wid   = 0;
+        size_t        d_rem = numWidth;
+        size_t        idx   = sizeof(numBuffer) - numWidth;
+        size_t        s, n;
+        
+        while ( d_rem )
+        {
+            if ( glen )
+            {
+                grp = READ_CHAR( mode, ptr );
+                
+                if ( grp == '-' )
+                    break;
+                    
+                if ( grp == '*' )
+                {
+                    wid = (size_t)va_arg( VALST(ap), size_t );
+                    INC_VOID_PTR(ptr);
+                    --glen;
+                    if ( glen )
+                        grp = READ_CHAR( mode, ptr );
+                }
+                else
+                {
+                    for ( wid = 0; 
+                          glen && ( grp = READ_CHAR( mode, ptr ) ) && ISDIGIT( grp );
+                          INC_VOID_PTR(ptr), --glen )
+                    {
+                        wid = wid * 10 + grp - '0';
+                    }
+                }
+                
+                if ( !glen )
+                    break;
+                    
+                INC_VOID_PTR(ptr);
+                --glen;
+            }
+            
+            if ( wid )
+            {
+                if ( d_rem <= wid )
+                    break;
+                
+                for ( s = idx, n = d_rem - wid; n; n--, s++ )
+                    numBuffer[s-1] = numBuffer[s];
+                
+                idx--;
+                numBuffer[idx + d_rem - wid] = grp;
+                numWidth++;
+                
+                d_rem -= wid;
+            }
+            else if ( !glen )
+                break;
+        }
+    }
+    
     digitWidth = numWidth;
     
     /* apply default precision */
@@ -978,12 +1053,12 @@ int format( void *    (* cons) (void *, const char * , size_t),
             static const unsigned int fbit[] = {
                 FSPACE, FPLUS, FMINUS, FHASH, FZERO, FBANG, FCARET, 0};
 
-            ++ptr;    /* skip the % sign */
+            INC_VOID_PTR(ptr);    /* skip the % sign */
             
             /* process conversion flags */
             for ( fspec.flags = 0; 
                   (c = READ_CHAR( mode, ptr )) && (t = STRCHR(fchar, c)) != NULL;
-                  ++ptr )
+                  INC_VOID_PTR(ptr) )
             {
                 fspec.flags |= fbit[t - fchar];
             }
@@ -998,13 +1073,13 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     fspec.flags |= FMINUS;
                 }
                 fspec.width = (unsigned int)v;
-                ++ptr;
+                INC_VOID_PTR(ptr);
             }
             else
             {
                 for ( fspec.width = 0; 
                       ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ); 
-                      ++ptr )
+                      INC_VOID_PTR(ptr) )
                 {
                     fspec.width = fspec.width * 10 + c - '0';
                 }
@@ -1016,7 +1091,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             /* process precision */
             if ( READ_CHAR( mode, ptr ) != '.' )
                 fspec.prec = UINT_MAX;
-            else if ( READ_CHAR( mode, ++ptr ) == '*' )
+            else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
             {
                 int v = va_arg( ap, int );
                 
@@ -1027,29 +1102,61 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 else
                     fspec.prec = (unsigned int)v;
 
-                ++ptr;
+                INC_VOID_PTR(ptr);
             }
             else
             {
                 for ( fspec.prec = 0; 
                       ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ); 
-                      ++ptr )
+                      INC_VOID_PTR(ptr) )
                 {
                     fspec.prec = fspec.prec * 10 + c - '0';
                 }
                 if ( fspec.prec > MAXPREC )
                     return EXBADFORMAT;
             }
+            
+            /* test for grouping qualifier */
+            fspec.grouping.len = 0;
+            c = READ_CHAR( mode, ptr );
+            if ( c == '[' )
+            {
+                size_t gplen = 0;
+
+                /* skip over opening brace */
+                INC_VOID_PTR(ptr);
+                
+                /* set the pointer mode */
+#if defined(CONFIG_HAVE_ALT_PTR)                
+                fspec.grouping.mode = mode;
+#endif                
+                fspec.grouping.ptr  = ptr;
+                    
+                /* scan to end of grouping string */
+                while ( ( c = READ_CHAR( mode, ptr ) ) && c != ']' )
+                {
+                    INC_VOID_PTR(ptr);
+                    ++gplen;
+                }
+                if ( c == '\0' )
+                    return EXBADFORMAT;
+                
+                /* skip over closing brace */
+                INC_VOID_PTR(ptr);
+                
+                /* record the grouping spec length */
+                fspec.grouping.len = gplen;
+            }
 
             /* test for length qualifier */
             c = READ_CHAR( mode, ptr );
-            fspec.qual = ( c && STRCHR( "hljztL", c ) ) ? (++ptr, c) : '\0';
+            fspec.qual = ( c && STRCHR( "hljztL", c ) ) ? (INC_VOID_PTR(ptr), c) : '\0';
             
             /* catch double qualifiers */
             if ( fspec.qual && (c = READ_CHAR( mode, ptr )) && c == fspec.qual )
             {
                 fspec.qual = DOUBLE_QUAL( fspec.qual );
-                ++ptr;
+                INC_VOID_PTR(ptr);
             }
             
             /* Continuation */
@@ -1077,7 +1184,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             
             if ( convspec == 'C' )
             {
-                c = READ_CHAR( mode, ++ptr );
+                c = READ_CHAR( mode, INC_VOID_PTR(ptr) );
                 if ( c == '\0' )
                     return EXBADFORMAT;
                 fspec.repchar = c;
@@ -1094,7 +1201,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
                 fspec.nChars += (unsigned int)nn;
 
-            ++ptr;
+            INC_VOID_PTR(ptr);
         }
     }
     
