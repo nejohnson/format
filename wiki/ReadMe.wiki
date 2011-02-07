@@ -46,9 +46,13 @@ Each conversion specification is introduced by the character `%`.  After the `%`
 
   * An optional length modifier that specifies the size of the argument.
 
+  * An optional grouping modifier that specified how digits are to be grouped.
+
   * A conversion specifier character that specifies the type of conversion to be applied. 
 
 As noted above, a field width, or precision, or both, may be indicated by an asterisk. In this case, an int argument supplies the field width or precision.  The arguments specifying field width, or precision, or both, shall appear (in that order) before the argument (if any) to be converted. A negative field width argument is taken as a `-` flag followed by a positive field width. A negative precision argument is taken as if the precision were omitted. 
+
+=== Flags ===
 
 The flag characters and their meanings are: 
 
@@ -60,6 +64,8 @@ The flag characters and their meanings are:
 ||`!`||        Modifies the behaviour of the `#` flag.  For `b`, `x` and `X` conversions the result is always prefixed, even when zero.  For `x` and `X` conversions the prefix is always `0x`.  If the `#` flag does not appear, or the conversion is not `b`, `x` or `X`, the flag is ignored.||
 ||`0`||        For `b`, `d`, `i`, `o`, `u`, `x`, and `X` conversions, leading zeros (following any indication of sign or base) are used to pad to the field width rather than performing space padding. If the `0` and `-` flags both appear, the `0` flag is ignored.  For `b`, `d`, `i`, `o`, `u`, `x`, and `X` conversions, if a precision is specified, the `0` flag is ignored. For other conversions, the flag is ignored. ||
 
+=== Length Modifiers ===
+
 The length modifiers and their meanings are: 
 
 ||`hh`|| Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to a `signed char` or `unsigned char` argument (the argument will have been promoted according to the integer promotions, but its value shall be converted to `signed char` or `unsigned char` before printing); or that a following `n` conversion specifier applies to a pointer to a `signed char` argument. ||
@@ -70,6 +76,18 @@ The length modifiers and their meanings are:
 ||`t`|| Specifies that a following `b`, `d`, `i`, `o`, `u`, `x`, or `X` conversion specifier applies to a `ptrdiff_t` or the corresponding unsigned integer type argument; or that a following `n` conversion specifier applies to a pointer to a `ptrdiff_t` argument.  ||
 
 If a length modifier appears with any conversion specifier other than as specified above, the length modifier is ignored. 
+
+=== Grouping Modifier ===
+
+The grouping modifier specifies additional formatting rules for `b`, `d`, `i`, `o`, `u`, `x`, and `X` conversion specifiers.  It is ignored for all other conversion specifiers.
+
+A grouping modifier starts with `[` and ends with `]`.  Within the parentheses are number-symbol group specifiers, e.g., `3,` which specifies groups of three digits separated by commas.  The number specifies the number of digits within that group; the symbol specifies the character that is inserted after the group.  A value of zero disables that particular group.  Unless otherwise terminated the last grouping specifier is repeatedly applied to any remaining digits.
+
+If a group specifier begins with `-` then this terminates any further grouping.
+
+An asterisk in place of the number takes the next int argument after the value to be converted (note this is contra to the width and precision specifiers).  If the value is negative it is treated as a '-', terminating any further grouping.
+
+=== Conversion Specifiers ===
 
 The conversion specifiers and their meanings are: 
 
