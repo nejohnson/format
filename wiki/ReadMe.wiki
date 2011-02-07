@@ -81,7 +81,7 @@ If a length modifier appears with any conversion specifier other than as specifi
 
 The grouping modifier specifies additional formatting rules for `b`, `d`, `i`, `o`, `u`, `x`, and `X` conversion specifiers.  It is ignored for all other conversion specifiers.
 
-A grouping modifier starts with `[` and ends with `]`.  Within the parentheses are number-symbol group specifiers, e.g., `3,` which specifies groups of three digits separated by commas.  The number specifies the number of digits within that group; the symbol specifies the character that is inserted after the group.  A value of zero disables that particular group.  Unless otherwise terminated the last grouping specifier is repeatedly applied to any remaining digits.
+A grouping modifier starts with `[` and ends with `]`.  Within the parentheses are number-symbol group specifiers, e.g., "3," which specifies groups of three digits separated by commas.  The number specifies the number of digits within that group; the symbol specifies the character that is inserted after the group.  A value of zero disables that particular group.  Unless otherwise terminated the last grouping specifier is repeatedly applied to any remaining digits.
 
 If a group specifier begins with `-` then this terminates any further grouping.
 
