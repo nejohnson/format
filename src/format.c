@@ -632,6 +632,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     unsigned long uv;
     char prefix[2];
     size_t pfxWidth = 0;
+    size_t grp_insertions = 0;
 
     /* Get the value.
      * Signed values need special handling for negative values and the
@@ -835,6 +836,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                 idx--;
                 numBuffer[idx + d_rem - wid] = grp;
                 numWidth++;
+                grp_insertions++;
 
                 d_rem -= wid;
             }
@@ -851,7 +853,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     else
         pspec->flags &= ~FZERO;
 
-    numWidth = MAX( numWidth, pspec->prec );
+    numWidth = MAX( numWidth, pspec->prec + grp_insertions );
 
     length += numWidth;
     if ( length < pspec->width )
