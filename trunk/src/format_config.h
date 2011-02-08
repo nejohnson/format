@@ -1,6 +1,6 @@
 /* ****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010, Neil Johnson
+ * Copyright (C) 2010-2011, Neil Johnson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -97,4 +97,4 @@
 #endif
 
  
-#endif /* FORMAT_CONFIG.H */
+#endif /* FORMAT_CONFIG_H */

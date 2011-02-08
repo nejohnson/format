@@ -1,5 +1,6 @@
 /* ****************************************************************************
- * Copyright (C) 2010, Neil Johnson
+ * Format - lightweight string formatting library.
+ * Copyright (C) 2010-2011, Neil Johnson
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms,
@@ -35,22 +36,22 @@
 
 /* Error code returned when problem with format specification */
 
-#define EXBADFORMAT 			(-1)
+#define EXBADFORMAT             (-1)
 
 /**
-	Interpret format specification passing formatted text to consumer function.
-	
-	Executes the printf-compatible format specification @a fmt, referring to 
-	optional arguments @a ap.  Any output text is passed to caller-provided
-	consumer function @a cons, which also takes caller-provided opaque pointer
-	@a arg.
-	
-	@param cons			Pointer to caller-provided consumer function.
-	@param arg			Opaque pointer passed through to @a cons.
-	@param fmt			printf-compatible format specifier.
-	@param ap			List of optional format string arguments
-	
-	@returns 			Number of characters sent to @a cons, or EXBADFORMAT.
+    Interpret format specification passing formatted text to consumer function.
+    
+    Executes the printf-compatible format specification @a fmt, referring to 
+    optional arguments @a ap.  Any output text is passed to caller-provided
+    consumer function @a cons, which also takes caller-provided opaque pointer
+    @a arg.
+    
+    @param cons         Pointer to caller-provided consumer function.
+    @param arg          Opaque pointer passed through to @a cons.
+    @param fmt          printf-compatible format specifier.
+    @param ap           List of optional format string arguments
+    
+    @returns            Number of characters sent to @a cons, or EXBADFORMAT.
 **/
 extern int format( void * (* /* cons */) (void *, const char *, size_t),
              void *          /* arg  */,
