@@ -1,6 +1,6 @@
 /****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010, Neil Johnson
+ * Copyright (C) 2010-2011, Neil Johnson
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms,
@@ -28,8 +28,7 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * ************************************************************************* */
-
-
+ 
 /*****************************************************************************/
 /* System Includes                                                           */
 /*****************************************************************************/
