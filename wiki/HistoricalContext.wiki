@@ -12,6 +12,16 @@ http://www.davehylands.com/Robotics/MRM/Str/
 
 Dates from 2003.
 
+== Georges Menies ==
+
+Georges built a nice little printf replacement for embedded systems.  It supports a limited subset of the ANSI printf specification, but usually enough for most typical purposes.
+
+http://www.menie.org/georges/embedded/#printf
+
+Floating point support has been added and maintained by Daniel D Miller (last updated August 2010).
+
+http://home.comcast.net/~derelict/snippets.html
+
 == Philip J. Erdelsky ==
 
 http://www.efgh.com/software/gprintf.htm
