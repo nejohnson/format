@@ -44,9 +44,9 @@ Each conversion specification is introduced by the character `%`.  After the `%`
 
   * An optional precision that gives the minimum number of digits to appear for the `b`, `d`, `i`, `o`, `u`, `x`, and `X` conversions, or the maximum number of bytes to be written for `s` conversions, or the number of repetitions for `c` and `C` conversions. The precision takes the form of a period (.) followed either by an asterisk `*` (described later) or by an optional decimal integer; if only the period is specified, the precision is taken as zero. If a precision appears with any other conversion specifier, it is ignored. 
 
-  * An optional length modifier that specifies the size of the argument.
+  * An optional grouping modifier that specifies how digits are to be grouped.
 
-  * An optional grouping modifier that specified how digits are to be grouped.
+  * An optional length modifier that specifies the size of the argument.
 
   * A conversion specifier character that specifies the type of conversion to be applied. 
 
