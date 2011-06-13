@@ -170,3 +170,7 @@ format( cons, arg, "%[*,]d", number, group_width );
 }}}
 
 will format `number` split into groups of `group_width` digits.  If `group_width` is zero (no group) or negative (terminate grouping) then no grouping will be applied in this case.  Also note that unlike the width and precision cases the asterisk arguments _follow_ the numeric argument.
+
+== Note ==
+
+The current version of the grouping feature does *not* apply to any zero padding.
