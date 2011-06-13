@@ -120,7 +120,7 @@ One point to note is that the ordering of the grouping specifiers is left-to-rig
 A good first example is printing out disk sizes:
 
 {{{
-format( cons, arg, "Disk size: [3,]d bytes", disk_size );
+format( cons, arg, "Disk size: %[3,]d bytes", disk_size );
 }}}
 
 If disk_size is 131,238 bytes, then the result will be
@@ -138,7 +138,7 @@ Disk size: 12,345,678 bytes
 Currency provides another good use:
 
 {{{
-format( cons, arg, "You have $[2.3,]d left to spend", money_cents );
+format( cons, arg, "You have $%[2.3,]d left to spend", money_cents );
 }}}
 
 If your bank account contains $1,234.56, or 123,456 cents, then the above will produce:
