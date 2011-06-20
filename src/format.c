@@ -805,13 +805,13 @@ static int do_conv_numeric( T_FormatSpec * pspec,
 
                     INC_VOID_PTR(ptr);
                     --glen;
-                    if ( glen )
-                        grp = READ_CHAR( mode, ptr );
                 }
                 else
                 {
                     for ( wid = 0;
-                          glen && ( grp = READ_CHAR( mode, ptr ) ) && ISDIGIT( grp );
+                          glen != 0
+                             && ( grp = READ_CHAR( mode, ptr ) ) != '\0'
+                             && ISDIGIT( grp );
                           INC_VOID_PTR(ptr), --glen )
                     {
                         wid = wid * 10 + grp - '0';
@@ -821,6 +821,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                 if ( !glen )
                     break;
 
+                grp = READ_CHAR( mode, ptr );
                 INC_VOID_PTR(ptr);
                 --glen;
             }
@@ -858,8 +859,6 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     length += numWidth;
     if ( length < pspec->width )
         padWidth = pspec->width - length;
-
-    /* got necessary info, now emit the number */
 
     if ( !( pspec->flags & FMINUS ) && !( pspec->flags & FZERO ) )
         ps1 = padWidth;
