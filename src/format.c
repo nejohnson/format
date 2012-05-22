@@ -1,6 +1,6 @@
 /* ****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010-2011, Neil Johnson
+ * Copyright (C) 2010-2012, Neil Johnson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -522,7 +522,7 @@ static int do_conv_s( T_FormatSpec * pspec,
     if ( pspec->flags & FCARET )
     {
         size_t tot = ps1 + ps2;
-        ps1 = tot / 2;
+        ps1 = ( tot + !!( pspec->flags & FMINUS ) ) / 2;
         ps2 = tot - ps1;
     }
 
@@ -578,7 +578,7 @@ static int do_conv_s_alt( T_FormatSpec * pspec,
     if ( pspec->flags & FCARET )
     {
         size_t tot = ps1 + ps2;
-        ps1 = tot / 2;
+        ps1 = ( tot + !!( pspec->flags & FMINUS ) ) / 2;
         ps2 = tot - ps1;
     }
 

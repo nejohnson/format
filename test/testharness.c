@@ -1,6 +1,6 @@
 /****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010-2011, Neil Johnson
+ * Copyright (C) 2010-2012, Neil Johnson
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms,
@@ -293,6 +293,7 @@ static void test_s( void )
     /* Check new ^ centering flag */
     TEST( "  hello  ", 9, "%^9s", "hello" );
     TEST( " hello  ", 8, "%^8s", "hello" );
+    TEST( "  hello ", 8, "%-^8s", "hello" );
     TEST( "hello", 5, "%^3s", "hello" );
     
     /* NULL pointer handled specially */
