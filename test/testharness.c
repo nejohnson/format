@@ -292,8 +292,8 @@ static void test_s( void )
         
     /* Check new ^ centering flag */
     TEST( "  hello  ", 9, "%^9s", "hello" );
-    TEST( " hello  ", 8, "%^8s", "hello" );
-    TEST( "  hello ", 8, "%-^8s", "hello" );
+    TEST( "  hello ", 8, "%^8s", "hello" );
+    TEST( " hello  ", 8, "%-^8s", "hello" );
     TEST( "hello", 5, "%^3s", "hello" );
     
     /* NULL pointer handled specially */
