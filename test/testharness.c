@@ -1,4 +1,4 @@
-/****************************************************************************
+/* ***************************************************************************
  * Format - lightweight string formatting library.
  * Copyright (C) 2010-2012, Neil Johnson
  * All rights reserved.
@@ -71,6 +71,22 @@ static int f = 0;
                 {printf("**** FAIL: returned %d, expected %d.", r, (rtn) );f|=1;} \
             else if ( strcmp( (exs), buf ) )                                \
                 {printf("**** FAIL: produced \"%s\", expected \"%s\".", buf,(exs));f|=1;}\
+            else                                                            \
+                printf("PASS");                                             \
+            printf("\n");                                                   \
+            } while( 0 );
+            
+/**
+    Wrapper macro to run a test that is expected to fail
+    
+    @param fmt              Test format string
+    @param args...          Argument list
+**/
+#define FAIL(fmt,args...)        do {                                       \
+            int r = test_sprintf(buf,(fmt),## args);                        \
+            printf( "[Test  @ %3d] ", __LINE__ );                           \
+            if ( r != EXBADFORMAT )                                         \
+                {printf("**** FAIL: returned %d, expected EXBADFORMAT", r);f|=1;} \
             else                                                            \
                 printf("PASS");                                             \
             printf("\n");                                                   \
@@ -442,6 +458,25 @@ static void test_di( void )
     /* no effect */
     TEST( "1234", 4, "%!#d", 1234 );
     
+    /* Non-standard bases */
+    TEST( "11", 2, "%:3i", 4 );
+    TEST( "11", 2, "%:*i", 3, 4 );
+    
+    TEST( "11", 2, "%:i", 11 );
+    TEST( "12", 2, "%:*i", -1, 12 );
+    
+    TEST( "g", 1, "%:17i", 16 );
+    TEST( "G", 1, "%:17I", 16 );
+    
+    TEST( "XYZ", 3, "%:36I", 44027 );
+    TEST( "  0XYZ", 6, "%6.4:36I", 44027 );
+    TEST( "-G", 2, "%:17I", -16 );
+    
+    /* -- check error paths */
+    FAIL( "%:1i", 0 );        /* base of 1 makes no sense */
+    FAIL( "%:9999i", 0 );     /* very large base */
+    FAIL( "%:*i", 9999, 0 );  /* ditto */
+    
     /* lengths */
     TEST( "24", 2, "%hd", si );
     TEST( "1234567890", 10, "%ld", li );
@@ -727,6 +762,13 @@ static void test_bouxX( void )
         TEST( "12cd", 4, "%+ x", 0x12cd );
         TEST( "12CD", 4, "%+ X", 0x12cd );
     }
+    
+    /* Non-standard bases */
+    TEST( "11", 2, "%:3u", 4 );
+    TEST( "g", 1, "%:17u", 16 );
+    TEST( "G", 1, "%:17U", 16 );
+    TEST( "XYZ", 3, "%:36U", 44027 );
+    TEST( " 00XYZ", 6, "%6.5:36U", 44027 );
 }
 
 /*****************************************************************************/

@@ -1,6 +1,6 @@
 format
 
-Copyright(c) 2010 Neil Johnson
+Copyright(c) 2010-2012 Neil Johnson
 
 
 SUMMARY
@@ -75,35 +75,44 @@ the following appear in sequence:
   later) or a decimal integer. 
 
 = An optional precision that gives the minimum number of digits to appear for 
-  the b, d, i, o, u, x, and X conversions, or the maximum number of bytes to be 
-  written for s conversions. The precision takes the form of a period (.) 
+  the b, d, i, I, o, u, U, x, and X conversions, or the maximum number of bytes 
+  to be written for s conversions. The precision takes the form of a period (.) 
   followed either by an asterisk * (described later) or by an optional decimal 
-  integer; if only the period is specified, the precision is taken as zero. If 
-  a precision appears with any other conversion specifier, it is ignored. 
+  integer; if only the period is specified, the precision is taken as zero.
+  
+= An optional number base modifier that specifies the numeric base to be used
+  by the i, I, u and U conversions. The base takes the form of a colon (:)
+  followed by either an asterisk * (described later) or by an optional decimal 
+  integer; if only the colon is specified the base is taken as decimal.
+  
+= An optional grouping modifier that specifies how digits are to be grouped.  
 
 = An optional length modifier that specifies the size of the argument.
 
 = A conversion specifier character that specifies the type of conversion to be 
   applied. 
 
-As noted above, a field width, or precision, or both, may be indicated by an 
-asterisk. In this case, an int argument supplies the field width or precision.
-The arguments specifying field width, or precision, or both, shall appear (in 
-that order) before the argument (if any) to be converted. A negative field 
-width argument is taken as a "-" flag followed by a positive field width. A 
-negative precision argument is taken as if the precision were omitted. 
+As noted above, a field width, precision, base, or any combination, may be 
+indicated by an asterisk. In this case, an int argument supplies the field width
+or precision.  The arguments specifying field width, or precision, or both, 
+shall appear (in that order) before the argument (if any) to be converted. A 
+negative field width argument is taken as a "-" flag followed by a positive 
+field width. A negative precision argument is taken as if the precision were 
+omitted. 
 
 The flag characters and their meanings are: 
 
 -          The result of the conversion is left-justified within the field.  It
-           is right-justified if this flag is not specified.  If the ^ flag 
-           appears this flag will be ignored.
+           is right-justified if this flag is not specified.
 
 ^          The result of the conversion is centre-justified within the field.
-           It is right-justified if this flag is not specified.
+           It is right-justified if this flag is not specified. When there is
+           an odd number of padding spaces the result of the conversion is
+           biased to the right. It is biased to the left if the - flag is also
+           specified.
 
 +          The result of a signed conversion always begins with a plus or minus 
-           sign.  It begins with a sign only when a negative value is converted
+           sign. It begins with a sign only when a negative value is converted
            if this flag is not specified.
 
 space      If the first character of a signed conversion is not a sign, or if a 
@@ -118,28 +127,28 @@ space      If the first character of a signed conversion is not a sign, or if a
            nonzero result has "0x" (or "0X" or "0b") prefixed to it. For other 
            conversions, the flag is ignored.
            
-!          Modifies the behaviour of the # flag.  For b, x and X conversions the
+!          Modifies the behaviour of the # flag. For b, x and X conversions the
            result is always prefixed, even when zero.  For x and X conversions 
-           the prefix is always "0x".  If the # flag does not appear, or the 
+           the prefix is always "0x". If the # flag does not appear, or the 
            conversion is not b, x or X, the flag is ignored.
 
-0          For b, d, i, o, u, x, and X conversions, leading zeros (following any 
-           indication of sign or base) are used to pad to the field width rather 
-           than performing space padding. If the 0 and - flags both appear, the
-           0 flag is ignored.  For b, d, i, o, u, x, and X conversions, if a 
-           precision is specified, the 0 flag is ignored. For other conversions, 
-           the flag is ignored. 
+0          For b, d, i, I, o, u, U, x, and X conversions, leading zeros 
+           (following any indication of sign or base) are used to pad to the 
+           field width rather than performing space padding. If the 0 and - 
+           flags both appear, the 0 flag is ignored.  For b, d, i, I, o, u, U, 
+           x, and X conversions, if a precision is specified, the 0 flag is 
+           ignored. For other conversions, the flag is ignored. 
 
 The length modifiers and their meanings are: 
 
-h          Specifies that a following b, d, i, o, u, x, or X conversion 
+h          Specifies that a following b, d, i, I, o, u, U, x, or X conversion 
            specifier applies to a short int or unsigned short int argument (the 
            argument will have been promoted according to the integer promotions, 
            but its value shall be converted to short int or unsigned short int 
            before consuming); or that a following n conversion specifier applies
            to a pointer to a short int argument. 
 
-l(ell)     Specifies that a following b, d, i, o, u, x, or X conversion 
+l(ell)     Specifies that a following b, d, i, I, o, u, U, x, or X conversion 
            specifier applies to a long int or unsigned long int argument; or 
            that a following n conversion specifier applies to a pointer to a 
            long int argument.
@@ -149,49 +158,59 @@ specified above, the length modifier is ignored.
 
 The conversion specifiers and their meanings are: 
 
-d,i        The int argument is converted to signed decimal in the style [-]dddd. 
-           The precision specifies the minimum number of digits to appear; if
-           the value being converted can be represented in fewer digits, it is 
-           expanded with leading zeros. The default precision is 1. The result 
-           of converting a zero value with a precision of zero is no characters. 
+d,i,I        The int argument is converted to signed decimal (d) or signed 
+             number of the specified base (i or I) in the style [-]dddd. The 
+             base specifies the number base. For bases greater than decimal the
+             letters 'A' to 'Z' are used for I conversions, and 'a' to 'z' for 
+             i conversions. The precision specifies the minimum number of digits
+             to appear; if the value being converted can be represented in fewer
+             digits, it is expanded with leading zeros. The default precision is
+             1. The result of converting a zero value with a precision of zero
+             is no characters. 
+             
+b,o,u,U,x,X  The unsigned int argument is converted to unsigned binary (b), 
+             unsigned octal (o), unsigned number of specified base (u or U), or 
+             unsigned hexadecimal notation (x or X) in the style dddd. For 
+             bases greater than decimal the letters 'A' to 'Z' are used for X 
+             and U conversions, and 'a' to 'z' for x and u conversions. The 
+             precision specifies the minimum number of digits to appear; if the 
+             value being converted can be represented in fewer digits, it is 
+             expanded with leading zeros.  The default precision is 1. The 
+             result of converting a zero value with a precision of zero is no
+             characters.
 
-b,o,u,x,X  The unsigned int argument is converted to unsigned binary (b), 
-           unsigned octal (o), unsigned decimal (u), or unsigned hexadecimal 
-           notation (x or X) in the style dddd; the letters "abcdef" are used 
-           for x conversion and the letters "ABCDEF" for X conversion. The 
-           precision specifies the minimum number of digits to appear; if the 
-           value being converted can be represented in fewer digits, it is 
-           expanded with leading zeros.  The default precision is 1. The result
-           of converting a zero value with a precision of zero is no characters. 
+c            The int argument is converted to an unsigned char, and the
+             resulting character is written.
 
-c          The int argument is converted to an unsigned char, and the resulting 
-           character is written.  
+C            The character immediately following the conversion specifier is 
+             written.  The precision specifies how many times the character is
+             written.  The default and minimum precision is 1.
 
-s          The argument is a pointer to the initial element of an array of 
-           character type. Characters from the array are written up to (but not 
-           including) the terminating null character. If the precision is 
-           specified, no more than that many bytes are written. If the precision 
-           is not specified or is greater than the size of the array, the array 
-           must contain a null character.  A NULL argument is treated as pointer
-           to the string "(null)".
+s            The argument is a pointer to the initial element of an array of 
+             character type. Characters from the array are written up to (but 
+             not including) the terminating null character. If the precision is 
+             specified, no more than that many bytes are written. If the 
+             precision is not specified or is greater than the size of the 
+             array, the array must contain a null character.  A NULL argument is
+             treated as pointer to the string "(null)".
 
-p          The argument is a pointer to void. The value of the pointer is 
-           converted to a sequence of printing characters using the conversion
-           specification %#!N.NX, where N is determined by the size of pointer 
-           to int on the target machine. 
+p            The argument is a pointer to void. The value of the pointer is 
+             converted to a sequence of printing characters using the conversion
+             specification %#!N.NX, where N is determined by the size of pointer 
+             to int on the target machine. 
 
-n          The argument is a pointer to signed integer into which is written
-           the number of characters passed to the consumer function so far by 
-           this call to "format".  No argument is converted, but one is 
-           consumed. Any flags, a field width, or a precision will be ignored.
-           A NULL argument is silently ignored.
+n            The argument is a pointer to signed integer into which is written
+             the number of characters passed to the consumer function so far by 
+             this call to "format".  No argument is converted, but one is 
+             consumed. Any flags, a field width, or a precision will be ignored.
+             A NULL argument is silently ignored.
 
-%          A "%" character is written. No argument is converted. The complete 
-           conversion specification is %%. 
+%            A "%" character is written. No argument is converted. The complete 
+             conversion specification is %%. 
            
-"          The argument is treated as a continuation of the format
-           specification.  Any flags, width, precision or length will be 
-           ignored.
+"            The argument is treated as a continuation of the format
+             specification.  Any flags, width, precision or length will be 
+             ignored.
 
 If a conversion specification is invalid, "format" returns an error code. If any 
 argument is not the correct type for the corresponding conversion specification, 
@@ -202,7 +221,7 @@ if the result of a conversion is wider than the field width, the field is
 expanded to contain the conversion result. 
 
 
-RETURNS
+RETURN VALUE
 
 The "format" function returns the number of characters sent to the consumer
 function, or the negative value EXBADFORMAT if an output or encoding error
@@ -213,6 +232,9 @@ LIMITS
 
 The maximum width and precision are 500.  It is an error if values larger than
 this are specified.
+
+The largest number base is 36.  The smallest is 2.  A base of 1 or 0 is treated
+as decimal (base 10).  It is an error to specify a base greater than 36.
 
 
 EXAMPLES
