@@ -85,6 +85,7 @@
 **/
 #define MAXWIDTH        ( 500 )
 #define MAXPREC         ( 500 )
+#define MAXBASE         ( 36 )
 #define BUFLEN          ( 128 )  /* Must be long enough for 64-bit pointers 
                                      in binary with maximum grouping chars */
 
@@ -167,6 +168,7 @@ typedef struct {
     unsigned int    flags;  /**< flags                              **/
     unsigned int    width;  /**< width                              **/
     unsigned int    prec;   /**< precision                          **/
+    unsigned int    base;   /**< numeric base                       **/
     char            qual;   /**< length qualifier                   **/
     char            repchar;/**< Repetition character               **/
     struct {
@@ -633,6 +635,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     char prefix[2];
     size_t pfxWidth = 0;
     size_t grp_insertions = 0;
+    static const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     /* Get the value.
      * Signed values need special handling for negative values and the
@@ -755,24 +758,40 @@ static int do_conv_numeric( T_FormatSpec * pspec,
             uv = div_uv;
         }
     }
-    else /* base is 2, 8 or 16 */
+     /* Special-case for bases 2, 8 or 16 for the dedicated conversion
+      * specifiers %b, %o and %x/%X.
+      */
+    else if ( base == 2 || base == 8 || base == 16 )
     {
         unsigned int mask  = base - 1;
         unsigned int shift = base == 16 ? 4
                                         : base == 8 ? 3 : 1;
-        static const char digits[] = "0123456789ABCDEF";
-
+        
         for( numWidth = 0; uv; uv >>= shift )
         {
             char cc = digits[uv & mask];
 
             /* convert to lower case? */
-            if ( code == 'x' )
+            if ( code == 'x' || code == 'i' || code == 'u' )
                 cc |= 0x20;
 
             ++numWidth;
             numBuffer[sizeof(numBuffer) - numWidth] = cc;
         }
+    }
+    else /* all other bases */
+    {
+       for ( numWidth = 0; uv; uv /= base )
+       {
+          char cc = digits[uv % base];
+          
+          /* convert to lower case? */
+          if ( code == 'i' || code == 'u' )
+             cc |= 0x20;
+             
+          ++numWidth;
+          numBuffer[sizeof(numBuffer) - numWidth] = cc;
+       }    
     }
 
     if ( pspec->grouping.len )
@@ -946,18 +965,21 @@ static int do_conv( T_FormatSpec * pspec,
      *  flag is ignored.  We set the F_IS_SIGNED internal flag to guide later
      *  processing.
      */
-    if ( code == 'd' || code == 'i' )
+    if ( code == 'd' || code == 'i' || code == 'I' )
     {
         pspec->flags |= F_IS_SIGNED;
         base = 10;
         pspec->flags &= ~FHASH;
+        
+        if ( ( code == 'i' || code == 'I' ) && pspec->base )
+           base = pspec->base;
     }
 
     if ( code == 'x' || code == 'X' )
         base = 16;
 
-    if ( code == 'u' )
-        base = 10;
+    if ( code == 'u' || code == 'U' )
+       base = pspec->base ? pspec->base : 10;
 
     if ( code == 'o' )
         base = 8;
@@ -965,7 +987,7 @@ static int do_conv( T_FormatSpec * pspec,
     if ( code == 'b' )
         base = 2;
 
-    if ( base > 0 )
+    if ( base > 1 )
         return do_conv_numeric( pspec, ap, code, cons, parg, base );
 
     return EXBADFORMAT;
@@ -1083,7 +1105,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
             {
                 for ( fspec.width = 0;
-                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c );
+                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && fspec.width < MAXWIDTH;
                       INC_VOID_PTR(ptr) )
                 {
                     fspec.width = fspec.width * 10 + c - '0';
@@ -1112,12 +1134,40 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
             {
                 for ( fspec.prec = 0;
-                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c );
+                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && fspec.prec < MAXPREC;
                       INC_VOID_PTR(ptr) )
                 {
                     fspec.prec = fspec.prec * 10 + c - '0';
                 }
                 if ( fspec.prec > MAXPREC )
+                    return EXBADFORMAT;
+            }
+            
+            /* process base */
+            if ( READ_CHAR( mode, ptr ) != ':' )
+                fspec.base = 0;
+            else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
+            {
+                int v = va_arg( ap, int );
+
+                if ( v < 0 )
+                    fspec.base = 0;
+                else if ( v > MAXBASE )
+                    return EXBADFORMAT;
+                else
+                    fspec.base = (unsigned int)v;
+
+                INC_VOID_PTR(ptr);
+            }
+            else
+            {
+                for ( fspec.base = 0;
+                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && fspec.base < MAXBASE;
+                      INC_VOID_PTR(ptr) )
+                {
+                    fspec.base = fspec.base * 10 + c - '0';
+                }
+                if ( fspec.base > MAXBASE )
                     return EXBADFORMAT;
             }
 
