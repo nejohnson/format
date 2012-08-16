@@ -233,8 +233,9 @@ LIMITS
 The maximum width and precision are 500.  It is an error if values larger than
 this are specified.
 
-The largest number base is 36.  The smallest is 2.  A base of 1 or 0 is treated
-as decimal (base 10).  It is an error to specify a base greater than 36.
+The largest number base is 36.  The smallest is 2.  A base of 0 (the default) is
+treated as decimal (base 10).  It is an error to specify a base of 1 or greater
+than 36.
 
 
 EXAMPLES
