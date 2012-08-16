@@ -44,6 +44,8 @@ Each conversion specification is introduced by the character `%`.  After the `%`
 
   * An optional precision that gives the minimum number of digits to appear for the `b`, `d`, `i`, `o`, `u`, `x`, and `X` conversions, or the maximum number of bytes to be written for `s` conversions, or the number of repetitions for `c` and `C` conversions. The precision takes the form of a period (.) followed either by an asterisk `*` (described later) or by an optional decimal integer; if only the period is specified, the precision is taken as zero. If a precision appears with any other conversion specifier, it is ignored. 
 
+  * An optional number base modifier that specifies the numeric base to be used by the `i`, `I`, `u` and `U` conversions. The base takes the form of a colon (:) followed by either an asterisk `*` (described later) or by an optional decimal integer; if only the colon is specified the base is taken as decimal.
+
   * An optional grouping modifier that specifies how digits are to be grouped.
 
   * An optional length modifier that specifies the size of the argument.
@@ -91,8 +93,8 @@ An asterisk in place of the number takes the next int argument after the value t
 
 The conversion specifiers and their meanings are: 
 
-||`d`,`i`||    The `int` argument is converted to signed decimal in the style `[`-`]`dddd. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros. The default precision is 1. The result of converting a zero value with a precision of zero is no characters. ||
-||`b`,`o`,`u`,`x`,`X`||  The `unsigned int` argument is converted to unsigned binary (`b`),  unsigned octal (`o`), unsigned decimal (`u`), or unsigned hexadecimal notation (`x` or `X`) in the style `dddd`; the letters `abcdef` are used for `x` conversion and the letters `ABCDEF` for `X` conversion. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros.  The default precision is 1. The result of converting a zero value with a precision of zero is no characters.||
+||`d`,`i`,`I`||    The `int` argument is converted to signed decimal (`d`) or signed number of the specified base (`i` or `I`)  in the style `[`-`]`dddd. The base specifies the number base. For bases greater than decimal the letters `A` to `Z` are used for `I` conversions, and `a` to `z` for `i` conversions.  The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros. The default precision is 1. The result of converting a zero value with a precision of zero is no characters. ||
+||`b`,`o`,`u`,`U`,`x`,`X`||  The `unsigned int` argument is converted to unsigned binary (`b`),  unsigned octal (`o`), unsigned number of specified base (`u` or `U`), or unsigned hexadecimal notation (`x` or `X`) in the style `dddd`. For bases greater than decimal the letters `A` to `Z` are used for `X` and `U` conversions, and `a` to `z` for `x` and `u` conversions. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros.  The default precision is 1. The result of converting a zero value with a precision of zero is no characters.||
 ||`c`||     The `int` argument is converted to an `unsigned char`, and the resulting character is written.  The precision specifies how many times the character is written.  The default and minimum precision is 1.||
 ||`C`||     The character immediately following the conversion specifier is written.  The precision specifies how many times the character is written.  The default and minimum precision is 1.||
 ||`s`||    The argument is a pointer to the initial element of an array of character type. Characters from the array are written up to (but not including) the terminating null character. If the precision is specified, no more than that many bytes are written. If the precision is not specified or is greater than the size of the array, the array must contain a null character.  A NULL argument is treated as pointer to the string "(null)".||
@@ -106,7 +108,7 @@ If a conversion specification is invalid, `format` returns an error code. If any
 In no case does a nonexistent or small field width cause truncation of a field; if the result of a conversion is wider than the field width, the field is expanded to contain the conversion result. 
 
 
-== Returns ==
+== Return Value ==
 
 The `format` function returns the number of characters sent to the consumer function, or the negative value `EXBADFORMAT` if an output or encoding error occurred. 
 
@@ -114,6 +116,8 @@ The `format` function returns the number of characters sent to the consumer func
 == Limits ==
 
 The maximum width and precision are 500.  It is an error if values larger than this are specified.
+
+The largest number base is 36.  The smallest is 2.  A base of 0 (the default) is treated as decimal (base 10).  It is an error to specify a base of 1 or greater than 36.
 
 
 == Examples ==
