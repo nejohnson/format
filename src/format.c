@@ -86,8 +86,9 @@
 #define MAXWIDTH        ( 500 )
 #define MAXPREC         ( 500 )
 #define MAXBASE         ( 36 )
-#define BUFLEN          ( 128 )  /* Must be long enough for 64-bit pointers 
-                                     in binary with maximum grouping chars */
+#define BUFLEN          ( 130 )  /* Must be long enough for 64-bit pointers 
+                                     in binary with maximum grouping chars and
+                                     prefix. */
 
 /**
     Return the maximum/minimum of two scalar values.
