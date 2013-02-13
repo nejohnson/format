@@ -124,6 +124,8 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 /** Its nonsensical to increment a void pointer directly, so we kind-of-cheat
     by casting it to a char pointer and then incrementing. **/
 #define INC_VOID_PTR(v)     ( (v) = ((const char *)(v))+1 )
+#define DEC_VOID_PTR(v)     ( (v) = ((const char *)(v))-1 )
+#define MOVE_VOID_PTR(v,n)  ( (v) = ((const char *)(v))+(n) )
 
 /*****************************************************************************/
 /**
@@ -804,9 +806,12 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         size_t        glen  = pspec->grouping.len;
         char          grp;
         int           wid   = 0;
+        unsigned int  decade;
         size_t        d_rem = numWidth;
         size_t        idx   = sizeof(numBuffer) - numWidth;
         size_t        s, n;
+        
+        ptr = MOVE_VOID_PTR( ptr, glen - 1 );
 
         while ( d_rem )
         {
@@ -823,18 +828,19 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                     if ( wid < 0 )
                         break;
 
-                    INC_VOID_PTR(ptr);
+                    DEC_VOID_PTR(ptr);
                     --glen;
                 }
                 else
                 {
-                    for ( wid = 0;
+                    for ( wid = 0, decade = 1;
                           glen != 0
                              && ( grp = READ_CHAR( mode, ptr ) ) != '\0'
                              && ISDIGIT( grp );
-                          INC_VOID_PTR(ptr), --glen )
+                          DEC_VOID_PTR(ptr), --glen )
                     {
-                        wid = wid * 10 + grp - '0';
+                        wid += decade * ( grp - '0' );
+                        decade *= 10;
                     }
                 }
 
@@ -842,7 +848,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                     break;
 
                 grp = READ_CHAR( mode, ptr );
-                INC_VOID_PTR(ptr);
+                DEC_VOID_PTR(ptr);
                 --glen;
             }
 
