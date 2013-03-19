@@ -1,6 +1,6 @@
 /* ****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010-2012, Neil Johnson
+ * Copyright (C) 2010-2013, Neil Johnson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -46,6 +46,10 @@
   #include <ctype.h>
 #endif
 
+#if defined(CONFIG_WITH_FP_SUPPORT)
+  #include <float.h>
+#endif
+
 /*****************************************************************************/
 /* Project Includes                                                          */
 /*****************************************************************************/
@@ -86,7 +90,7 @@
 #define MAXWIDTH        ( 500 )
 #define MAXPREC         ( 500 )
 #define MAXBASE         ( 36 )
-#define BUFLEN          ( 130 )  /* Must be long enough for 64-bit pointers 
+#define BUFLEN          ( 130 )  /* Must be long enough for 64-bit pointers
                                      in binary with maximum grouping chars and
                                      prefix. */
 
@@ -95,6 +99,11 @@
 **/
 #define MAX(a,b)        ( (a) > (b) ? (a) : (b) )
 #define MIN(a,b)        ( (a) < (b) ? (a) : (b) )
+
+/**
+    Return the absolute value of a signed scalar value.
+**/
+#define ABS(a)          ( (a) < 0 ? -(a) : (a) )
 
 /** Set up platform-dependent access to variable arguments **/
 #if defined(CONFIG_VA_LIST_AS_ARRAY_TYPE)
@@ -105,6 +114,45 @@
   #define VARGS(x)        (&x)
   #define VALPARM(y)      const va_list *y
   #define VALST(z)        (*z)
+#endif
+
+/** Floating point support **/
+#if defined(CONFIG_WITH_FP_SUPPORT)
+  /* Smaller platforms only support single-precision for everything, and as
+   *  well as changing the flaoting point format it also affects the size
+   *  of the decimal mantissa variable.
+   */
+  #if ( DBL_DIG > 8 ) /* 64-bit doubles */
+    #define DEC_MANT_REG_TYPE     unsigned long long
+    #define DEC_1P0               ( 1000000000000000ULL )
+    #define DEC_SIG_FIG           ( 16 )
+    #define BIN_SIGN_WIDTH        ( 1 )
+    #define BIN_EXP_WIDTH         ( 11 )
+    #define BIN_EXP_BIAS          ( 1023 )
+    #define BIN_MANT_WIDTH        ( 52 )
+    #define BIN_MANT_SINGLE_BIT   ( 1ULL )
+  #else /* 32-bit doubles */
+    #define DEC_MANT_REG_TYPE     unsigned long
+    #define DEC_1P0               ( 100000000UL )
+    #define DEC_SIG_FIG           ( 9 )
+    #define BIN_SIGN_WIDTH        ( 1 )
+    #define BIN_EXP_WIDTH         ( 8 )
+    #define BIN_EXP_BIAS          ( 127 )
+    #define BIN_MANT_WIDTH        ( 23 )
+    #define BIN_MANT_SINGLE_BIT   ( 1UL )
+  #endif
+
+  /** Generated constants - depend on platform settings **/
+  #define BIN_SIGN_MASK         ( ( 1 << BIN_SIGN_WIDTH ) - 1 )
+  #define BIN_SIGN_SHIFT        ( ( sizeof(double) * CHAR_BIT ) - BIN_SIGN_WIDTH )
+  #define BIN_EXP_MASK          ( ( 1 << BIN_EXP_WIDTH ) - 1 )
+  #define BIN_EXP_SHIFT         ( ( sizeof(double) * CHAR_BIT ) - BIN_SIGN_WIDTH - BIN_EXP_WIDTH )
+  #define BIN_MANT_MASK         ( ( BIN_MANT_SINGLE_BIT << BIN_MANT_WIDTH ) - 1 )
+  #define BIN_MANT_REG_TOP_BIT  ( BIN_MANT_SINGLE_BIT << ( ( sizeof(double) * CHAR_BIT ) - 1 ) )
+  #define BIN_MANT_LEFT_ALIGN   ( BIN_SIGN_WIDTH + BIN_EXP_WIDTH )
+
+  #define DEC_FP_IS_NAN(s,m,e)   ( (e) == INT_MAX && (m) != 0 )
+  #define DEC_FP_IS_INF(s,m,e)   ( (e) == INT_MAX && (m) == 0 )
 #endif
 
 /*****************************************************************************/
@@ -121,7 +169,7 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
   #define READ_CHAR(m,p)   (*(const char *)(p))
 #endif
 
-/** Its nonsensical to increment a void pointer directly, so we kind-of-cheat
+/** It is nonsensical to increment a void pointer directly, so we kind-of-cheat
     by casting it to a char pointer and then incrementing. **/
 #define INC_VOID_PTR(v)     ( (v) = ((const char *)(v))+1 )
 #define DEC_VOID_PTR(v)     ( (v) = ((const char *)(v))-1 )
@@ -132,7 +180,7 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
     Wrapper macro around isdigit().
 **/
 #if defined(CONFIG_HAVE_LIBC)
-    #define ISDIGIT(c)      (isdigit(c))
+    #define ISDIGIT(c)      (isdigit((int)c))
 #else
     #define ISDIGIT(c)      (('0' <= (c) && (c) <= '9') ? 1 : 0)
 #endif
@@ -160,6 +208,18 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 #endif
 
 /*****************************************************************************/
+/**
+    Debugging aids.
+**/
+/* #define FORMAT_DEBUG */
+#include <stdio.h>
+#ifdef FORMAT_DEBUG
+#define DEBUG_LOG(fmt,args...)  printf((fmt),## args)
+#else
+#define DEBUG_LOG(fmt,args...)  ((void*)0)
+#endif
+
+/*****************************************************************************/
 /* Data types                                                                */
 /*****************************************************************************/
 
@@ -169,9 +229,9 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 typedef struct {
     unsigned int    nChars; /**< number of chars emitted so far     **/
     unsigned int    flags;  /**< flags                              **/
-    unsigned int    width;  /**< width                              **/
-    unsigned int    prec;   /**< precision                          **/
-    unsigned int    base;   /**< numeric base                       **/
+    int             width;  /**< width                              **/
+    int             prec;   /**< precision                          **/
+    int             base;   /**< numeric base                       **/
     char            qual;   /**< length qualifier                   **/
     char            repchar;/**< Repetition character               **/
     struct {
@@ -209,6 +269,10 @@ static int gen_out( void *(*)(void *, const char *, size_t), void * *,
                     size_t, const char *, size_t, size_t,
                     const char *, size_t, size_t );
 
+static void calc_space_padding( T_FormatSpec *, size_t, size_t *, size_t * );
+
+static int mant_to_char( char *, DEC_MANT_REG_TYPE, int, int, int );
+
 /* Only declare these prototypes in a freestanding environment */
 #if !defined(CONFIG_HAVE_LIBC)
 static size_t xx_strlen( const char * );
@@ -232,6 +296,18 @@ static int do_conv_numeric( T_FormatSpec *, VALPARM(), char,
                             void * (*)(void *, const char *, size_t), void * *,
                             unsigned int );
 
+/* For optional floating point support */
+#if defined(CONFIG_WITH_FP_SUPPORT)
+static void radix_convert( double, unsigned int *, DEC_MANT_REG_TYPE *, int * );
+
+static int do_conv_fp( T_FormatSpec *, VALPARM(), char,
+                       void * (*)(void *, const char *, size_t), void * * );
+
+static int do_conv_infnan( T_FormatSpec *, char,
+                           void *          (*)(void *, const char *, size_t),
+                           void * *,
+                           unsigned int, DEC_MANT_REG_TYPE, int );
+#endif
 
 /*****************************************************************************/
 /* Private functions.  Declare as static.                                    */
@@ -410,6 +486,765 @@ static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
 
 /*****************************************************************************/
 /**
+    Calculate the left and right space padding amount.
+
+    @param pspec        Pointer to format specification.
+    @param length       Length of item
+    @param ps1          Pointer to store left padding.  May be NULL.
+    @param ps2          Pointer to store right padding. May be NULL.
+**/
+static void calc_space_padding( T_FormatSpec * pspec,
+                                size_t length,
+                                size_t *ps1,
+                                size_t *ps2 )
+{
+    size_t left = 0, right = 0, width = 0;
+
+    if ( length < pspec->width )
+        width = pspec->width - length;
+
+    if ( pspec->flags & FMINUS )
+        right = width;
+    else
+        left = width;
+
+    if ( pspec->flags & FCARET )
+    {
+        size_t tot = left + right;
+        left       = ( tot + !( pspec->flags & FMINUS ) ) / 2;
+        right      = tot - left;
+    }
+
+    if ( ps1 ) *ps1 = left;
+    if ( ps2 ) *ps2 = right;
+}
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+/*****************************************************************************/
+/**
+   Convert a binary IEEE 754 double-precision number from radix-2 to radix-10.
+
+   (Note: on smaller platforms double is the same size as float, so read the
+          following with that in mind if you're looking at a small system)
+
+   Implement an exponent conversion from base-2 to base-10.  This is most
+   useful in printing a floating point number without using any floating
+   point math routines.
+
+   The result is DEC_SIG_FIG digits.  For 64-bit double precision that
+   equates to 16 digits in total.
+
+   The usual exceptions are supported and are compatible with IEEE 754:
+      -inf   sign = 1, mantissa  = 0, exponent = MAX
+      +inf   sign = 0, mantissa  = 0, exponent = MAX
+      NaN    (ignored) mantissa != 0, exponent = MAX
+
+   The result is a decimal number in the mantissa of the form
+
+         D[.]ddddddddddddddd
+
+   where D is a single decimal digit
+         dd...d is the (DEC_SIG_FIG - 1) digit fractional part
+         the decimal point [.] is assumed
+
+   The sign is the same as for the radix-2 number.
+   The exponent is in powers of 10.
+
+   @param v             Input value to be converted
+   @param d_sign        Output sign (0 = +ve, 1 = -ve)
+   @param d_mantissa    Output mantissa
+   @param d_exponent    Output exponent
+**/
+static void radix_convert( double              v,
+                           unsigned int       *d_sign,
+                           DEC_MANT_REG_TYPE  *d_mantissa,
+                           int                *d_exponent )
+{
+    union {
+        double            fv;
+        DEC_MANT_REG_TYPE bits;
+    } u;
+    struct {
+        DEC_MANT_REG_TYPE  mantissa;
+        int                exponent;
+        unsigned int       sign;
+    } bin, dec;
+
+    /* Get the double value into a bit-addressable format with a union and then
+    *  extract the mantissa, exponent and sign fields.
+    */
+    u.fv = v;
+    bin.mantissa = u.bits & BIN_MANT_MASK;
+    bin.exponent = (u.bits >> BIN_EXP_SHIFT) & BIN_EXP_MASK;
+    bin.sign     = (u.bits >> BIN_SIGN_SHIFT) & BIN_SIGN_MASK;
+
+    DEBUG_LOG( "FP: bin.m = 0x%llX\n", bin.mantissa );
+    DEBUG_LOG( "    bin.e = %d\n", bin.exponent );
+    DEBUG_LOG( "    bin.s = %d\n", bin.sign );
+
+    /* Check for +/-inf and NaN.  The indication is the radix-2 exponent being
+    *  all-1s.  We mark this in the radix-10 domain by setting the exponent to
+    *  INT_MAX.
+    */
+    if ( bin.exponent == BIN_EXP_MASK )
+    {
+        dec.exponent = INT_MAX;
+        dec.sign     = bin.sign;
+        dec.mantissa = bin.mantissa;
+    }
+    /* Zero (both + and -) is a special case */
+    else if ( bin.mantissa == 0 && bin.exponent == 0 )
+    {
+        dec.exponent = 0;
+        dec.mantissa = 0;
+        dec.sign     = bin.sign;
+    }
+    else
+    {
+        DEC_MANT_REG_TYPE inc;
+
+        /* Load initial conditions for conversion */
+        dec.mantissa = DEC_1P0;
+        dec.sign     = bin.sign;
+        dec.exponent = 0;
+
+        /* STEP 1: compute decimal mantissa */
+        inc = ( dec.mantissa + 1 ) / 2;
+        bin.mantissa <<= BIN_MANT_LEFT_ALIGN;
+        while ( bin.mantissa )
+        {
+            if ( bin.mantissa & BIN_MANT_REG_TOP_BIT )
+                dec.mantissa += inc;
+
+            bin.mantissa <<= 1;
+            inc = ( inc + 1 ) / 2;
+        }
+
+        /* STEP 2: convert base-2 exponent to base-10 exponent,
+         *          adjusting mantissa accordingly.
+         *         treat positive and negative exponents separately to keep as
+         *          much information in the mantissa as possible.
+         */
+        bin.exponent -= BIN_EXP_BIAS;  /* Subtract exponent bias */
+        for ( ; bin.exponent > 0; bin.exponent-- )
+        {
+            dec.mantissa *= 2;
+            if ( dec.mantissa >= ( DEC_1P0 * 10 ) )
+            {
+                dec.mantissa = ( dec.mantissa + 5 ) / 10;
+                dec.exponent++;
+            }
+        }
+        for ( ; bin.exponent < 0; bin.exponent++ )
+        {
+            if ( dec.mantissa < ( ( DEC_1P0 * 2 ) ) )
+            {
+                dec.mantissa *= 10;
+                dec.exponent--;
+            }
+            dec.mantissa = ( dec.mantissa + 1 ) / 2;
+        }
+    }
+
+    if ( d_sign     ) *d_sign     = dec.sign;
+    if ( d_mantissa ) *d_mantissa = dec.mantissa;
+    if ( d_exponent ) *d_exponent = dec.exponent;
+}
+
+/******************************************************************************/
+/**
+    Convert part of mantissa into an array of decimal digit characters.
+
+    When removing unwanted digits we might be required to round.  If rounding
+    is required then we only round with the last digit to be removed.
+
+    @param buf                  Output buffer
+    @param m                    Input mantissa
+    @param digits_total         Total number of input digits
+    @param digits_to_convert    Number of digits required in output
+    @param want_round           1 if rounding wanted during dropping
+
+    @return number of digits put into @a buf.
+**/
+static int mant_to_char( char * buf,
+                         DEC_MANT_REG_TYPE m,
+                         int digits_total,
+                         int digits_to_convert,
+                         int want_round )
+{
+    int i;
+
+    for ( i = digits_total - digits_to_convert; i > 0; i-- )
+    {
+        if ( i == 1 && want_round )
+            m = ( m + 5 ) / 10;
+        else
+            m /= 10;
+    }
+
+    for ( i = digits_to_convert; i; i-- )
+    {
+        unsigned int d = m % 10;
+
+        buf[i-1] = '0' + d;
+        m /= 10;
+    }
+
+    return digits_to_convert;
+}
+
+/*****************************************************************************/
+/**
+    Process the floating point infinity and NaN values.
+
+    "A double argument representing an infinity is converted in one of the
+    styles [-]inf or [i]infinity - which style is implementation-defined.  A
+    double argument representing a NaN is converted in one of the styles [-]nan
+    or [-]nan(n-char-seq) - which style, and the meaning of any n-char-seq, is
+    implementation-defined.  The F conversion specifier produces INF, INFINITY,
+    or NAN instead of inf, infinity or nan, respectively."
+
+    @param pspec        Pointer to format specification.
+    @param ap           Reference to optional format arguments list.
+    @param code         Conversion specifier code.
+    @param cons         Pointer to consumer function.
+    @param parg         Pointer to opaque pointer updated by cons.
+    @param sign         0 = +ve, 1 = -ve
+    @param mantissa     Decimal-coded matissa, of form d[.]ddddddd
+    @param exponent     Radix-10 exponent.
+
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_infnan( T_FormatSpec *     pspec,
+                           char               code,
+                           void *          (* cons)(void *, const char *, size_t),
+                           void * *           parg,
+                           unsigned int       sign,
+                           DEC_MANT_REG_TYPE  mantissa,
+                           int                exponent )
+{
+    const char * pfx_s;
+    size_t pfx_n;
+    const char * e_s;
+    size_t e_n;
+    size_t ps1 = 0, ps2 = 0;
+
+    if ( DEC_FP_IS_NAN( sign, mantissa, exponent ) )
+        if ( code == 'f' || code == 'e' || code == 'g' )
+            e_s = "nan";
+        else
+            e_s = "NAN";
+    else
+        if ( code == 'f' || code == 'e' || code == 'g' )
+            e_s = "inf";
+        else
+            e_s = "INF";
+
+    e_n = strlen(e_s);
+
+    if ( sign )
+        pfx_s = "-";
+    else if ( !sign && pspec->flags & FPLUS )
+        pfx_s = "+";
+    else if ( !sign && pspec->flags & FSPACE )
+        pfx_s = " ";
+    else
+        pfx_s = "";
+    pfx_n = strlen( pfx_s );
+
+    calc_space_padding( pspec, e_n + pfx_n, &ps1, &ps2 );
+
+    return gen_out( cons, parg, ps1, pfx_s, pfx_n, 0, e_s, e_n, ps2 );
+}
+
+/*****************************************************************************/
+/**
+    Process the floating point %e and %E conversions.
+
+    "A double argument representing a floating point number is converted in the
+    style [-]d.ddde[+/-]dd, where there is one digit (which is non-zero if the
+    argument is nonzero) before the decimal point character and the number of
+    digits after it is equal to the precision; if the precision is missing,
+    it is taken as 6; if the precision is zero and the # flag is not specified,
+    no decimal point character appears.  The value is rounded to the appropriate
+    number of digits.  The E conversion specifier produces a number with 'E'
+    instead of 'e' introducing the exponent.  The exponent always contains at
+    least two digits, and only as many more digits as necessary to represent
+    the exponent.  If the value is zero, the exponent is zero."
+
+    Generating output
+    -----------------
+
+    The output is going to look something like this:
+
+    [space+][zero+][sign?][digit][.][digit+][zero+][eE][sign][digit+][space+]
+       PS1    PZ1                    n_right  PZ2              n_exp   PS2
+
+    @param pspec        Pointer to format specification.
+    @param ap           Reference to optional format arguments list.
+    @param code         Conversion specifier code.
+    @param cons         Pointer to consumer function.
+    @param parg         Pointer to opaque pointer updated by cons.
+    @param sign         0 = +ve, 1 = -ve
+    @param mantissa     Decimal-coded matissa, of form d[.]ddddddd
+    @param exponent     Radix-10 exponent.
+
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_e( T_FormatSpec *     pspec,
+                      char               code,
+                      void *          (* cons)(void *, const char *, size_t),
+                      void * *           parg,
+                      unsigned int       sign,
+                      DEC_MANT_REG_TYPE  mantissa,
+                      int                exponent )
+{
+    int sigfig = 0;
+    const char * pfx_s;
+    size_t pfx_n;
+    char   e_s[DEC_SIG_FIG];
+    size_t e_n = 0;
+    size_t length = 0;
+    size_t ps1 = 0, ps2 = 0;
+    size_t pz1 = 0, pz2 = 0;
+    int count = 0;
+    int n;
+    int want_dp = 0;
+    int n_left, n_right;
+    char epfx_s[2];
+    int i;
+    int absexp;
+    size_t len_exp = 0;
+
+    /************************************************************************/
+    DEBUG_LOG( ">>>> do_conv_f with %%%c: ", code );
+    DEBUG_LOG( "width: %d ", pspec->width );
+    DEBUG_LOG( "prec: %d ", pspec->prec );
+    DEBUG_LOG( "flags: %X ", pspec->flags );
+    DEBUG_LOG( "sign: %d ", sign );
+    DEBUG_LOG( "mantissa: %lld ", mantissa );
+    DEBUG_LOG( "exponent: %d ", exponent );
+    DEBUG_LOG( "\n" );
+    /************************************************************************/
+
+    /* Apply default precision */
+    if ( pspec->prec < 0 )
+        pspec->prec = 6;
+
+    if ( code == 'g' || code == 'G' )
+    {
+        /* "If the precision is zero, it is taken as 1." */
+        if ( pspec->prec == 0 )
+            pspec->prec = 1;
+    }
+
+    if ( sign )
+        pfx_s = "-";
+    else if ( !sign && pspec->flags & FPLUS )
+        pfx_s = "+";
+    else if ( !sign && pspec->flags & FSPACE )
+        pfx_s = " ";
+    else
+        pfx_s = "";
+    pfx_n = strlen( pfx_s );
+
+    /* Trim trailing zeros from mantissa and compute no. of sig.figures */
+    if ( mantissa )
+        for ( sigfig = DEC_SIG_FIG; sigfig; sigfig--, mantissa /= 10 )
+            if ( mantissa % 10 )
+                break;
+
+    DEBUG_LOG( "sigfig: %d\n", sigfig );
+
+    /* eE format has a single left digit, and variable right digits */
+    n_left = 1;
+    n_right = MIN( MAX( sigfig - 1, 0 ), pspec->prec );
+
+    /* Compute length of the actual generated text */
+    length = pfx_n + n_left + n_right;
+
+    /* Add length of exponent suffix, remembering that the length of the
+     *  exponent field is minimum of 2.
+     */
+    for ( i = ABS(exponent), len_exp = 0; i > 0; len_exp++, i /= 10 )
+        ;
+
+    len_exp = MAX( len_exp, 2 );
+
+    length += 1 /* e/E */
+           +  1 /* sign */
+           +  len_exp /* 'dd' */;
+
+    /* "the number of digits after [DP] is equal to the precision" */
+    if ( pspec->prec > n_right
+         /* g,G     ... Trailing zeros are removed from the fractional portion
+          *         of the result unless the # flag is specified; ...
+          */
+        && !( (code == 'g' || code == 'G') && !(pspec->flags & FHASH) ))
+    {
+        pz2 = pspec->prec - n_right;
+        length += pz2;
+    }
+
+    /* Add DP if required */
+    if ( pz2 || n_right > 0 || pspec->flags & FHASH )
+    {
+        want_dp = 1;
+        length++;
+    }
+
+    calc_space_padding( pspec, length, &ps1, &ps2 );
+
+    /* Convert space padding into zero padding if we have the ZERO flag */
+    if ( pspec->flags & FZERO )
+    {
+        pz1 += ps1;
+        ps1 = 0;
+
+        DEBUG_LOG( "padding-> pz1: %d, ps1: %d\n", pz1, ps1 );
+    }
+
+    DEBUG_LOG( "pz1: %d, pz2: %d, "
+               "ps1: %d, ps2: %d, want_dp: %d\n",
+               pz1, pz2,
+               ps1, ps2, want_dp );
+    DEBUG_LOG( "n_left: %d, n_right: %d, length: %d\n", n_left, n_right, length );
+
+    /* LEFT */
+    e_n = mant_to_char( e_s, mantissa, sigfig, n_left, 0 );
+    sigfig -= e_n;
+
+    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, pz1, e_s, e_n, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* RIGHT */
+    e_n = n_right ? mant_to_char( e_s, mantissa, sigfig, n_right, 1 )
+                  : 0;
+
+    pfx_s = want_dp ? "." : NULL;
+    pfx_n = want_dp ?   1 : 0;
+
+    n = gen_out( cons, parg, 0, pfx_s, pfx_n, 0, e_s, e_n, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* Trailing zeros, if any */
+    n = gen_out( cons, parg, 0, NULL, 0, pz2, NULL, 0, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* EXPONENT */
+    epfx_s[0] = ( code == 'e' || code == 'g' ) ? 'e' : 'E';
+    epfx_s[1] =               ( exponent < 0 ) ? '-' : '+';
+    absexp    = ABS(exponent);
+
+    for ( i = len_exp, e_n = 0; i > 0; i--, e_n++ )
+    {
+        e_s[i-1] = ( absexp % 10 ) + '0';
+        absexp /= 10;
+    }
+
+    n = gen_out( cons, parg, 0, epfx_s, sizeof(epfx_s), 0, e_s, e_n, ps2 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    return count;
+}
+
+/*****************************************************************************/
+/**
+    Process the floating point %f and %F conversions.
+
+    "A double argument representing a floating point number is converted to
+    decimal notation in the style [-]ddd.ddd, where the number of digits after
+    the decimal point character is equal to the precision specification.  If the
+    precision is missing, it is taken as 6; if the precision is zero and the
+    # flag is not specified, no decimal point character appears.  If a decimal
+    point character appears, at least one digit appears before it.  The value
+    is rounded to the appropriate number of digits."
+
+    Generating output
+    -----------------
+
+    The output is going to look something like this:
+
+    [space+][sign?][zero+][digit+][zero+][.][zero+][digit+][zero+][space+]
+       PS1           PZ1   n_left   PZ2       PZ3   n_right  PZ4     PS2
+
+    In principle each field is optional, even the DP (if no following digits).
+
+    @param pspec        Pointer to format specification.
+    @param ap           Reference to optional format arguments list.
+    @param code         Conversion specifier code.
+    @param cons         Pointer to consumer function.
+    @param parg         Pointer to opaque pointer updated by cons.
+    @param sign         0 = +ve, 1 = -ve
+    @param mantissa     Decimal-coded matissa, of form d[.]ddddddd
+    @param exponent     Radix-10 exponent.
+
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_f( T_FormatSpec *     pspec,
+                      char               code,
+                      void *          (* cons)(void *, const char *, size_t),
+                      void * *           parg,
+                      unsigned int       sign,
+                      DEC_MANT_REG_TYPE  mantissa,
+                      int                exponent )
+{
+    int sigfig = 0;
+    const char * pfx_s;
+    size_t pfx_n;
+    char   e_s[DEC_SIG_FIG];
+    size_t e_n = 0;
+    size_t length = 0;
+    size_t ps1 = 0, ps2 = 0;
+    size_t pz1 = 0, pz2 = 0, pz3 = 0, pz4 = 0;
+    int count = 0;
+    int n;
+    int want_dp = 0;
+    int n_left, n_right;
+
+    /************************************************************************/
+    DEBUG_LOG( ">>>> do_conv_f with %%%c: ", code );
+    DEBUG_LOG( "width: %d ", pspec->width );
+    DEBUG_LOG( "prec: %d ", pspec->prec );
+    DEBUG_LOG( "flags: %X ", pspec->flags );
+    DEBUG_LOG( "sign: %d ", sign );
+    DEBUG_LOG( "mantissa: %lld ", mantissa );
+    DEBUG_LOG( "exponent: %d ", exponent );
+    DEBUG_LOG( "\n" );
+    /************************************************************************/
+
+    /* Apply default precision */
+    if ( pspec->prec < 0 )
+        pspec->prec = 6;
+
+    if ( code == 'g' || code == 'G' )
+    {
+        /* "If the precision is zero, it is taken as 1." */
+        if ( pspec->prec == 0 )
+            pspec->prec = 1;
+    }
+
+    if ( sign )
+        pfx_s = "-";
+    else if ( !sign && pspec->flags & FPLUS )
+        pfx_s = "+";
+    else if ( !sign && pspec->flags & FSPACE )
+        pfx_s = " ";
+    else
+        pfx_s = "";
+    pfx_n = strlen( pfx_s );
+
+    /* Trim trailing zeros from mantissa and compute no. of sig.figures */
+    if ( mantissa )
+        for ( sigfig = DEC_SIG_FIG; sigfig; sigfig--, mantissa /= 10 )
+            if ( mantissa % 10 )
+                break;
+
+    DEBUG_LOG( "sigfig: %d\n", sigfig );
+
+    /* Note: sigfig will be zero for the 0.0 case */
+
+    n_left = exponent > -1 ? 1 + exponent : 0;
+    n_right = MIN( MAX( sigfig - 1 - exponent, 0 ), pspec->prec );
+
+    if ( code == 'g' || code == 'G' )
+    {
+        DEC_MANT_REG_TYPE  m = mantissa;
+        int i;
+
+        /* strip extraneous digits */
+        for ( i = sigfig; i > n_left + n_right; i--, m /= 10 );
+
+        /* strip trailing zeros */
+        for ( ; n_right > 0 && m % 10 == 0; m /= 10, n_right-- );
+    }
+
+    DEBUG_LOG( "n_left: %d, n_right: %d\n", n_left, n_right );
+
+    length = pfx_n + n_left + n_right;
+
+    /* If nothing on the left make sure we have a '0' */
+    if ( n_left == 0 )
+    {
+        pz1 = 1;
+        length++;
+    }
+
+    /* Add any zero padding after figures but before DP */
+    if ( n_left > sigfig )
+        pz2 = n_left - sigfig;
+
+    /* Add any zero padding between DP and figures on right */
+    if ( exponent < -1 && pspec->prec > 0 )
+    {
+        pz3 = -1 - exponent;
+        pz3 = MIN( pz3, pspec->prec );
+        length += pz3;
+    }
+
+    /* Compute trailing zeros */
+    if ( pz3 + n_right < pspec->prec
+         /* g,G     ... Trailing zeros are removed from the fractional portion
+          *         of the result unless the # flag is specified; ...
+          */
+        && !( (code == 'g' || code == 'G') && !(pspec->flags & FHASH) )
+       )
+    {
+        pz4 = pspec->prec - pz3 - n_right;
+        length += pz4;
+    }
+    else if ( pz3 + n_right > pspec->prec )
+    {
+        int x = pz3 + n_right - pspec->prec;
+        length  -= x;
+        n_right -= x;
+    }
+
+    /* Add DP if required */
+    if ( ( pz3 || pz4 ) || n_right > 0 || pspec->flags & FHASH )
+    {
+        want_dp = 1;
+        length++;
+    }
+
+    calc_space_padding( pspec, length, &ps1, &ps2 );
+
+    /* Convert space padding into zero padding if we have the ZERO flag */
+    if ( pspec->flags & FZERO )
+    {
+        pz1 += ps1;
+        ps1 = 0;
+
+        DEBUG_LOG( "padding-> pz1: %d, ps1: %d\n", pz1, ps1 );
+    }
+
+    DEBUG_LOG( "pz1: %d, pz2: %d, pz3: %d, pz4: %d, "
+           "ps1: %d, ps2: %d, want_dp: %d\n",
+           pz1, pz2, pz3, pz4,
+           ps1, ps2, want_dp );
+    DEBUG_LOG( "length: %d\n", length );
+
+    /* LEFT */
+    e_n = n_left ? mant_to_char( e_s, mantissa, sigfig, n_left - pz2, 0 )
+                 : 0;
+
+    sigfig -= e_n;
+
+    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, pz1, e_s, e_n, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* Add any zeros before DP */
+    n = gen_out( cons, parg, 0, NULL, 0, pz2, NULL, 0, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* RIGHT */
+    e_n = n_right ? mant_to_char( e_s, mantissa, sigfig, n_right, 1 )
+                  : 0;
+
+    pfx_s = want_dp ? "." : NULL;
+    pfx_n = want_dp ?   1 : 0;
+
+    n = gen_out( cons, parg, 0, pfx_s, pfx_n, pz3, e_s, e_n, pz4 == 0 ? ps2 : 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* Trailing zeros, if any */
+    n = gen_out( cons, parg, 0, NULL, 0, pz4, NULL, 0, ps2 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    return count;
+}
+
+/*****************************************************************************/
+/**
+    Process the floating point conversions (%e, %E, %f, %F, %g, %G).
+
+    We simplify things here by using the radix converter above and then using
+    integer output functions with suitable format specs to emit the output.
+    We also detect infinity and NaN at this early stage and treat them directly.
+
+    That leaves g,G which is handled by the e,E and f,F conversions:
+
+    g,G     A double argument representing a floating point numer is converted
+            in the style f or e (on in style F or E in the case of a G
+            conversion specifier), with the precision specifying the number
+            of significant digits.  If the precision is zero, it is taken as 1.
+            The style used depends on the value converted; style e (or E) is
+            used only if the exponent resulting from such a conversion is less
+            than -4 or greater than or equal to the precision.  Trailing zeros
+            are removed from the fractional portion of the result unless the
+            # flag is specified; a decimal point character appears only if it
+            is followed by a digit.
+
+    @param pspec    Pointer to format specification.
+    @param ap       Reference to optional format arguments list.
+    @param code     Conversion specifier code.
+    @param cons     Pointer to consumer function.
+    @param parg     Pointer to opaque pointer updated by cons.
+
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_fp( T_FormatSpec * pspec,
+                       VALPARM(ap),
+                       char           code,
+                       void *      (* cons)(void *, const char *, size_t),
+                       void * *       parg )
+{
+    double dv;
+    unsigned int sign;
+    DEC_MANT_REG_TYPE mantissa;
+    int exponent;
+
+    /* Do not support long doubles */
+    if ( pspec->qual == 'L' )
+        return EXBADFORMAT;
+
+    dv = va_arg(VALST(ap), double);
+    radix_convert( dv, &sign, &mantissa, &exponent );
+
+    /* Infs and NaNs are treated in the same style */
+    if ( DEC_FP_IS_NAN( sign, mantissa, exponent )
+      || DEC_FP_IS_INF( sign, mantissa, exponent ) )
+    {
+        return do_conv_infnan( pspec, code, cons, parg, sign, mantissa, exponent );
+    }
+    else if ( code == 'e' || code == 'E' )
+    {
+        return do_conv_e( pspec, code, cons, parg, sign, mantissa, exponent );
+    }
+    /* "g,G   ... style e (or E) is used only if the exponent resulting from
+     *        such a conversion is less than -4 or greater than or equal to the
+     *        precision."
+     */
+    else if ( ( code == 'g' || code == 'G' )
+           && ( exponent < -4 || exponent >= pspec->prec ) )
+    {
+        return do_conv_e( pspec, code, cons, parg, sign, mantissa, exponent );
+    }
+    else
+    {
+        return do_conv_f( pspec, code, cons, parg, sign, mantissa, exponent );
+    }
+}
+#endif
+
+/*****************************************************************************/
+/**
     Process a %n conversion.
 
     @param pspec    Pointer to format specification.
@@ -470,7 +1305,7 @@ static int do_conv_c( T_FormatSpec * pspec,
         cc = pspec->repchar;
 
     /* apply default precision */
-    if ( pspec->prec > MAXPREC )
+    if ( pspec->prec < 0 )
         pspec->prec = 1;
 
     rep = MAX( 1, pspec->prec );
@@ -505,7 +1340,6 @@ static int do_conv_s( T_FormatSpec * pspec,
                       void * *       parg )
 {
     size_t length = 0;
-    size_t padWidth = 0;
     size_t ps1 = 0, ps2 = 0;
 
     const char *s = va_arg(VALST(ap), const char *);
@@ -514,22 +1348,10 @@ static int do_conv_s( T_FormatSpec * pspec,
         s = "(null)";
 
     length = STRLEN( s );
-    length = MIN( pspec->prec, length );
+    if ( pspec->prec >= 0 )
+        length = MIN( pspec->prec, length );
 
-    if ( length < pspec->width )
-        padWidth = pspec->width - length;
-
-    if ( pspec->flags & FMINUS )
-        ps2 = padWidth;
-    else
-        ps1 = padWidth;
-
-    if ( pspec->flags & FCARET )
-    {
-        size_t tot = ps1 + ps2;
-        ps1 = ( tot + !( pspec->flags & FMINUS ) ) / 2;
-        ps2 = tot - ps1;
-    }
+    calc_space_padding( pspec, length, &ps1, &ps2 );
 
     return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
 }
@@ -559,7 +1381,6 @@ static int do_conv_s_alt( T_FormatSpec * pspec,
                           void * *       parg )
 {
     size_t length = 0;
-    size_t padWidth = 0;
     size_t ps1 = 0, ps2 = 0;
     size_t n = 0;
     static ROM_DECL(char null_string[]) = "(null)";
@@ -570,22 +1391,10 @@ static int do_conv_s_alt( T_FormatSpec * pspec,
         vp = null_string;
 
     length = STRLEN_ALT( (ROM_PTR_T)vp);
-    length = MIN( pspec->prec, length );
+    if ( pspec->prec >= 0 )
+        length = MIN( pspec->prec, length );
 
-    if ( length < pspec->width )
-        padWidth = pspec->width - length;
-
-    if ( pspec->flags & FMINUS )
-        ps2 = padWidth;
-    else
-        ps1 = padWidth;
-
-    if ( pspec->flags & FCARET )
-    {
-        size_t tot = ps1 + ps2;
-        ps1 = ( tot + !( pspec->flags & FMINUS ) ) / 2;
-        ps2 = tot - ps1;
-    }
+    calc_space_padding( pspec, length, &ps1, &ps2 );
 
     /* Inline the relevant parts of gen_out() here as we need to handle
      *  alternate memory pointers.
@@ -630,7 +1439,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                             unsigned int base )
 {
     size_t length = 0;
-    size_t padWidth = 0, numWidth, digitWidth;
+    size_t numWidth, digitWidth;
     char numBuffer[BUFLEN];
     size_t ps1 = 0, ps2 = 0, pz = 0, pfx_n = 0;
     const char * pfx_s = NULL;
@@ -769,7 +1578,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         unsigned int mask  = base - 1;
         unsigned int shift = base == 16 ? 4
                                         : base == 8 ? 3 : 1;
-        
+
         for( numWidth = 0; uv; uv >>= shift )
         {
             char cc = digits[uv & mask];
@@ -787,14 +1596,14 @@ static int do_conv_numeric( T_FormatSpec * pspec,
        for ( numWidth = 0; uv; uv /= base )
        {
           char cc = digits[uv % base];
-          
+
           /* convert to lower case? */
           if ( code == 'i' || code == 'u' )
              cc |= 0x20;
-             
+
           ++numWidth;
           numBuffer[sizeof(numBuffer) - numWidth] = cc;
-       }    
+       }
     }
 
     if ( pspec->grouping.len )
@@ -810,8 +1619,8 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         size_t        d_rem = numWidth;
         size_t        idx   = sizeof(numBuffer) - numWidth;
         size_t        s, n;
-        
-        ptr = MOVE_VOID_PTR( ptr, glen - 1 );
+
+        MOVE_VOID_PTR( ptr, glen - 1 );
 
         while ( d_rem )
         {
@@ -875,32 +1684,22 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     digitWidth = numWidth;
 
     /* apply default precision */
-    if ( pspec->prec > MAXPREC )
+    if ( pspec->prec < 0 )
         pspec->prec = 1;
     else
-        pspec->flags &= ~FZERO;
+        pspec->flags &= ~FZERO; /* Ignore if precision specified */
 
     numWidth = MAX( numWidth, pspec->prec + grp_insertions );
+    length  += numWidth;
 
-    length += numWidth;
-    if ( length < pspec->width )
-        padWidth = pspec->width - length;
+    calc_space_padding( pspec, length, &ps1, &ps2 );
 
-    if ( !( pspec->flags & FMINUS ) && !( pspec->flags & FZERO ) )
-        ps1 = padWidth;
-
+    /* Convert space padding into zero padding if we have the ZERO flag */
     pz = numWidth - digitWidth;
-    if ( !( pspec->flags & FMINUS ) &&  ( pspec->flags & FZERO ) )
-        pz += padWidth;
-
-    if ( pspec->flags & FMINUS )
-        ps2 = padWidth;
-
-    if ( pspec->flags & FCARET )
+    if ( pspec->flags & FZERO )
     {
-        size_t tot = ps1 + ps2;
-        ps1 = tot / 2;
-        ps2 = tot - ps1;
+        pz += ps1;
+        ps1 = 0;
     }
 
     return gen_out( cons, parg,
@@ -950,6 +1749,13 @@ static int do_conv( T_FormatSpec * pspec,
             return do_conv_s( pspec, ap, code, cons, parg );
     }
 
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    if ( code == 'e' || code == 'E'
+      || code == 'f' || code == 'F'
+      || code == 'g' || code == 'G' )
+        return do_conv_fp( pspec, ap, code, cons, parg );
+#endif
+
     /* -------------------------------------------------------------------- */
 
     /* The '%p' conversion is a meta-conversion, which we convert to a
@@ -977,7 +1783,7 @@ static int do_conv( T_FormatSpec * pspec,
         pspec->flags |= F_IS_SIGNED;
         base = 10;
         pspec->flags &= ~FHASH;
-        
+
         if ( ( code == 'i' || code == 'I' ) && pspec->base )
            base = pspec->base;
     }
@@ -1029,12 +1835,12 @@ int format( void *    (* cons) (void *, const char * , size_t),
 #endif
     char           c;
     const void   * ptr = (const void *)fmt;
-    
+
     if ( fmt == NULL )
         return EXBADFORMAT;
 
     fspec.nChars = 0;
-    
+
     while ( ( c = READ_CHAR( mode, ptr ) ) )
     {
         /* scan for % or \0 */
@@ -1100,13 +1906,12 @@ int format( void *    (* cons) (void *, const char * , size_t),
             /* process width */
             if ( READ_CHAR( mode, ptr ) == '*' )
             {
-                int v = va_arg( ap, int );
-                if ( v < 0 )
+                fspec.width = va_arg( ap, int );
+                if ( fspec.width < 0 )
                 {
-                    v = -v;
+                    fspec.width = -fspec.width;
                     fspec.flags |= FMINUS;
                 }
-                fspec.width = (unsigned int)v;
                 INC_VOID_PTR(ptr);
             }
             else
@@ -1124,17 +1929,13 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
             /* process precision */
             if ( READ_CHAR( mode, ptr ) != '.' )
-                fspec.prec = UINT_MAX;
+                fspec.prec = -1; /* precision is missing */
             else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
             {
-                int v = va_arg( ap, int );
+                fspec.prec = va_arg( ap, int );
 
-                if ( v < 0 )
-                    fspec.prec = UINT_MAX;
-                else if ( v > MAXPREC )
+                if ( fspec.prec > MAXPREC )
                     return EXBADFORMAT;
-                else
-                    fspec.prec = (unsigned int)v;
 
                 INC_VOID_PTR(ptr);
             }
@@ -1149,7 +1950,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 if ( fspec.prec > MAXPREC )
                     return EXBADFORMAT;
             }
-            
+
             /* process base */
             if ( READ_CHAR( mode, ptr ) != ':' )
                 fspec.base = 0;
