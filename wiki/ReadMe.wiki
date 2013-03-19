@@ -83,12 +83,11 @@ If a length modifier appears with any conversion specifier other than as specifi
 
 The grouping modifier specifies additional formatting rules for `b`, `d`, `i`, `o`, `u`, `x`, and `X` conversion specifiers.  It is ignored for all other conversion specifiers.
 
-A grouping modifier starts with `[` and ends with `]`.  Within the parentheses are number-symbol group specifiers.  The number specifies the number of digits within that group; the symbol specifies the character that is inserted after the group.  A value of zero disables that particular group.  Unless otherwise terminated the last grouping specifier is repeatedly applied to any remaining digits.  If a group specifier begins with `-` then this terminates any further grouping.
+A grouping modifier starts with `[` and ends with `]`.  Within the parentheses are symbol-number group specifiers.  The number specifies the number of digits within that group; the symbol specifies the character that is inserted after the group.  A value of zero disables that particular group.  Unless otherwise terminated the left-most grouping specifier is repeatedly applied to any remaining digits.  If a group specifier begins with `-` then this terminates any further grouping.  Group specifications are processed right-to-left, starting with the rightmost symbol-number group and processing leftwards.
 
-Groups start with the rightmost digit and group digits from right-to-left.
-For example, "`[2.3,]`" specifies first a group of two digits, then a period "`.`", and then groups of three digits separated by commas.  Applied to the number `123456789` the output would be "`1,234,567.89`".
+An asterisk in place of the number takes the next `int` argument after the value to be converted (note this is contra to the width and precision specifiers).  If the value is negative it is treated as a '-', terminating any further grouping.
 
-An asterisk in place of the number takes the next int argument after the value to be converted (note this is contra to the width and precision specifiers).  If the value is negative it is treated as a '-', terminating any further grouping.
+For example, "`[,3.2]`" comprises two groupings, the first specifies a group of two digits and a period "`.`", the second specifies groups of three digits separated by commas.  Applied to the number `123456789` the output would be "`1,234,567.89`".
 
 === Conversion Specifiers ===
 
@@ -103,6 +102,9 @@ The conversion specifiers and their meanings are:
 ||`n`||     The argument is a pointer to signed integer into which is written the number of characters passed to the consumer function so far by this call to `format`.  No argument is converted, but one is consumed. Only the `#` flag is interpreted. Any other flags, a field width, or a precision will be ignored.  A NULL argument is silently ignored.||
 ||`%`||     A `%` character is written. No argument is converted. The complete conversion specification is `%%`.||
 ||`"`||     The argument is a pointer to a string which is treated as a continuation of the format specification. Only the `#` flag is interpreted.  Any other flags, width, precision or length will be ignored.||
+|| `e`,`E` ||    A double argument representing a floating point number is converted in the style `[-]d.ddde[+/-]dd`, where there is one digit (which is non-zero if the argument is nonzero) before the decimal point character and the number of digits after it is equal to the precision; if the precision is missing, it is taken as 6; if the precision is zero and the `#` flag is not specified, no decimal point character appears.  The value is rounded to the appropriate number of digits.  The `E` conversion specifier produces a number with "`E`" instead of "`e`" introducing the exponent.  The exponent always contains at least two digits, and only as many more digits as necessary to represent the exponent.  If the value is zero, the exponent is zero.||
+|| `f`,`F` || ||
+|| `g`,`G` || ||
 
 If a conversion specification is invalid, `format` returns an error code. If any argument is not the correct type for the corresponding conversion specification, bad mojo happens. 
 
