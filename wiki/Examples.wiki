@@ -115,12 +115,12 @@ On target platforms that do not support nor need this alternate pointer form the
 
 The new grouping feature offers a convenient way to format numeric fields in a natural way, somewhat similar to the locale functionality offered in larger C libraries.
 
-One point to note is that the ordering of the grouping specifiers is left-to-right, while the grouping itself is applied right-to-left.
+One point to note is that the ordering of the grouping specifiers is right-to-left, in exactly the same as applied to the number itself.
 
 A good first example is printing out disk sizes:
 
 {{{
-format( cons, arg, "Disk size: %[3,]d bytes", disk_size );
+format( cons, arg, "Disk size: %[,3]d bytes", disk_size );
 }}}
 
 If disk_size is 131,238 bytes, then the result will be
@@ -138,7 +138,7 @@ Disk size: 12,345,678 bytes
 Currency provides another good use:
 
 {{{
-format( cons, arg, "You have $%[2.3,]d left to spend", money_cents );
+format( cons, arg, "You have $%[,3.2]d left to spend", money_cents );
 }}}
 
 If your bank account contains $1,234.56, or 123,456 cents, then the above will produce:
@@ -147,12 +147,12 @@ If your bank account contains $1,234.56, or 123,456 cents, then the above will p
 You have $1,234.56 left to spend
 }}}
 
-The first grouping handles the cents, then the second grouping splits the dollars into groups of thousands, millions (if you're lucky!).
+The first (rightmost) grouping handles the cents, then the second (leftmost) grouping splits the dollars into groups of thousands, millions (if you're lucky!), and so on.
 
 Formatting of binary or hexadecimal fields can be easily achieved:
 
 {{{
-format( cons, arg, "Register = %[2_2_-]b", 0xF3 );
+format( cons, arg, "Register = %[-_2_2]b", 0xF3 );
 }}}
 
 will produce
@@ -166,11 +166,31 @@ In this case the number is split into two groups of two digits separated by unde
 Finally, group widths can also be given at runtime using the asterisk:
 
 {{{
-format( cons, arg, "%[*,]d", number, group_width );
+format( cons, arg, "%[,*]d", number, group_width );
 }}}
 
 will format `number` split into groups of `group_width` digits.  If `group_width` is zero (no group) or negative (terminate grouping) then no grouping will be applied in this case.  Also note that unlike the width and precision cases the asterisk arguments _follow_ the numeric argument.
 
 == Note ==
 
-The current version of the grouping feature does *not* apply to any zero padding.
+The current version of the grouping feature does *not* apply to any zero padding nor to floating point conversions.
+
+
+= Floating Point Support =
+
+The *format* library provides the facility for formatting floating point values.  Floating point conversions have a long and twisty history, so *format* takes a pragmatic approach in considering only the first sixteen decimal digits (in the case of 64-bit doubles) as significant.  While it is possible to specify very large values or much greater precisions than this, the result will comprise the maximum number of significant digits followed by zeros.
+
+An example of this would be something like:
+
+{{{
+"%f", 1.0e20/3.0
+}}}
+which would produce
+{{{
+33333333333333480000.000000
+}}}
+and not the expected all-3s.
+
+While this is clearly not _exact_ enough for scientific users it should be sufficient for smaller embedded systems for which *format* is designed for.
+
+A compile-time facility supports 32-bit doubles as used on smaller embedded systems, typically 8-bit microcontrollers.  On these platforms *format* considers only the first nine digits as significant.
