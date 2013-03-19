@@ -28,16 +28,16 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * ************************************************************************* */
- 
+
 #ifndef FORMAT_CONFIG_H
 #define FORMAT_CONFIG_H
- 
+
 /*****************************************************************************/
 /* Query the environment about what capabilities are available.              */
 /*****************************************************************************/
 
 /** Check if we are in the C hosted configuration **/
- 
+
 #if defined(__STDC_HOSTED__)
   #define CONFIG_HAVE_LIBC
 #endif
@@ -46,7 +46,7 @@
 /**
     Some platforms va_list is an array type, on others it is a pointer (such as
     pointer to char).  These macros hide this important difference.
-    
+
     The following is inspired from code from the kannel project.
     See http://www.kannel.org
 **/
@@ -72,7 +72,7 @@
 /** On some machines it is better (smaller/faster) to do the long div-10 math
     inline rather than calling out to compiler support library.  If this switch
     is defined then format will use an inline divide-by-ten.
-    Only recommended for 32-bit machines (eg. ARM) as the necessary math 
+    Only recommended for 32-bit machines (eg. ARM) as the necessary math
     produces a 64-bit (or larger) result.
 **/
 #if defined(__arm__) || defined(__i386__)
@@ -96,5 +96,12 @@
   #define ROM_DECL(x)           x
 #endif
 
- 
+/*****************************************************************************/
+/** Provide support for floating point output.  Many smaller embedded systems
+    simply do not need this functionality so make it possible to remove it at
+    build time.  If used at runtime the call to format will return EXBADFORMAT.
+**/
+#define CONFIG_WITH_FP_SUPPORT
+
+
 #endif /* FORMAT_CONFIG_H */
