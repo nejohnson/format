@@ -45,7 +45,7 @@ extern int putchar( int );
 
 #include "format.h"
 
-#include "print.h"
+#include "printf.h"
 
 /*****************************************************************************/
 /* Private function prototypes.  Declare as static.                          */
