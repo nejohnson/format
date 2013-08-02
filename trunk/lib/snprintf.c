@@ -42,7 +42,7 @@
 
 #include "format.h"
 
-#include "print.h"
+#include "printf.h"
 
 #define MIN(a,b)        ( (a) < (b) ? (a) : (b) )
 

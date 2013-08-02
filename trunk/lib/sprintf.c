@@ -42,7 +42,7 @@
 
 #include "format.h"
 
-#include "print.h"
+#include "printf.h"
 
 /*****************************************************************************/
 /* Private function prototypes.  Declare as static.                          */
@@ -67,7 +67,7 @@ void * bufwrite( void * memptr, const char * buf, size_t n )
 {
     char *dst = (char *)memptr;
     
-    while ( len-- )
+    while ( n-- )
         *dst++ = *buf++;
     
     return dst;
