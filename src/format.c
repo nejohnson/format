@@ -171,9 +171,9 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 /* #define FORMAT_DEBUG */
 #include <stdio.h>
 #ifdef FORMAT_DEBUG
-#define DEBUG_LOG(fmt,args...)  printf((fmt),## args)
+#define DEBUG_LOG(fmt,val)  printf((fmt),(val))
 #else
-#define DEBUG_LOG(fmt,args...)  ((void*)0)
+#define DEBUG_LOG(fmt,val)  ((void)0)
 #endif
 
 /*****************************************************************************/
@@ -461,6 +461,11 @@ static void calc_space_padding( T_FormatSpec * pspec,
     if ( ps2 ) *ps2 = right;
 }
 
+/*****************************************************************************/
+/**
+    Floating Point code is in a separate source file for clarity.
+    Pull it in if required.
+**/
 #if defined(CONFIG_WITH_FP_SUPPORT)
 #include "format_fp.c"
 #endif
