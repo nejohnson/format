@@ -305,7 +305,11 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
 
 /*****************************************************************************/
 /**
-    Process the floating point %e and %E conversions.
+    Process the floating point %e, %E, %f and %F conversions and the pseudo
+    %g and %G conversions.
+
+    Generating e/E output
+    ---------------------
 
     "A double argument representing a floating point number is converted in the
     style [-]d.ddde[+/-]dd, where there is one digit (which is non-zero if the
@@ -318,193 +322,9 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
     least two digits, and only as many more digits as necessary to represent
     the exponent.  If the value is zero, the exponent is zero."
 
-    Generating output
-    -----------------
 
-    The output is going to look something like this:
-
-    [space+][zero+][sign?][digit][.][digit+][zero+][eE][sign][digit+][space+]
-       PS1    PZ1                    n_right  PZ2              n_exp   PS2
-
-    @param pspec        Pointer to format specification.
-    @param ap           Reference to optional format arguments list.
-    @param code         Conversion specifier code.
-    @param cons         Pointer to consumer function.
-    @param parg         Pointer to opaque pointer updated by cons.
-    @param sign         0 = +ve, 1 = -ve
-    @param mantissa     Decimal-coded matissa, of form d[.]ddddddd
-    @param exponent     Radix-10 exponent.
-
-    @return Number of emitted characters, or EXBADFORMAT if failure
-**/
-static int do_conv_e( T_FormatSpec *     pspec,
-                      char               code,
-                      void *          (* cons)(void *, const char *, size_t),
-                      void * *           parg,
-                      unsigned int       sign,
-                      DEC_MANT_REG_TYPE  mantissa,
-                      int                exponent )
-{
-    int sigfig = 0;
-    const char * pfx_s;
-    size_t pfx_n;
-    char   e_s[DEC_SIG_FIG];
-    size_t e_n = 0;
-    size_t length = 0;
-    size_t ps1 = 0, ps2 = 0;
-    size_t pz1 = 0, pz2 = 0;
-    int count = 0;
-    int n;
-    int want_dp = 0;
-    int n_left, n_right;
-    char epfx_s[2];
-    int i;
-    int absexp;
-    size_t len_exp = 0;
-
-    /************************************************************************/
-    DEBUG_LOG( ">>>> do_conv_f with %%%c: ", code );
-    DEBUG_LOG( "width: %d ", pspec->width );
-    DEBUG_LOG( "prec: %d ", pspec->prec );
-    DEBUG_LOG( "flags: %X ", pspec->flags );
-    DEBUG_LOG( "sign: %d ", sign );
-    DEBUG_LOG( "mantissa: %lld ", mantissa );
-    DEBUG_LOG( "exponent: %d ", exponent );
-    DEBUG_LOG( "\n" );
-    /************************************************************************/
-
-    /* Apply default precision */
-    if ( pspec->prec < 0 )
-        pspec->prec = 6;
-
-    if ( code == 'g' || code == 'G' )
-    {
-        /* "If the precision is zero, it is taken as 1." */
-        if ( pspec->prec == 0 )
-            pspec->prec = 1;
-    }
-
-    if ( sign )
-        pfx_s = "-";
-    else if ( !sign && pspec->flags & FPLUS )
-        pfx_s = "+";
-    else if ( !sign && pspec->flags & FSPACE )
-        pfx_s = " ";
-    else
-        pfx_s = "";
-    pfx_n = strlen( pfx_s );
-
-    /* Trim trailing zeros from mantissa and compute no. of sig.figures */
-    if ( mantissa )
-        for ( sigfig = DEC_SIG_FIG; sigfig; sigfig--, mantissa /= 10 )
-            if ( mantissa % 10 )
-                break;
-
-    DEBUG_LOG( "sigfig: %d\n", sigfig );
-
-    /* eE format has a single left digit, and variable right digits */
-    n_left = 1;
-    n_right = MIN( MAX( sigfig - 1, 0 ), pspec->prec );
-
-    /* Compute length of the actual generated text */
-    length = pfx_n + n_left + n_right;
-
-    /* Add length of exponent suffix, remembering that the length of the
-     *  exponent field is minimum of 2.
-     */
-    for ( i = ABS(exponent), len_exp = 0; i > 0; len_exp++, i /= 10 )
-        ;
-
-    len_exp = MAX( len_exp, 2 );
-
-    length += 1 /* e/E */
-           +  1 /* sign */
-           +  len_exp /* 'dd' */;
-
-    /* "the number of digits after [DP] is equal to the precision" */
-    if ( pspec->prec > n_right
-         /* g,G     ... Trailing zeros are removed from the fractional portion
-          *         of the result unless the # flag is specified; ...
-          */
-        && !( (code == 'g' || code == 'G') && !(pspec->flags & FHASH) ))
-    {
-        pz2 = pspec->prec - n_right;
-        length += pz2;
-    }
-
-    /* Add DP if required */
-    if ( pz2 || n_right > 0 || pspec->flags & FHASH )
-    {
-        want_dp = 1;
-        length++;
-    }
-
-    calc_space_padding( pspec, length, &ps1, &ps2 );
-
-    /* Convert space padding into zero padding if we have the ZERO flag */
-    if ( pspec->flags & FZERO )
-    {
-        pz1 += ps1;
-        ps1 = 0;
-
-        DEBUG_LOG( "padding-> pz1: %d, ps1: %d\n", pz1, ps1 );
-    }
-
-    DEBUG_LOG( "pz1: %d, pz2: %d, "
-               "ps1: %d, ps2: %d, want_dp: %d\n",
-               pz1, pz2,
-               ps1, ps2, want_dp );
-    DEBUG_LOG( "n_left: %d, n_right: %d, length: %d\n", n_left, n_right, length );
-
-    /* LEFT */
-    e_n = mant_to_char( e_s, mantissa, sigfig, n_left, 0 );
-    sigfig -= e_n;
-
-    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, pz1, e_s, e_n, 0 );
-    if ( n == EXBADFORMAT )
-        return n;
-    count += n;
-
-    /* RIGHT */
-    e_n = n_right ? mant_to_char( e_s, mantissa, sigfig, n_right, 1 )
-                  : 0;
-
-    pfx_s = want_dp ? "." : NULL;
-    pfx_n = want_dp ?   1 : 0;
-
-    n = gen_out( cons, parg, 0, pfx_s, pfx_n, 0, e_s, e_n, 0 );
-    if ( n == EXBADFORMAT )
-        return n;
-    count += n;
-
-    /* Trailing zeros, if any */
-    n = gen_out( cons, parg, 0, NULL, 0, pz2, NULL, 0, 0 );
-    if ( n == EXBADFORMAT )
-        return n;
-    count += n;
-
-    /* EXPONENT */
-    epfx_s[0] = ( code == 'e' || code == 'g' ) ? 'e' : 'E';
-    epfx_s[1] =               ( exponent < 0 ) ? '-' : '+';
-    absexp    = ABS(exponent);
-
-    for ( i = len_exp, e_n = 0; i > 0; i--, e_n++ )
-    {
-        e_s[i-1] = ( absexp % 10 ) + '0';
-        absexp /= 10;
-    }
-
-    n = gen_out( cons, parg, 0, epfx_s, sizeof(epfx_s), 0, e_s, e_n, ps2 );
-    if ( n == EXBADFORMAT )
-        return n;
-    count += n;
-
-    return count;
-}
-
-/*****************************************************************************/
-/**
-    Process the floating point %f and %F conversions.
+    Generating f/F output
+    ---------------------
 
     "A double argument representing a floating point number is converted to
     decimal notation in the style [-]ddd.ddd, where the number of digits after
@@ -514,15 +334,26 @@ static int do_conv_e( T_FormatSpec *     pspec,
     point character appears, at least one digit appears before it.  The value
     is rounded to the appropriate number of digits."
 
-    Generating output
-    -----------------
+   
+    A unified output model
+    ----------------------
 
-    The output is going to look something like this:
+    Aligning the two formats above each other identifies the similarities:
 
-    [space+][sign?][zero+][digit+][zero+][.][zero+][digit+][zero+][space+]
-       PS1           PZ1   n_left   PZ2       PZ3   n_right  PZ4     PS2
+    E:  [space+][sign?][zero+][digit]        [.]       [digit+][zero+][eE][sign][digit+][space+]
+           PS1           PZ1                            n_right  PZ2              n_exp    PS2
 
-    In principle each field is optional, even the DP (if no following digits).
+    F:  [space+][sign?][zero+][digit+][zero+][.][zero+][digit+][zero+]                  [space+]
+           PS1           PZ1   n_left   PZ2       PZ3   n_right  PZ4                       PS2
+
+
+    In the e/E case PZ2 and PZ3 are 0 and n_left is 1, while for the f/F case 
+    n_exp is zero.
+    Many of these fields are optional, even the DP if no following digits.
+
+
+    Function Parameters
+    -------------------
 
     @param pspec        Pointer to format specification.
     @param ap           Reference to optional format arguments list.
@@ -535,13 +366,13 @@ static int do_conv_e( T_FormatSpec *     pspec,
 
     @return Number of emitted characters, or EXBADFORMAT if failure
 **/
-static int do_conv_f( T_FormatSpec *     pspec,
-                      char               code,
-                      void *          (* cons)(void *, const char *, size_t),
-                      void * *           parg,
-                      unsigned int       sign,
-                      DEC_MANT_REG_TYPE  mantissa,
-                      int                exponent )
+static int do_conv_efg( T_FormatSpec *     pspec,
+                        char               code,
+                        void *          (* cons)(void *, const char *, size_t),
+                        void * *           parg,
+                        unsigned int       sign,
+                        DEC_MANT_REG_TYPE  mantissa,
+                        int                exponent )
 {
     int sigfig = 0;
     const char * pfx_s;
@@ -555,29 +386,55 @@ static int do_conv_f( T_FormatSpec *     pspec,
     int n;
     int want_dp = 0;
     int n_left, n_right;
+    char epfx_s[2];
+    int i;
+    size_t n_exp = 0;
+    int really_g = 0;
+    int is_e = 0, is_f = 0;
 
     /************************************************************************/
-    DEBUG_LOG( ">>>> do_conv_f with %%%c: ", code );
-    DEBUG_LOG( "width: %d ", pspec->width );
-    DEBUG_LOG( "prec: %d ", pspec->prec );
-    DEBUG_LOG( "flags: %X ", pspec->flags );
-    DEBUG_LOG( "sign: %d ", sign );
-    DEBUG_LOG( "mantissa: %lld ", mantissa );
-    DEBUG_LOG( "exponent: %d ", exponent );
-    DEBUG_LOG( "\n" );
+    DEBUG_LOG( ">>>> do_conv_efg with %%%c: ", code );
+    DEBUG_LOG( "width: %d, ", pspec->width );
+    DEBUG_LOG( "prec: %d, ", pspec->prec );
+    DEBUG_LOG( "flags: %X, ", pspec->flags );
+    DEBUG_LOG( "sign: %d, ", sign );
+    DEBUG_LOG( "mantissa: %lld, ", mantissa );
+    DEBUG_LOG( "exponent: %d\n", exponent );
     /************************************************************************/
+
+    /* "g,G   ... style e (or E) is used only if the exponent resulting from
+     *        such a conversion is less than -4 or greater than or equal to the
+     *        precision."
+     */
+    if ( code == 'g' || code == 'G' )
+    {
+        /* Make a note that we were called with 'g' or 'G'. */
+        really_g = 1;
+
+        /* Then convert the g/G into e/E or f/F as appropriate. */
+        if ( exponent < -4 || exponent >= pspec->prec )
+            code = (code == 'g') ? 'e' : 'E';
+        else
+            code = (code == 'g') ? 'f' : 'F';
+    }
+
+    if ( code == 'e' || code == 'E' )
+        is_e = 1;
+    else
+        is_f = 1;   
 
     /* Apply default precision */
     if ( pspec->prec < 0 )
         pspec->prec = 6;
 
-    if ( code == 'g' || code == 'G' )
+    if ( really_g )
     {
-        /* "If the precision is zero, it is taken as 1." */
+        /* g/G: "If the precision is zero, it is taken as 1." */
         if ( pspec->prec == 0 )
             pspec->prec = 1;
     }
 
+    /* Generate the prefix, if any */
     if ( sign )
         pfx_s = "-";
     else if ( !sign && pspec->flags & FPLUS )
@@ -596,12 +453,16 @@ static int do_conv_f( T_FormatSpec *     pspec,
 
     DEBUG_LOG( "sigfig: %d\n", sigfig );
 
-    /* Note: sigfig will be zero for the 0.0 case */
+    /* Work out how many digits on each side of the DP */
+    if ( is_e )
+        n_left = 1;
+    else
+        n_left = exponent > -1 ? 1 + exponent : 0;
 
-    n_left = exponent > -1 ? 1 + exponent : 0;
-    n_right = MIN( MAX( sigfig - 1 - exponent, 0 ), pspec->prec );
+    n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec );
 
-    if ( code == 'g' || code == 'G' )
+    /* The g-as-f conversion strips out additional digits */
+    if ( is_f && really_g )
     {
         DEC_MANT_REG_TYPE  m = mantissa;
         int i;
@@ -613,27 +474,47 @@ static int do_conv_f( T_FormatSpec *     pspec,
         for ( ; n_right > 0 && m % 10 == 0; m /= 10, n_right-- );
     }
 
-    DEBUG_LOG( "n_left: %d, n_right: %d\n", n_left, n_right );
+    DEBUG_LOG( "n_left: %d ", n_left );
+    DEBUG_LOG( "n_right: %d\n", n_right );
 
+    /* Compute length of the actual generated text */
     length = pfx_n + n_left + n_right;
 
-    /* If nothing on the left make sure we have a '0' */
-    if ( n_left == 0 )
+    if ( is_e )
     {
-        pz1 = 1;
-        length++;
+        /* Add length of exponent suffix, remembering that the length of the
+         *  exponent field is minimum of 2.
+         */
+        for ( i = ABS(exponent), n_exp = 0; i > 0; n_exp++, i /= 10 )
+            ;
+
+        n_exp = MAX( n_exp, 2 );
+
+        length += 1 /* e/E */
+               +  1 /* sign */
+               +  n_exp /* 'dd' */;
     }
 
-    /* Add any zero padding after figures but before DP */
-    if ( n_left > sigfig )
-        pz2 = n_left - sigfig;
-
-    /* Add any zero padding between DP and figures on right */
-    if ( exponent < -1 && pspec->prec > 0 )
+    if ( is_f )
     {
-        pz3 = -1 - exponent;
-        pz3 = MIN( pz3, pspec->prec );
-        length += pz3;
+        /* If nothing on the left make sure we have a '0' */
+        if ( n_left == 0 )
+        {
+            pz1 = 1;
+            length++;
+        }
+
+        /* Add any zero padding after figures but before DP */
+        if ( n_left > sigfig )
+            pz2 = n_left - sigfig;
+
+        /* Add any zero padding between DP and figures on right */
+        if ( exponent < -1 && pspec->prec > 0 )
+        {
+            pz3 = -1 - exponent;
+            pz3 = MIN( pz3, pspec->prec );
+            length += pz3;
+        }
     }
 
     /* Compute trailing zeros */
@@ -641,13 +522,13 @@ static int do_conv_f( T_FormatSpec *     pspec,
          /* g,G     ... Trailing zeros are removed from the fractional portion
           *         of the result unless the # flag is specified; ...
           */
-        && !( (code == 'g' || code == 'G') && !(pspec->flags & FHASH) )
+        && !( really_g && !(pspec->flags & FHASH) )
        )
     {
         pz4 = pspec->prec - pz3 - n_right;
         length += pz4;
     }
-    else if ( pz3 + n_right > pspec->prec )
+    else if ( is_f && pz3 + n_right > pspec->prec )
     {
         int x = pz3 + n_right - pspec->prec;
         length  -= x;
@@ -669,14 +550,29 @@ static int do_conv_f( T_FormatSpec *     pspec,
         pz1 += ps1;
         ps1 = 0;
 
-        DEBUG_LOG( "padding-> pz1: %d, ps1: %d\n", pz1, ps1 );
+        DEBUG_LOG( "padding-> pz1: %d, ", pz1 );
+        DEBUG_LOG(           "ps1: %d\n", ps1 );
     }
 
-    DEBUG_LOG( "pz1: %d, pz2: %d, pz3: %d, pz4: %d, "
-           "ps1: %d, ps2: %d, want_dp: %d\n",
-           pz1, pz2, pz3, pz4,
-           ps1, ps2, want_dp );
+    DEBUG_LOG( "pz1: %d, ", pz1 );
+    DEBUG_LOG( "pz2: %d, ", pz2 );
+    DEBUG_LOG( "pz3: %d, ", pz3 );
+    DEBUG_LOG( "pz4: %d, ", pz4 );
+    DEBUG_LOG( "ps1: %d, ", ps1 );
+    DEBUG_LOG( "ps2: %d, ", ps2 );
+    DEBUG_LOG( "want_dp: %d\n", want_dp );
+    DEBUG_LOG( "n_left: %d, ", n_left );
+    DEBUG_LOG( "n_right: %d, ", n_right );
+    DEBUG_LOG( "n_exp: %d, ", n_exp );
     DEBUG_LOG( "length: %d\n", length );
+
+    /* Generate the output sections */
+
+    /* Leading space and prefix */
+    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, 0, NULL, 0, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
 
     /* LEFT */
     e_n = n_left ? mant_to_char( e_s, mantissa, sigfig, n_left - pz2, 0 )
@@ -684,7 +580,7 @@ static int do_conv_f( T_FormatSpec *     pspec,
 
     sigfig -= e_n;
 
-    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, pz1, e_s, e_n, 0 );
+    n = gen_out( cons, parg, 0, NULL, 0, pz1, e_s, e_n, 0 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
@@ -702,13 +598,40 @@ static int do_conv_f( T_FormatSpec *     pspec,
     pfx_s = want_dp ? "." : NULL;
     pfx_n = want_dp ?   1 : 0;
 
-    n = gen_out( cons, parg, 0, pfx_s, pfx_n, pz3, e_s, e_n, pz4 == 0 ? ps2 : 0 );
+    n = gen_out( cons, parg, 0, pfx_s, pfx_n, pz3, e_s, e_n, 0 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
 
     /* Trailing zeros, if any */
-    n = gen_out( cons, parg, 0, NULL, 0, pz4, NULL, 0, ps2 );
+    n = gen_out( cons, parg, 0, NULL, 0, pz4, NULL, 0, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* EXPONENT */
+    if ( n_exp )
+    {
+        unsigned int absexp = ABS(exponent);
+
+        /* Exponent prefix comprises the letter e or E and a sign */
+        epfx_s[0] = ( code == 'e' || code == 'g' ) ? 'e' : 'E';
+        epfx_s[1] =               ( exponent < 0 ) ? '-' : '+';
+
+        for ( i = n_exp, e_n = 0; i > 0; i--, e_n++ )
+        {
+            e_s[i-1] = ( absexp % 10 ) + '0';
+            absexp /= 10;
+        }
+
+        n = gen_out( cons, parg, 0, epfx_s, sizeof(epfx_s), 0, e_s, e_n, 0 );
+        if ( n == EXBADFORMAT )
+            return n;
+        count += n;
+    }
+
+    /* Trailing space, if any */
+    n = gen_out( cons, parg, 0, NULL, 0, 0, NULL, 0, ps2 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
@@ -769,23 +692,10 @@ static int do_conv_fp( T_FormatSpec * pspec,
     {
         return do_conv_infnan( pspec, code, cons, parg, sign, mantissa, exponent );
     }
-    else if ( code == 'e' || code == 'E' )
-    {
-        return do_conv_e( pspec, code, cons, parg, sign, mantissa, exponent );
-    }
-    /* "g,G   ... style e (or E) is used only if the exponent resulting from
-     *        such a conversion is less than -4 or greater than or equal to the
-     *        precision."
-     */
-    else if ( ( code == 'g' || code == 'G' )
-           && ( exponent < -4 || exponent >= pspec->prec ) )
-    {
-        return do_conv_e( pspec, code, cons, parg, sign, mantissa, exponent );
-    }
     else
     {
-        return do_conv_f( pspec, code, cons, parg, sign, mantissa, exponent );
-    }
+        return do_conv_efg( pspec, code, cons, parg, sign, mantissa, exponent );
+    }    
 }
 
 /*****************************************************************************/
