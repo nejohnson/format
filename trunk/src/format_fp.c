@@ -412,6 +412,9 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         /* Make a note that we were called with 'g' or 'G'. */
         really_g = 1;
 
+        /* Turn off the '!' flag - just too messy with g/G */
+        pspec->flags &= ~FBANG;
+
         /* Then convert the g/G into e/E or f/F as appropriate. */
         if ( exponent < -4 || exponent >= pspec->prec )
             code = (code == 'g') ? 'e' : 'E';
