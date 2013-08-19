@@ -391,6 +391,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     size_t n_exp = 0;
     int really_g = 0;
     int is_e = 0, is_f = 0;
+    char si = '\0';
 
     /************************************************************************/
     DEBUG_LOG( ">>>> do_conv_efg with %%%c: ", code );
@@ -455,9 +456,38 @@ static int do_conv_efg( T_FormatSpec *     pspec,
 
     /* Work out how many digits on each side of the DP */
     if ( is_e )
+    {
         n_left = 1;
+ 
+        /* Engineering format forces exponent to multiple of 3 */
+        if ( pspec->flags & FBANG )
+        {
+           int m = exponent % 3;
+
+           if ( m < 0 )
+              m += 3;
+           n_left   += m;
+           exponent -= m;
+        }
+    }    
     else
+    {
+        if ( pspec->flags & FBANG )
+        {
+            static char sitab[] = { 'y', 'z', 'a', 'f', 'p', 'n', 'u', 'm', '\0', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' }; 
+            int         idx     = NELEMS(sitab) / 2;
+
+            while ( idx > 0 && idx < (NELEMS(sitab) - 1) )
+            {
+                if ( exponent >= 3 ) { idx++; exponent -= 3; continue; }
+                if ( exponent <  0 ) { idx--; exponent += 3; continue; }
+                break;
+            }
+            si = sitab[idx];
+        }
+
         n_left = exponent > -1 ? 1 + exponent : 0;
+    }
 
     n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec );
 
@@ -515,6 +545,10 @@ static int do_conv_efg( T_FormatSpec *     pspec,
             pz3 = MIN( pz3, pspec->prec );
             length += pz3;
         }
+
+        /* Include any SI multiplier suffix */
+        if ( si )
+            length++;
     }
 
     /* Compute trailing zeros */
@@ -625,6 +659,15 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         }
 
         n = gen_out( cons, parg, 0, epfx_s, sizeof(epfx_s), 0, e_s, e_n, 0 );
+        if ( n == EXBADFORMAT )
+            return n;
+        count += n;
+    }
+
+    /* SI multiplier */
+    if ( si )
+    {
+        n = gen_out( cons, parg, 0, NULL, 0, 0, &si, 1, 0 );
         if ( n == EXBADFORMAT )
             return n;
         count += n;

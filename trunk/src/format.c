@@ -97,6 +97,11 @@
 #define MIN(a,b)        ( (a) < (b) ? (a) : (b) )
 
 /**
+    Return the number of elements in a static array.
+**/
+#define NELEMS(a)       ( sizeof(a) / sizeof(*(a)) )
+
+/**
     Return the absolute value of a signed scalar value.
 **/
 #define ABS(a)          ( (a) < 0 ? -(a) : (a) )
