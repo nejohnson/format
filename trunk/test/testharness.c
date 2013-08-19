@@ -875,6 +875,21 @@ static void test_eEfFgG( void )
     TEST( "123", 3, "%.6g", 123.0 );
     TEST( "123.000000", 10, "%#.6g", 123.0 );
     TEST( "123.4", 5, "%.6g", 123.4 );
+
+    /* From http://www.cplusplus.com/reference/cstdio/printf/ */
+    /* Note that the outputs given are slightly different with respect to C, which
+     *  states that there should be a minimum of two digits in the exponent, not three as shown
+     *  on the above webpage.
+     */
+
+    TEST( "Characters: a A \n", 17, "Characters: %c %c \n", 'a', 65 );
+    TEST( "Decimals: 1977 650000\n", 22, "Decimals: %d %ld\n", 1977, 650000L);
+    TEST( "Preceding with blanks:       1977 \n", 35, "Preceding with blanks: %10d \n", 1977);
+    TEST( "Preceding with zeros: 0000001977 \n", 34, "Preceding with zeros: %010d \n", 1977);
+    TEST( "Some different radices: 100 64 144 0x64 0144 \n", 46, "Some different radices: %d %x %o %#x %#o \n", 100, 100, 100, 100, 100);
+    TEST( "floats: 3.14 +3e+00 3.141600E+00 \n", 34, "floats: %4.2f %+.0e %E \n", 3.1416, 3.1416, 3.1416);
+    TEST( "Width trick:    10 \n", 20, "Width trick: %*d \n", 5, 10);
+    TEST( "A string \n", 10, "%s \n", "A string");
 }
 
 /*****************************************************************************/
