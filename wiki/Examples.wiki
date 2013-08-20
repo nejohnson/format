@@ -178,7 +178,7 @@ The current version of the grouping feature does *not* apply to any zero padding
 
 = Floating Point Support =
 
-The *format* library provides the facility for formatting floating point values.  Floating point conversions have a long and twisty history, so *format* takes a pragmatic approach in considering only the first sixteen decimal digits (in the case of 64-bit doubles) as significant.  While it is possible to specify very large values or much greater precisions than this, the result will comprise the maximum number of significant digits followed by zeros.
+The *format* library provides the facility for formatting floating point values.  Floating point conversions have a long and twisty history, so *format* takes a pragmatic approach in considering only the first sixteen decimal digits for 64-bit doubles (9 digits for 32-bit doubles) as significant.  While it is possible to specify very large values or much greater precisions than this, the result will comprise the maximum number of significant digits followed by zeros.
 
 An example of this would be something like:
 
@@ -194,3 +194,34 @@ and not the expected all-3s.
 While this is clearly not _exact_ enough for scientific users it should be sufficient for smaller embedded systems for which *format* is designed for.
 
 A compile-time facility supports 32-bit doubles as used on smaller embedded systems, typically 8-bit microcontrollers.  On these platforms *format* considers only the first nine digits as significant.
+
+== Engineering / SI Multipliers ==
+
+The `!` flag when applied to floating point conversions `e`, `E`, `f` and `F` formats the result of the conversion using engineering or SI prefixes.
+
+The `e`/`E` conversion formats the result with an exponent forced to a multiple of three, with one to three digits in front of the decimal point.  For example
+
+{{{
+"%!.2e", 12345.0
+}}}
+would produce
+{{{
+12.35e+03
+}}}
+
+The `f`/`F` conversion formats the result using the internationally-recognised SI prefixes ([http://physics.nist.gov/cuu/Units/prefixes.html NIST]), which cover the range 10^-24^ to 10^24^.  For example
+
+{{{
+"%!.3fV", 0.00123
+}}}
+would produce
+{{{
+1.230mV
+}}}
+
+If the result of conversion is outside of the range of the published SI prefixes the output will be correct, but will not look right.  For example, suppose you were a large first-world country with a huge national deficit of $4.567x10^27^ and you tried to print it out you might see something like
+
+{{{
+$4567Y
+}}}
+since Y (yotta) is the largest prefix, representing 10^24^.  If SI ever extend the range then `format` can be readily extended to support the new prefixes.
