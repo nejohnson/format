@@ -11,8 +11,8 @@
 /*****************************************************************************/
 
 /* Smaller platforms only support single-precision for everything, and as
-*  well as changing the flaoting point format it also affects the size
-*  of the decimal mantissa variable.
+*  well as changing the floating point format it also affects the decimal 
+*  mantissa type.
 */
 #if ( DBL_DIG > 8 ) /* 64-bit doubles */
    #define DEC_MANT_REG_TYPE     unsigned long long
@@ -43,6 +43,12 @@
 #define BIN_MANT_REG_TOP_BIT  ( BIN_MANT_SINGLE_BIT << ( ( sizeof(double) * CHAR_BIT ) - 1 ) )
 #define BIN_MANT_LEFT_ALIGN   ( BIN_SIGN_WIDTH + BIN_EXP_WIDTH )
 
+/** Macros to unpack the binary float **/
+#define BIN_UNPACK_MANT(b)    ( (b) & BIN_MANT_MASK )
+#define BIN_UNPACK_EXPO(b)    ( ((b) >> BIN_EXP_SHIFT) & BIN_EXP_MASK )
+#define BIN_UNPACK_SIGN(b)    ( ((b) >> BIN_SIGN_SHIFT) & BIN_SIGN_MASK )
+
+/** Check for NAN or INF **/
 #define DEC_FP_IS_NAN(s,m,e)   ( (e) == INT_MAX && (m) != 0 )
 #define DEC_FP_IS_INF(s,m,e)   ( (e) == INT_MAX && (m) == 0 )
 
@@ -120,11 +126,15 @@ static void radix_convert( double              v,
     *  extract the mantissa, exponent and sign fields.
     */
     u.fv = v;
-    bin.mantissa = u.bits & BIN_MANT_MASK;
-    bin.exponent = (u.bits >> BIN_EXP_SHIFT) & BIN_EXP_MASK;
-    bin.sign     = (u.bits >> BIN_SIGN_SHIFT) & BIN_SIGN_MASK;
+    bin.mantissa = BIN_UNPACK_MANT( u.bits );
+    bin.exponent = BIN_UNPACK_EXPO( u.bits );
+    bin.sign     = BIN_UNPACK_SIGN( u.bits );
 
+#if ( DBL_DIG > 8 )
     DEBUG_LOG( "FP: bin.m = 0x%llX\n", bin.mantissa );
+#else
+    DEBUG_LOG( "FP: bin.m = 0x%lX\n", bin.mantissa );
+#endif
     DEBUG_LOG( "    bin.e = %d\n", bin.exponent );
     DEBUG_LOG( "    bin.s = %d\n", bin.sign );
 
@@ -341,10 +351,10 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
     Aligning the two formats above each other identifies the similarities:
 
     E:  [space+][sign?][zero+][digit]        [.]       [digit+][zero+][eE][sign][digit+][space+]
-           PS1           PZ1                            n_right  PZ2              n_exp    PS2
+           PS1           PZ1                            n_right  PZ4              n_exp    PS2
 
     F:  [space+][sign?][zero+][digit+][zero+][.][zero+][digit+][zero+]                  [space+]
-           PS1           PZ1   n_left   PZ2       PZ3   n_right  PZ4                       PS2
+           PS1           PZ1   n_left   PZ2       PZ3   n_right  PZ4       n_exp = 0       PS2
 
 
     In the e/E case PZ2 and PZ3 are 0 and n_left is 1, while for the f/F case 
@@ -386,7 +396,6 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     int n;
     int want_dp = 0;
     int n_left, n_right;
-    char epfx_s[2];
     int i;
     size_t n_exp = 0;
     int really_g = 0;
@@ -477,8 +486,10 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     {
         if ( pspec->flags & FBANG )
         {
-            static char sitab[] = { 'y', 'z', 'a', 'f', 'p', 'n', 'u', 'm', '\0', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' }; 
-            int         idx     = NELEMS(sitab) / 2;
+            static char sitab[] = { 'y', 'z', 'a', 'f', 'p', 'n', 'u', 'm',
+                                    '\0', 
+                                    'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' };
+            int idx = NELEMS(sitab) / 2;
 
             while ( idx > 0 && idx < (NELEMS(sitab) - 1) )
             {
@@ -523,9 +534,8 @@ static int do_conv_efg( T_FormatSpec *     pspec,
 
         n_exp = MAX( n_exp, 2 );
 
-        length += 1 /* e/E */
-               +  1 /* sign */
-               +  n_exp /* 'dd' */;
+        /* Total length = 'e'/'E' + sign + 'dd..d' */
+        length += 2 + n_exp;
     }
 
     if ( is_f )
@@ -586,11 +596,9 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     {
         pz1 += ps1;
         ps1 = 0;
-
-        DEBUG_LOG( "padding-> pz1: %d, ", pz1 );
-        DEBUG_LOG(           "ps1: %d\n", ps1 );
     }
 
+    /************************************************************************/
     DEBUG_LOG( "pz1: %d, ", pz1 );
     DEBUG_LOG( "pz2: %d, ", pz2 );
     DEBUG_LOG( "pz3: %d, ", pz3 );
@@ -602,22 +610,17 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     DEBUG_LOG( "n_right: %d, ", n_right );
     DEBUG_LOG( "n_exp: %d, ", n_exp );
     DEBUG_LOG( "length: %d\n", length );
+    /************************************************************************/
 
     /* Generate the output sections */
 
-    /* Leading space and prefix */
-    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, 0, NULL, 0, 0 );
-    if ( n == EXBADFORMAT )
-        return n;
-    count += n;
-
-    /* LEFT */
+    /* LEFT, including leading space and prefix */
     e_n = n_left ? mant_to_char( e_s, mantissa, sigfig, n_left - pz2, 0 )
                  : 0;
 
     sigfig -= e_n;
 
-    n = gen_out( cons, parg, 0, NULL, 0, pz1, e_s, e_n, 0 );
+    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, pz1, e_s, e_n, 0 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
@@ -632,10 +635,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     e_n = n_right ? mant_to_char( e_s, mantissa, sigfig, n_right, 1 )
                   : 0;
 
-    pfx_s = want_dp ? "." : NULL;
-    pfx_n = want_dp ?   1 : 0;
-
-    n = gen_out( cons, parg, 0, pfx_s, pfx_n, pz3, e_s, e_n, 0 );
+    n = gen_out( cons, parg, 0, ".", want_dp ? 1 : 0, pz3, e_s, e_n, 0 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
@@ -650,16 +650,14 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     if ( n_exp )
     {
         unsigned int absexp = ABS(exponent);
+        char epfx_s[2];
 
         /* Exponent prefix comprises the letter 'e' or 'E' and a +/- sign */
         epfx_s[0] = code;
         epfx_s[1] = ( exponent < 0 ) ? '-' : '+';
 
-        for ( i = n_exp, e_n = 0; i > 0; i--, e_n++ )
-        {
+        for ( i = n_exp, e_n = 0; i > 0; i--, e_n++, absexp /= 10 )
             e_s[i-1] = ( absexp % 10 ) + '0';
-            absexp /= 10;
-        }
 
         n = gen_out( cons, parg, 0, epfx_s, sizeof(epfx_s), 0, e_s, e_n, 0 );
         if ( n == EXBADFORMAT )
