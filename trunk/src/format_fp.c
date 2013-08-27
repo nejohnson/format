@@ -651,9 +651,9 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     {
         unsigned int absexp = ABS(exponent);
 
-        /* Exponent prefix comprises the letter e or E and a sign */
-        epfx_s[0] = ( code == 'e' || code == 'g' ) ? 'e' : 'E';
-        epfx_s[1] =               ( exponent < 0 ) ? '-' : '+';
+        /* Exponent prefix comprises the letter 'e' or 'E' and a +/- sign */
+        epfx_s[0] = code;
+        epfx_s[1] = ( exponent < 0 ) ? '-' : '+';
 
         for ( i = n_exp, e_n = 0; i > 0; i--, e_n++ )
         {
@@ -667,17 +667,8 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         count += n;
     }
 
-    /* SI multiplier */
-    if ( si )
-    {
-        n = gen_out( cons, parg, 0, NULL, 0, 0, &si, 1, 0 );
-        if ( n == EXBADFORMAT )
-            return n;
-        count += n;
-    }
-
-    /* Trailing space, if any */
-    n = gen_out( cons, parg, 0, NULL, 0, 0, NULL, 0, ps2 );
+    /* SI multiplier and trailing space */
+    n = gen_out( cons, parg, 0, NULL, 0, 0, &si, si ? 1 : 0, ps2 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
