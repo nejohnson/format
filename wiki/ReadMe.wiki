@@ -52,7 +52,7 @@ Each conversion specification is introduced by the character `%`.  After the `%`
 
   * A conversion specifier character that specifies the type of conversion to be applied. 
 
-As noted above, a field width, or precision, or both, may be indicated by an asterisk. In this case, an int argument supplies the field width or precision.  The arguments specifying field width, or precision, or both, shall appear (in that order) before the argument (if any) to be converted. A negative field width argument is taken as a `-` flag followed by a positive field width. A negative precision argument is taken as if the precision were omitted. 
+As noted above, a field width, precision, or base, or any combination, may be indicated by an asterisk. In this case, an int argument supplies the field width, precision or base.  The arguments specifying field width, precision, or base, or any combination, shall appear (in that order) before the argument (if any) to be converted. A negative field width argument is taken as a `-` flag followed by a positive field width. A negative precision argument is taken as if the precision were omitted. A negative base argument is taken as if the base were omitted.
 
 === Flags ===
 
