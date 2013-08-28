@@ -19,6 +19,26 @@ would send to the `cons` function the characters representing the output
 GPIO = 00100101
 }}}
 
+
+
+= Arbitrary Integer Base Conversion =
+
+The `i`, `I`, `u` and `U` conversions can take any number base specified by a base modifier, in exactly the same way as precision and width.
+
+For example, formatting a number for a our three-fingered Martian friends can be done quite easily:
+
+{{{
+format( cons, arg, "%:3i bottles of Martian beer on the wall", 99 );
+}}}
+
+would produce
+{{{
+10200 bottles of Martian beer on the wall
+}}}
+
+For bases greater than 10 the letters `a`-`z` are used for the `i` and `u` conversions, and `A`-`Z` are used for the `I` and `U` conversions.  As a consequence of this the maximum base is 36.
+
+
 = Continuation Conversion Specifier =
 
 A recent addition to the `format` library is the continuation conversion specification.  Notionally it is written `%"`, in practice you place a `%` as the last character in a format string and `format` will continue parsing the format specification from the string pointed to by the next argument.
