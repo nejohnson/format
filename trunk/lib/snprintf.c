@@ -1,6 +1,6 @@
 /* ****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2011, Neil Johnson
+ * Copyright (C) 2011-2013, Neil Johnson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -66,7 +66,7 @@ struct nbuf {
     
     Do not use memcpy as it is not available in a freestanding implementation.
     
-    @param memptr  Pointer to output buffer.
+    @param p       Pointer to output buffer.
     @param buf     Pointer to input buffer.
     @param n       Number of characters from buffer to copy to output buffer.
     
@@ -99,6 +99,7 @@ void * bufnwrite( void * p, const char * buf, size_t n )
     Produce output according to a format string, with optional arguments.
     
     @param buf      Output buffer.
+    @param n        Length of output buffer.
     @param fmt      Format specifier.
     @param ap       Argument pointer.
     
@@ -110,8 +111,13 @@ int vsnprintf( char *buf, size_t n, const char *fmt, va_list ap )
     struct nbuf nbuf = { buf, n };
     
     done = format( bufnwrite, (void *)&nbuf, fmt, ap );
-    if ( 0 <= done )
+    if ( 0 <= done && 0 < n )
+    {
+        if ( done >= n ) /* check for buffer overflow (issue 6) */
+            done = n - 1;
+
         buf[done] = '\0';
+    }
     
     return done;
 }
@@ -121,6 +127,7 @@ int vsnprintf( char *buf, size_t n, const char *fmt, va_list ap )
     Produce output according to a format string, with optional arguments.
     
     @param buf      Output buffer.
+    @param n        Length of output buffer.
     @param fmt      Format specifier.
     
     @return Number of characters written into the output buffer, or -1.
