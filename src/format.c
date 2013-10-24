@@ -197,7 +197,9 @@ typedef struct {
     char            qual;   /**< length qualifier                   **/
     char            repchar;/**< Repetition character               **/
     struct {
+#if defined(CONFIG_HAVE_ALT_PTR)
         enum ptr_mode mode; /**< grouping spec pointer type         **/
+#endif
         const void *  ptr;  /**< ptr to grouping specification      **/
         size_t        len;  /**< length of grouping spec            **/
     } grouping;
@@ -1213,6 +1215,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
             /* test for grouping qualifier */
             fspec.grouping.len = 0;
+            fspec.grouping.ptr = NULL;
+#if defined(CONFIG_HAVE_ALT_PTR)
+            fspedc.grouping.mode = NORMAL_PTR;
+#endif
             c = READ_CHAR( mode, ptr );
             if ( c == '[' )
             {
