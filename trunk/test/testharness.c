@@ -118,7 +118,7 @@ static int f = 0;
 **/
 static void * bufwrite( void * memptr, const char * buf, size_t n )
 {
-    return ( memcpy( memptr, buf, n ) + n );
+    return ( (char *)memcpy( memptr, buf, n ) + n );
 }
 
 /*****************************************************************************/

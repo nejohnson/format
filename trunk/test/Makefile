@@ -1,4 +1,5 @@
-CFLAGS = -g -I../src -std=c99 -Wall -pedantic -Wunused 
+CFLAGS = -g -I../src -std=c99 -Wall -pedantic -Wunused
+#CFLAGS = -O2 -I../src -std=c99 -Wall -pedantic -Wunused  
 LDFLAGS = -g
 
 all: testharness
@@ -8,9 +9,13 @@ format.o: ../src/format.c
 	$(CC) $(CFLAGS) -c $< -o $@
 	
 testharness: testharness.o format.o
-	$(CC) $(CFLAGS) testharness.o format.o -o testharness
+	$(CC) $(LDFLAGS) testharness.o format.o -o testharness
+
+perftest: performance.o format.o
+	$(CC) $(LDFLAGS) performance.o format.o -o perftest
 
 clean:
-	rm testharness
+	rm -f testharness
+	rm -f perftest
 	rm *.o
 
