@@ -190,7 +190,7 @@ static void run_perf_tests( void )
 int main( int argc, char *argv[] )
 {
     printf( ":: format performance test harness ::\n");
-    run_perf_tests();run_perf_tests();run_perf_tests();
+    run_perf_tests();
     return 0;
 }
 
