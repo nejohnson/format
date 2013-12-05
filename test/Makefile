@@ -2,7 +2,7 @@ CFLAGS = -g -I../src -std=c99 -Wall -pedantic -Wunused
 #CFLAGS = -O2 -I../src -std=c99 -Wall -pedantic -Wunused  
 LDFLAGS = -g
 
-all: testharness
+all: testharness perftest
 	./testharness
 
 format.o: ../src/format.c
@@ -17,5 +17,12 @@ perftest: performance.o format.o
 clean:
 	rm -f testharness
 	rm -f perftest
-	rm *.o
+	rm -f *.o
+
+what:
+	@echo "make targets:"
+	@echo "   all         -- all known targets (the default), then runs the test harness"
+	@echo "   testharness -- the format test program"
+	@echo "   perftest    -- runs some float performance tests"
+	@echo "   clean       -- deletes all build artifacts"
 

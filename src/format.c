@@ -171,11 +171,12 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 
 /*****************************************************************************/
 /**
-    Debugging aids.
+    Debugging aids.  Only intended for debugging "format" itself, using
+    standard out for dumping internal state.  Not for use in target systems.
 **/
 /* #define FORMAT_DEBUG */
-#include <stdio.h>
 #ifdef FORMAT_DEBUG
+#include <stdio.h>
 #define DEBUG_LOG(fmt,val)  printf((fmt),(val))
 #else
 #define DEBUG_LOG(fmt,val)  ((void)0)
