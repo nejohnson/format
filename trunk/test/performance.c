@@ -80,7 +80,7 @@ static void * bufwrite( void * memptr, const char * buf, size_t n )
 
     @returns Number of characters printed, or -1 if failed.
 **/
-int test_sprintf( char *buf, const char *fmt, ... )
+static int test_sprintf( char *buf, const char *fmt, ... )
 {
     va_list arg;
     int done;

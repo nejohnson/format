@@ -63,7 +63,7 @@
     
     @return Address of next empty cell in output buffer.
 **/
-void * bufwrite( void * memptr, const char * buf, size_t n )
+static void * bufwrite( void * memptr, const char * buf, size_t n )
 {
     char *dst = (char *)memptr;
     

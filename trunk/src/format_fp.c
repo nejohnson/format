@@ -296,7 +296,7 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
         else
             e_s = "INF";
 
-    e_n = strlen(e_s);
+    e_n = STRLEN(e_s);
 
     if ( sign )
         pfx_s = "-";
@@ -306,7 +306,7 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
         pfx_s = " ";
     else
         pfx_s = "";
-    pfx_n = strlen( pfx_s );
+    pfx_n = STRLEN( pfx_s );
 
     calc_space_padding( pspec, e_n + pfx_n, &ps1, &ps2 );
 
@@ -456,7 +456,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         pfx_s = " ";
     else
         pfx_s = "";
-    pfx_n = strlen( pfx_s );
+    pfx_n = STRLEN( pfx_s );
 
     /* Trim trailing zeros from mantissa and compute no. of sig.figures */
     if ( mantissa )

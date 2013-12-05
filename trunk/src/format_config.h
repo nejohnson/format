@@ -61,15 +61,6 @@
 #endif
 
 /*****************************************************************************/
-/** If building in a freestanding environment with GCC then we usually need to
-    provide our own memcpy(), otherwise we'll be pulling in glibc more than we
-    strictly need to (if at all).
-**/
-#if !defined(CONFIG_HAVE_LIBC) && defined(__GNUC__)
-  #define CONFIG_NEED_LOCAL_MEMCPY
-#endif
-
-/*****************************************************************************/
 /** On some machines it is better (smaller/faster) to do the long div-10 math
     inline rather than calling out to compiler support library.  If this switch
     is defined then format will use an inline divide-by-ten.
