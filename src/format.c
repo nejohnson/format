@@ -318,29 +318,6 @@ static char * xx_strchr( const char *s, int c )
 
 /*****************************************************************************/
 /**
-    Freestanding implementation of memcpy() needed by GCC.
-
-    @param dst        Pointer to destination.
-    @param src        Pointer to source.
-    @param len        Number of bytes to copy.
-
-    @return Original value of dst.
-**/
-#if defined(CONFIG_NEED_LOCAL_MEMCPY)
-static void * memcpy( void *dst, const void *src, size_t len )
-{
-    char *d = dst;
-    const char *s = src;
-
-    while(len--)
-        *d++ = *s++;
-
-    return dst;
-}
-#endif
-
-/*****************************************************************************/
-/**
     Emit @p n characters from string @p s.
 
     @param s        Pointer to source string

@@ -72,7 +72,7 @@ struct nbuf {
     
     @return Address of next empty cell in output buffer.
 **/
-void * bufnwrite( void * p, const char * buf, size_t n )
+static void * bufnwrite( void * p, const char * buf, size_t n )
 {
     struct nbuf *pnbuf = (struct nbuf *)p;
     
@@ -138,7 +138,7 @@ int snprintf( char *buf, size_t n, const char *fmt, ... )
     int done;
     
     va_start ( arg, fmt );
-    done = vsnprintf( buf, n, arg );
+    done = vsnprintf( buf, n, fmt, arg );
     va_end ( arg );
     
     return done;
