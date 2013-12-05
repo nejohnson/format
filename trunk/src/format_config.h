@@ -38,7 +38,7 @@
 
 /** Check if we are in the C hosted configuration **/
 
-#if defined(__STDC_HOSTED__)
+#if (__STDC_HOSTED__ == 1)
   #define CONFIG_HAVE_LIBC
 #endif
 
@@ -51,7 +51,8 @@
     See http://www.kannel.org
 **/
 
-#if (defined(__linux__) && (defined(__powerpc__)    \
+#if (defined(__linux__) && (defined(__arm__) \
+                           || defined(__powerpc__)    \
                            || defined(__s390__)     \
                            || defined(__x86_64)))   \
     || (defined(__FreeBSD__) && defined(__amd64__)) \
