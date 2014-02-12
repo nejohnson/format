@@ -93,7 +93,10 @@
     simply do not need this functionality so make it possible to remove it at
     build time.  If used at runtime the call to format will return EXBADFORMAT.
 **/
-#define CONFIG_WITH_FP_SUPPORT
+/* NOTE: disable FP support while sorting out rounding issues.
+   Has no effect on other conversion specifiers.
+*/
+/* #define CONFIG_WITH_FP_SUPPORT */
 
 
 #endif /* FORMAT_CONFIG_H */
