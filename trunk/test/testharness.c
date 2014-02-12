@@ -43,6 +43,7 @@
 #endif
 
 #include "format.h"
+#include "format_config.h"
 
 /*****************************************************************************/
 /* Project Includes                                                          */
@@ -772,6 +773,7 @@ static void test_bouxX( void )
     TEST( " 00XYZ", 6, "%6.5:36U", 44027 );
 }
 
+#if defined(CONFIG_WITH_FP_SUPPORT)
 /*****************************************************************************/
 /**
     Execute tests on e,E,f,F,g,G conversion specifiers.
@@ -792,6 +794,7 @@ static void test_eEfFgG( void )
     TEST( "-INF", 4, "%E", -1.0/0.0 );
 
     TEST( "1.0e+00", 7, "%.1e", 1.0 );
+    TEST( "1.0e+00", 7, "%.1e", 0.999f );return;
     TEST( "+1.0e+00", 8, "%+.1e", 1.0 );
     TEST( "1.0e-01", 7, "%.1e", 0.1 );
     TEST( "1.1e+00", 7, "%.1e", 1.1 );
@@ -811,6 +814,7 @@ static void test_eEfFgG( void )
 
     TEST( "0.000000", 8, "%f", 0.0 );
     TEST( "0", 1, "%.0f", 0.0 );
+    TEST( "1.00", 4, "%.2f", 0.999f );
 
     TEST( "1.0", 3, "%.1f", 1.0 );
     TEST( "0.1", 3, "%.1f", 0.1 );
@@ -905,6 +909,12 @@ static void test_eEfFgG( void )
     TEST( "0.12345y", 8, "%!.5f", 0.12345e-24 );
     TEST( "1.2345y", 7, "%!.4f", 1.2345e-24 );
 }
+#else /* no CONFIG_WITH_FP_SUPPORT */
+static void test_eEfFgG( void )
+{
+    /* FP not configured */
+}
+#endif /* CONFIG_WITH_FP_SUPPORT */
 
 /*****************************************************************************/
 /**
