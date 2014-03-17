@@ -52,13 +52,21 @@
 #define DEC_FP_IS_NAN(s,m,e)   ( (e) == INT_MAX && (m) != 0 )
 #define DEC_FP_IS_INF(s,m,e)   ( (e) == INT_MAX && (m) == 0 )
 
+/** Other fudge factors **/
+/* Compressed notation (engineering and scientific) only work within the
+   ranges specified by the International Bureau of Weights and Measures.
+   Ref: Resolution 4 of the 19th meeting of the CGPM (1991)
+        http://www.bipm.org/en/CGPM/db/19/4/
+*/
+#define COMP_EXP_LIMIT		( 24 )
+
 /*****************************************************************************/
 /* Private function prototypes.  Declare as static.                          */
 /*****************************************************************************/
 
 static void radix_convert( double, unsigned int *, DEC_MANT_REG_TYPE *, int * );
 
-static int mant_to_char( char *, DEC_MANT_REG_TYPE, int, int, int );
+static int mant_to_char( char *, DEC_MANT_REG_TYPE, int, int );
 
 static int do_conv_fp( T_FormatSpec *, VALPARM(), char,
                        void * (*)(void *, const char *, size_t), void * * );
@@ -67,6 +75,8 @@ static int do_conv_infnan( T_FormatSpec *, char,
                            void *          (*)(void *, const char *, size_t),
                            void * *,
                            unsigned int, DEC_MANT_REG_TYPE, int );
+
+static void round_mantissa( DEC_MANT_REG_TYPE *, int *, int, int, int, int );
 
 /*****************************************************************************/
 /* Private functions.  Declare as static.                                    */
@@ -218,24 +228,19 @@ static void radix_convert( double              v,
     @param m                    Input mantissa
     @param digits_total         Total number of input digits
     @param digits_to_convert    Number of digits required in output
-    @param want_round           1 if rounding wanted during dropping
 
     @return number of digits put into @a buf.
 **/
 static int mant_to_char( char * buf,
                          DEC_MANT_REG_TYPE m,
                          int digits_total,
-                         int digits_to_convert,
-                         int want_round )
+                         int digits_to_convert )
 {
     int i;
 
     for ( i = digits_total - digits_to_convert; i > 0; i-- )
     {
-        if ( i == 1 && want_round )
-            m = ( m + 5 ) / 10;
-        else
-            m /= 10;
+        m /= 10;
     }
 
     for ( i = digits_to_convert; i; i-- )
@@ -311,6 +316,75 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
     calc_space_padding( pspec, e_n + pfx_n, &ps1, &ps2 );
 
     return gen_out( cons, parg, ps1, pfx_s, pfx_n, 0, e_s, e_n, ps2 );
+}
+
+/*****************************************************************************/
+/**
+    Round the mantissa according to the conversion type and precision
+
+    @param mantissa 		Pointer to mantissa to round
+    @param exponent		Pointer to exponent
+    @param prec			Required precision
+    @param is_f                 True for f/F conversion
+    @param really_g             True if specified conversion was g/G
+    @param compressed           True if using compressed engineering or 
+                                   scientific formatting
+**/
+static void round_mantissa( DEC_MANT_REG_TYPE *mantissa, int *exponent, 
+                            int prec, int is_f, int really_g, int compressed )
+{
+   /* The precision tells us the number of digits that will be sent to the
+      output.  The exponent tells us how many of the digits in the
+      mantissa are after the decimal point.
+
+    */
+
+   DEC_MANT_REG_TYPE addend = DEC_1P0 * 5;
+   int shift = 0;
+   int e = *exponent;
+
+   if ( compressed )
+   {
+      e %= 3;
+
+      if ( e < 0 )
+         e += 3;
+
+      if ( is_f )
+      {
+         /* Scientific notation has limited suffixes */
+         int absexp = ABS(*exponent);
+         if ( absexp > COMP_EXP_LIMIT ) e += ( absexp - COMP_EXP_LIMIT );
+      }
+
+      DEBUG_LOG( "round_mantissa(): compressed exponent = %d\n", e );
+   }
+
+   if ( !is_f )
+   {
+      /* e/E always has one digit to the left of DP */
+
+      if ( e < 0 ) e++;
+      e = ABS(e);
+   }
+   shift = e + prec + 1;
+   shift = MAX( shift, 0 );
+
+   DEBUG_LOG( "round_mantissa(): shift = %d\n", shift );
+
+
+   while ( shift-- )
+      addend /= 10;
+
+   *mantissa += addend;
+
+   /* Catch integer portion overflow */
+   if ( *mantissa >= ( DEC_1P0 * 10 ) )
+   {
+      *mantissa = ( *mantissa + 5 ) / 10;
+      *exponent += 1;
+      DEBUG_LOG( "round_mantissa(): integer overflow (new exponent: %d)\n", *exponent );
+   }
 }
 
 /*****************************************************************************/
@@ -399,7 +473,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     int i;
     size_t n_exp = 0;
     int really_g = 0;
-    int is_e = 0, is_f = 0;
+    int is_f = 0;
     char si = '\0';
 
     /************************************************************************/
@@ -431,9 +505,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
             code = (code == 'g') ? 'f' : 'F';
     }
 
-    if ( code == 'e' || code == 'E' )
-        is_e = 1;
-    else
+    if ( code == 'f' || code == 'F' )
         is_f = 1;   
 
     /* Apply default precision */
@@ -458,6 +530,9 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         pfx_s = "";
     pfx_n = STRLEN( pfx_s );
 
+    /* Perform any rounding on the mantissa prior to formatting */
+    round_mantissa( &mantissa, &exponent, pspec->prec, is_f, really_g, pspec->flags & FBANG );
+
     /* Trim trailing zeros from mantissa and compute no. of sig.figures */
     if ( mantissa )
         for ( sigfig = DEC_SIG_FIG; sigfig; sigfig--, mantissa /= 10 )
@@ -467,22 +542,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     DEBUG_LOG( "sigfig: %d\n", sigfig );
 
     /* Work out how many digits on each side of the DP */
-    if ( is_e )
-    {
-        n_left = 1;
- 
-        /* Engineering format forces exponent to multiple of 3 */
-        if ( pspec->flags & FBANG )
-        {
-           int m = exponent % 3;
-
-           if ( m < 0 )
-              m += 3;
-           n_left   += m;
-           exponent -= m;
-        }
-    }    
-    else
+    if ( is_f )
     {
         if ( pspec->flags & FBANG )
         {
@@ -501,6 +561,21 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         }
 
         n_left = exponent > -1 ? 1 + exponent : 0;
+    }
+    else /* must be 'e' */
+    {
+        n_left = 1;
+
+        /* Engineering format forces exponent to multiple of 3 */
+        if ( pspec->flags & FBANG )
+        {
+           int m = exponent % 3;
+
+           if ( m < 0 )
+              m += 3;
+           n_left   += m;
+           exponent -= m;
+        }
     }
 
     n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec );
@@ -523,20 +598,6 @@ static int do_conv_efg( T_FormatSpec *     pspec,
 
     /* Compute length of the actual generated text */
     length = pfx_n + n_left + n_right;
-
-    if ( is_e )
-    {
-        /* Add length of exponent suffix, remembering that the length of the
-         *  exponent field is minimum of 2.
-         */
-        for ( i = ABS(exponent), n_exp = 0; i > 0; n_exp++, i /= 10 )
-            ;
-
-        n_exp = MAX( n_exp, 2 );
-
-        /* Total length = 'e'/'E' + sign + 'dd..d' */
-        length += 2 + n_exp;
-    }
 
     if ( is_f )
     {
@@ -562,6 +623,19 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         /* Include any SI multiplier suffix */
         if ( si )
             length++;
+    }
+    else /* is 'e' */
+    {
+        /* Add length of exponent suffix, remembering that the length of the
+         *  exponent field is minimum of 2.
+         */
+        for ( i = ABS(exponent), n_exp = 0; i > 0; n_exp++, i /= 10 )
+            ;
+
+        n_exp = MAX( n_exp, 2 );
+
+        /* Total length = 'e'/'E' + sign + 'dd..d' */
+        length += 2 + n_exp;
     }
 
     /* Compute trailing zeros */
@@ -615,7 +689,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     /* Generate the output sections */
 
     /* LEFT, including leading space and prefix */
-    e_n = n_left ? mant_to_char( e_s, mantissa, sigfig, n_left - pz2, 0 )
+    e_n = n_left ? mant_to_char( e_s, mantissa, sigfig, n_left - pz2 )
                  : 0;
 
     sigfig -= e_n;
@@ -632,7 +706,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     count += n;
 
     /* RIGHT */
-    e_n = n_right ? mant_to_char( e_s, mantissa, sigfig, n_right, 1 )
+    e_n = n_right ? mant_to_char( e_s, mantissa, sigfig, n_right )
                   : 0;
 
     n = gen_out( cons, parg, 0, ".", want_dp ? 1 : 0, pz3, e_s, e_n, 0 );
