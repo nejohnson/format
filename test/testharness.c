@@ -55,7 +55,7 @@
 #define BUF_SZ      ( 1024 )
 
 static char buf[BUF_SZ];
-static int f = 0;
+static unsigned int f = 0;
 
 /**
     Wrapper macro to standardise checking of test results.
@@ -69,9 +69,9 @@ static int f = 0;
             int r = test_sprintf(buf,(fmt),## args);                        \
             printf( "[Test  @ %3d] ", __LINE__ );                           \
             if ( r != (rtn) )                                               \
-                {printf("########### FAIL: produced \"%s\", returned %d, expected %d.", buf,r, (rtn) );f|=1;} \
+                {printf("########### FAIL: produced \"%s\", returned %d, expected %d.", buf,r, (rtn) );f+=1;} \
             else if ( strcmp( (exs), buf ) )                                \
-                {printf("########### FAIL: produced \"%s\", expected \"%s\".", buf,(exs));f|=1;}\
+                {printf("########### FAIL: produced \"%s\", expected \"%s\".", buf,(exs));f+=1;}\
             else                                                            \
                 printf("PASS");                                             \
             printf("\n");                                                   \
@@ -794,7 +794,6 @@ static void test_eEfFgG( void )
     TEST( "-INF", 4, "%E", -1.0/0.0 );
 
     TEST( "1.0e+00", 7, "%.1e", 1.0 );
-    TEST( "1.0e+00", 7, "%.1e", 0.999f );return;
     TEST( "+1.0e+00", 8, "%+.1e", 1.0 );
     TEST( "1.0e-01", 7, "%.1e", 0.1 );
     TEST( "1.1e+00", 7, "%.1e", 1.1 );
@@ -908,6 +907,14 @@ static void test_eEfFgG( void )
     TEST( "123.45Y", 7, "%!.2f", 123.45e+24 );
     TEST( "0.12345y", 8, "%!.5f", 0.12345e-24 );
     TEST( "1.2345y", 7, "%!.4f", 1.2345e-24 );
+
+
+    /*******   Rounding   ****************************************************/
+
+    TEST( "1", 1, "%1.f", 0.99f );
+    TEST( "1.0e+00", 7, "%.1e", 0.999f );
+    /* TODO:  TEST( "12.35", 5, "%.4g", 12.345f ); */
+
 }
 #else /* no CONFIG_WITH_FP_SUPPORT */
 static void test_eEfFgG( void )
@@ -1041,7 +1048,7 @@ static void run_tests( void )
     test_cont();
 
     printf( "-----------------------\n"
-            "Overall: %s\n", f ? "FAIL" : "PASS" );
+            "Summary: %s (%u)\n", f ? "FAIL" : "PASS", f );
 }
 
 /*****************************************************************************/

@@ -96,7 +96,7 @@
 /* NOTE: disable FP support while sorting out rounding issues.
    Has no effect on other conversion specifiers.
 */
-/* #define CONFIG_WITH_FP_SUPPORT */
+#define CONFIG_WITH_FP_SUPPORT
 
 
 #endif /* FORMAT_CONFIG_H */
