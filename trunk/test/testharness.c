@@ -1,6 +1,6 @@
 /* ***************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010-2013, Neil Johnson
+ * Copyright (C) 2010-2014, Neil Johnson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #if defined(__AVR__)
   #include <avr/io.h>
@@ -54,6 +55,8 @@
 **/
 #define BUF_SZ      ( 1024 )
 
+#define UNUSED      0
+
 static char buf[BUF_SZ];
 static unsigned int f = 0;
 
@@ -65,8 +68,8 @@ static unsigned int f = 0;
     @param fmt              Test format string
     @param args...          Argument list
 **/
-#define TEST(exs,rtn,fmt,args...)   do {                                    \
-            int r = test_sprintf(buf,(fmt),## args);                        \
+#define TEST(exs, rtn, fmt, args...)   do {                                 \
+            int r = test_sprintf(buf,(fmt), ## args);                       \
             printf( "[Test  @ %3d] ", __LINE__ );                           \
             if ( r != (rtn) )                                               \
                 {printf("########### FAIL: produced \"%s\", returned %d, expected %d.", buf,r, (rtn) );f+=1;} \
@@ -83,7 +86,7 @@ static unsigned int f = 0;
     @param fmt              Test format string
     @param args...          Argument list
 **/
-#define FAIL(fmt,args...)        do {                                       \
+#define FAIL(fmt, args...)        do {                                      \
             int r = test_sprintf(buf,(fmt),## args);                        \
             printf( "[Test  @ %3d] ", __LINE__ );                           \
             if ( r != EXBADFORMAT )                                         \
@@ -156,26 +159,26 @@ static void test( void )
 {
     printf( "Testing basic strings\n" );
 
-    TEST( "", EXBADFORMAT, NULL );
+    TEST( "", EXBADFORMAT, NULL, UNUSED );
 
     /* Empty string */
-    TEST( "", 0, "" );
+    TEST( "", 0, "", UNUSED );
 
     /* Basic tests */
-    TEST( "a", 1, "a" );
-    TEST( "abc", 3, "abc" );
+    TEST( "a", 1, "a", UNUSED );
+    TEST( "abc", 3, "abc", UNUSED );
 
     /* Long string */
     TEST( "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij"
           "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij",
           100,
           "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij"
-          "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij" );
+          "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghij", UNUSED );
 
     /* Escape characters */
-    TEST( "\a\b\f\n\r\t\v", 7, "\a\b\f\n\r\t\v" );
-    TEST( "\'\"\\\?", 4, "\'\"\\\?" );
-    TEST( "\123\x69", 2, "\123\x69" );
+    TEST( "\a\b\f\n\r\t\v", 7, "\a\b\f\n\r\t\v", UNUSED );
+    TEST( "\'\"\\\?", 4, "\'\"\\\?", UNUSED );
+    TEST( "\123\x69", 2, "\123\x69", UNUSED );
 }
 
 /*****************************************************************************/
@@ -187,16 +190,16 @@ static void test_pc( void )
     printf( "Testing \"%%%%\"\n" );
 
     /* Basic test */
-    TEST( "%", 1, "%%" );
+    TEST( "%", 1, "%%", UNUSED );
 
     /* Check all flags, precision, width, length are ignored */
-    TEST( "%", 1, "%-+ #0!^12.h%" );
-    TEST( "%", 1, "%-+ #0!^12.24h%" );
+    TEST( "%", 1, "%-+ #0!^12.h%", UNUSED );
+    TEST( "%", 1, "%-+ #0!^12.24h%", UNUSED );
 
     /* Check sequential conversions */
-    TEST( "%c", 2, "%%c" );
-    TEST( "%%%", 3, "%%%%%%" );
-    TEST( "% % %", 5, "%% %% %%" );
+    TEST( "%c", 2, "%%c", UNUSED );
+    TEST( "%%%", 3, "%%%%%%", UNUSED );
+    TEST( "% % %", 5, "%% %% %%", UNUSED );
 }
 
 /*****************************************************************************/
@@ -226,8 +229,8 @@ static void test_cC( void )
     TEST( "------------", 12, "%.12c", '-' );
 
     /* Check inline repetition */
-    TEST( "aaaa", 4, "%.4Ca" );
-    TEST( "------------", 12, "%.12C-" );
+    TEST( "aaaa", 4, "%.4Ca", UNUSED );
+    TEST( "------------", 12, "%.12C-", UNUSED );
 
     /* Check variable repetition */
     TEST( "----", 4, "%.*c", 4, '-' );
@@ -914,7 +917,31 @@ static void test_eEfFgG( void )
     TEST( "1", 1, "%1.f", 0.99f );
     TEST( "1.0e+00", 7, "%.1e", 0.999f );
     /* TODO:  TEST( "12.35", 5, "%.4g", 12.345f ); */
-
+    
+    /*******  Denormals  ****************************************************/
+    {
+#if ( DBL_DIG > 8 ) /* 64-bit doubles */    
+        double n = pow( 2, -1074 );
+        
+        TEST(  "4.94e-324",  9, "%.2e",  n );
+        TEST( "-4.94e-324", 10, "%.2e", -n );
+        
+        n = ( 1.0 - pow( 2, -52 ) ) * pow( 2, -1022 );
+        
+        TEST(  "2.22e-308",  9, "%.2e",  n );
+        TEST( "-2.22e-308", 10, "%.2e", -n );
+#else /*32-bit doubles */
+        double n = pow( 2, -149 );
+        
+        TEST(  "1.40e-45", 8, "%.2e",  n );
+        TEST( "-1.40e-45", 9, "%.2e", -n );
+        
+        n = (1.0 - pow(2, -23)) * pow(2, -126);
+        
+        TEST(  "1.17e-38", 8, "%.2e",  n );
+        TEST( "-1.17e-38", 9, "%.2e", -n );
+#endif
+    }
 }
 #else /* no CONFIG_WITH_FP_SUPPORT */
 static void test_eEfFgG( void )
@@ -1048,7 +1075,7 @@ static void run_tests( void )
     test_cont();
 
     printf( "-----------------------\n"
-            "Summary: %s (%u)\n", f ? "FAIL" : "PASS", f );
+            "Summary: %s (%u failures)\n", f ? "FAIL" : "PASS", f );
 }
 
 /*****************************************************************************/
