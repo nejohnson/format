@@ -43,24 +43,6 @@
 #endif
 
 /*****************************************************************************/
-/**
-    Some platforms va_list is an array type, on others it is a pointer (such as
-    pointer to char).  These macros hide this important difference.
-
-    The following is inspired from code from the kannel project.
-    See http://www.kannel.org
-**/
-
-#if (defined(__linux__) && (defined(__arm__) \
-                           || defined(__powerpc__)    \
-                           || defined(__s390__)     \
-                           || defined(__x86_64)))   \
-    || (defined(__FreeBSD__) && defined(__amd64__)) \
-    || (defined(DARWIN) && defined(__x86_64__))
-  #define CONFIG_VA_LIST_AS_ARRAY_TYPE
-#endif
-
-/*****************************************************************************/
 /** On some machines it is better (smaller/faster) to do the long div-10 math
     inline rather than calling out to compiler support library.  If this switch
     is defined then format will use an inline divide-by-ten.

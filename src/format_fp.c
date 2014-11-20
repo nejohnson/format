@@ -99,7 +99,7 @@ static void radix_convert( double, unsigned int *, DEC_MANT_REG_TYPE *, int * );
 
 static int mant_to_char( char *, DEC_MANT_REG_TYPE, int, int );
 
-static int do_conv_fp( T_FormatSpec *, VALPARM(), char,
+static int do_conv_fp( T_FormatSpec *, va_list *, char,
                        void * (*)(void *, const char *, size_t), void * * );
 
 static int do_conv_infnan( T_FormatSpec *, char,
@@ -825,7 +825,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     @return Number of emitted characters, or EXBADFORMAT if failure
 **/
 static int do_conv_fp( T_FormatSpec * pspec,
-                       VALPARM(ap),
+                       va_list *      ap,
                        char           code,
                        void *      (* cons)(void *, const char *, size_t),
                        void * *       parg )
@@ -839,7 +839,7 @@ static int do_conv_fp( T_FormatSpec * pspec,
     if ( pspec->qual == 'L' )
         return EXBADFORMAT;
 
-    dv = va_arg(VALST(ap), double);
+    dv = va_arg( *ap, double );
     radix_convert( dv, &sign, &mantissa, &exponent );
 
     /* Infs and NaNs are treated in the same style */
