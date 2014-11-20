@@ -21,9 +21,11 @@ The `format` library has been successfully tested on the following platforms:
 || Pentium-M   || Windows XP           || Neil Johnson  ||
 || PowerPC     || OS X 10.4            || Neil Johnson  ||
 || PA-RISC     || OpenBSD 4.4          || Neil Johnson  ||
+|| ARM Cortex-A9 || Linux              || Neil Johnson  ||
 
 
 == 64-bit ==
 
 || *Processor* || *OS* (if applicable) || *Reported By* ||
 || x86_64      || RedHat Linux (2.6.9) || Neil Johnson  ||
+|| x86_64      || Ubuntu Linux (14.10) || Neil Johnson  ||
