@@ -946,7 +946,7 @@ static void test_eEfFgG( void )
 #else /* no CONFIG_WITH_FP_SUPPORT */
 static void test_eEfFgG( void )
 {
-    /* FP not configured */
+    TEST( "?", 1, "%e", 1.0f )
 }
 #endif /* CONFIG_WITH_FP_SUPPORT */
 
