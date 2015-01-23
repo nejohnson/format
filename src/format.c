@@ -438,10 +438,34 @@ static void calc_space_padding( T_FormatSpec * pspec,
 /*****************************************************************************/
 /**
     Floating Point code is in a separate source file for clarity.
-    Pull it in if required.
+    Pull it in if required, otherwise emit "?".
 **/
 #if defined(CONFIG_WITH_FP_SUPPORT)
 #include "format_fp.c"
+#else
+/**
+    When float support is not compiled in then consume the double argument
+    and print out a single "?".  Apply padding, spacing, etc.
+**/
+static int do_conv_fp( T_FormatSpec * pspec,
+                       va_list *      ap,
+                       char           code,
+                       void *      (* cons)(void *, const char *, size_t),
+                       void * *       parg )
+{
+    size_t length = 0;
+    size_t ps1 = 0, ps2 = 0;
+    const char *s = "?";
+    double dv = va_arg( *ap, double );
+
+    length = STRLEN( s );
+    if ( pspec->prec >= 0 )
+        length = MIN( pspec->prec, length );
+
+    calc_space_padding( pspec, length, &ps1, &ps2 );
+
+    return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
+}
 #endif
 
 /*****************************************************************************/
@@ -950,12 +974,10 @@ static int do_conv( T_FormatSpec * pspec,
             return do_conv_s( pspec, ap, code, cons, parg );
     }
 
-#if defined(CONFIG_WITH_FP_SUPPORT)
     if ( code == 'e' || code == 'E'
       || code == 'f' || code == 'F'
       || code == 'g' || code == 'G' )
         return do_conv_fp( pspec, ap, code, cons, parg );
-#endif
 
     /* -------------------------------------------------------------------- */
 
