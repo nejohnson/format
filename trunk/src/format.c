@@ -1212,7 +1212,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             fspec.grouping.len = 0;
             fspec.grouping.ptr = NULL;
 #if defined(CONFIG_HAVE_ALT_PTR)
-            fspedc.grouping.mode = NORMAL_PTR;
+            fspec.grouping.mode = NORMAL_PTR;
 #endif
             c = READ_CHAR( mode, ptr );
             if ( c == '[' )
