@@ -90,7 +90,7 @@ static unsigned int f = 0;
             int r = test_sprintf(buf,(fmt),## args);                        \
             printf( "[Test  @ %3d] ", __LINE__ );                           \
             if ( r != EXBADFORMAT )                                         \
-                {printf("**** FAIL: returned %d, expected EXBADFORMAT", r);f|=1;} \
+                {printf("**** FAIL: returned %d, expected EXBADFORMAT", r);f+=1;} \
             else                                                            \
                 printf("PASS");                                             \
             printf("\n");                                                   \
@@ -102,7 +102,7 @@ static unsigned int f = 0;
 #define CHECK(a,b)      do { printf("[Check @ %3d] ", __LINE__ );           \
                             if ((a)==(b))                                   \
                                 printf( "PASS");                            \
-                            else {printf("**** FAIL: got %d, expected %d",(a),(b));f|=1;}\
+                            else {printf("**** FAIL: got %d, expected %d",(a),(b));f+=1;}\
                             printf("\n");                                   \
                         }while(0);
 
