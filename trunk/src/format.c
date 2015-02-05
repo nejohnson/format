@@ -87,8 +87,15 @@
 #define MAXPREC         ( 500 )
 #define MAXBASE         ( 36 )
 #define BUFLEN          ( 130 )  /* Must be long enough for 64-bit pointers
-                                     in binary with maximum grouping chars and
-                                     prefix. */
+                                  * in binary with maximum grouping chars and
+                                  * prefix:
+                                  *  "0b" + 64 digits + 64 grouping chars
+                                  */
+
+/* Fixed-point field width limits */
+#define MAX_XP_INT      ( sizeof(int) * CHAR_BIT )
+#define MAX_XP_FRAC     ( sizeof(int) * CHAR_BIT )
+#define MAX_XP_WIDTH    ( sizeof(long) * CHAR_BIT )
 
 /**
     Return the maximum/minimum of two scalar values.
@@ -193,6 +200,10 @@ typedef struct {
         const void *  ptr;  /**< ptr to grouping specification      **/
         size_t        len;  /**< length of grouping spec            **/
     } grouping;
+    struct {
+        size_t w_int;       /**< fixed-point integer field width    **/
+        size_t w_frac;      /**< fixed-point fractional field width **/
+    } xp;
 } T_FormatSpec;
 
 /*****************************************************************************/
@@ -456,7 +467,39 @@ static int do_conv_fp( T_FormatSpec * pspec,
     size_t length = 0;
     size_t ps1 = 0, ps2 = 0;
     const char *s = "?";
-    double dv = va_arg( *ap, double );
+    double dv = va_arg( *ap, double ); /* consume argument */
+
+    length = STRLEN( s );
+    if ( pspec->prec >= 0 )
+        length = MIN( pspec->prec, length );
+
+    calc_space_padding( pspec, length, &ps1, &ps2 );
+
+    return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
+}
+
+/**
+    Likewise, consume the argument (of the appropriate size), and print out
+    a single "?", with padding, spacing, etc.
+**/
+static int do_conv_k( T_FormatSpec * pspec,
+                      va_list *      ap,
+                      char           code,
+                      void *      (* cons)(void *, const char *, size_t),
+                      void * *       parg )
+{
+    size_t total_bits = pspec->xp.w_int + pspec->xp.w_frac;
+    size_t total_bytes = ( total_bits + 7 ) / 8;
+    long v;
+    const char *s = "?";
+        
+    if ( total_bytes == 0 )
+        return EXBADFORMAT;
+    
+    if ( total_bytes <= sizeof( int ) )
+        v = (long)va_arg( *ap, int );
+    else
+        v = (long)va_arg( *ap, long );
 
     length = STRLEN( s );
     if ( pspec->prec >= 0 )
@@ -979,6 +1022,9 @@ static int do_conv( T_FormatSpec * pspec,
       || code == 'g' || code == 'G' )
         return do_conv_fp( pspec, ap, code, cons, parg );
 
+    if ( code == 'k' )
+        return do_conv_k( pspec, ap, code, cons, parg );
+
     /* -------------------------------------------------------------------- */
 
     /* The '%p' conversion is a meta-conversion, which we convert to a
@@ -1242,6 +1288,69 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
                 /* record the grouping spec length */
                 fspec.grouping.len = gplen;
+            }
+            else if ( c == '{' ) /* fixed-point specifier */
+            {
+                size_t p, q;
+
+                /* skip over opening brace */
+                INC_VOID_PTR( ptr );
+
+                /* get integer width */
+                if ( READ_CHAR( mode, ptr ) == '*' )
+                {
+                    p = va_arg( ap, int );
+                    p = MAX( 0, p );
+
+                    INC_VOID_PTR( ptr );
+                }
+                else
+                {
+                    for ( p = 0;
+                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && p < MAX_XP_INT;
+                         INC_VOID_PTR( ptr ) )
+                    {
+                        p = p * 10 + c - '0';
+                    }
+                }
+
+                if ( p > MAX_XP_INT )
+                    goto exit_badformat;
+
+                /* get fractional width */
+                if ( READ_CHAR( mode, ptr ) != '.' )
+                    goto exit_badformat; /* fractional width is missing */
+                else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
+                {
+                    q = va_arg( ap, int );
+                    q = MAX( 0, q );
+
+                    INC_VOID_PTR( ptr );
+                }
+                else
+                {
+                    for ( q = 0;
+                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && q < MAX_XP_FRAC;
+                         INC_VOID_PTR( ptr ) )
+                    {
+                        q = q * 10 + c - '0';
+                    }
+                }
+
+                if ( c == '\0' )
+                    goto exit_badformat;
+
+                /* skip over closing brace */
+                INC_VOID_PTR( ptr );
+
+                if ( q > MAX_XP_FRAC )
+                    goto exit_badformat;
+
+                if ( p + q >= MAX_XP_WIDTH )
+                    goto exit_badformat;
+
+                fspec.xp.w_int  = p;
+                fspec.xp.w_frac = q;
             }
 
             /* test for length qualifier */

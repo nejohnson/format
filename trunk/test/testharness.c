@@ -943,10 +943,52 @@ static void test_eEfFgG( void )
 #endif
     }
 }
+
+/*****************************************************************************/
+/**
+    Execute tests on k (fixed-point) conversion specifier.
+
+
+**/
+static void test_k( void )
+{
+    char s4p4;
+    int s8p4;
+    int s4p8;
+
+    /* zero */
+    TEST( "0.000000", 8, "%{4.4}k", 0 );
+
+    /* Positive */
+    s4p4 = ( ( 1 ) << 4 ) | (int)( 0.5 * 16 ); /* 1.50 */
+    TEST( "1.500000", 8, "%{4.4}k", s4p4 );
+    s8p4 =  ( ( 1 ) << 4 ) | (int)( 0.5 * 16 ); /* 1.50 */
+    TEST( "1.500000", 8, "%{8.4}k", s8p4 );
+    s4p8 =  ( ( 1 ) << 8 ) | (int)( 0.5 * 256 ); /* 1.50 */
+    TEST( "1.500000", 8, "%{4.8}k", s4p8 );
+
+    /* Negative */
+    s4p4 = - ( ( ( 1 ) << 4 ) | (int)( 0.5 * 16 ) ); /* -1.50 */
+    TEST( "-1.500000", 9, "%{4.4}k", s4p4 );
+    s8p4 = - ( ( ( 1 ) << 4 ) | (int)( 0.5 * 16 ) ); /* -1.50 */
+    TEST( "-1.500000", 9, "%{8.4}k", s8p4 );
+    s4p8 =  - ( ( ( 1 ) << 8 ) | (int)( 0.5 * 256 ) ); /* -1.50 */
+    TEST( "-1.500000", 9, "%{4.8}k", s4p8 );
+
+    /* Formatting */
+    s4p8 =  ( ( 1 ) << 8 ) | (int)( 0.5 * 256 ); /* 1.50 */
+    TEST( "  1.50  ", 8, "%^8.2{4.8}k", s4p8 );  
+}
 #else /* no CONFIG_WITH_FP_SUPPORT */
+
+/* Dummy functions that test the non-FP support */
 static void test_eEfFgG( void )
 {
-    TEST( "?", 1, "%e", 1.0f )
+    TEST( "?", 1, "%e", 1.0f );
+}
+static void test_k( void )
+{
+    TEST( "?", 1, "%{4.4}k", 0 );
 }
 #endif /* CONFIG_WITH_FP_SUPPORT */
 
@@ -1071,6 +1113,7 @@ static void run_tests( void )
     test_di();
     test_bouxX();
     test_eEfFgG();
+    test_k();
     test_asterisk();
     test_cont();
 
