@@ -1254,6 +1254,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     goto exit_badformat; 
             }
 
+            /* default fixed-point format is 16p16 */
+            fspec.xp.w_int  = 16;
+            fspec.xp.w_frac = 16;
+
             /* test for grouping qualifier */
             fspec.grouping.len = 0;
             fspec.grouping.ptr = NULL;
