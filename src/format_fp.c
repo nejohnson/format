@@ -79,6 +79,11 @@
 #define BIN_UNPACK_EXPO(b)    ( ((b) >> BIN_EXP_SHIFT) & BIN_EXP_MASK )
 #define BIN_UNPACK_SIGN(b)    ( ((b) >> BIN_SIGN_SHIFT) & BIN_SIGN_MASK )
 
+/** Macros to pack integer bit buckets into a binary float **/
+#define BIN_PACK_MANT(b,v)      ( (b) = ((b) & ~BIN_MANT_MASK) | ( ((DEC_MANT_REG_TYPE)v) & BIN_MANT_MASK ) )
+#define BIN_PACK_EXPO(b,v)      ( (b) = ((b) & ~((DEC_MANT_REG_TYPE)BIN_EXP_MASK << BIN_EXP_SHIFT) ) | (((((DEC_MANT_REG_TYPE)v) & BIN_EXP_MASK) + BIN_EXP_BIAS) << BIN_EXP_SHIFT ) )
+#define BIN_PACK_SIGN(b,v)      ( (b) = (((b) & ~((DEC_MANT_REG_TYPE)BIN_SIGN_MASK << BIN_SIGN_SHIFT)) | ((((DEC_MANT_REG_TYPE)v) & BIN_SIGN_MASK) << BIN_SIGN_SHIFT)) )
+
 /** Check for NAN or INF **/
 #define DEC_FP_IS_NAN(s,m,e)   ( (e) == INT_MAX && (m) != 0 )
 #define DEC_FP_IS_INF(s,m,e)   ( (e) == INT_MAX && (m) == 0 )
@@ -720,17 +725,17 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     }
 
     /************************************************************************/
-    DEBUG_LOG( "pz1: %d, ", pz1 );
-    DEBUG_LOG( "pz2: %d, ", pz2 );
-    DEBUG_LOG( "pz3: %d, ", pz3 );
-    DEBUG_LOG( "pz4: %d, ", pz4 );
-    DEBUG_LOG( "ps1: %d, ", ps1 );
-    DEBUG_LOG( "ps2: %d, ", ps2 );
+    DEBUG_LOG( "pz1: %zd, ", pz1 );
+    DEBUG_LOG( "pz2: %zd, ", pz2 );
+    DEBUG_LOG( "pz3: %zd, ", pz3 );
+    DEBUG_LOG( "pz4: %zd, ", pz4 );
+    DEBUG_LOG( "ps1: %zd, ", ps1 );
+    DEBUG_LOG( "ps2: %zd, ", ps2 );
     DEBUG_LOG( "want_dp: %d\n", want_dp );
     DEBUG_LOG( "n_left: %d, ", n_left );
     DEBUG_LOG( "n_right: %d, ", n_right );
-    DEBUG_LOG( "n_exp: %d, ", n_exp );
-    DEBUG_LOG( "length: %d\n", length );
+    DEBUG_LOG( "n_exp: %zd, ", n_exp );
+    DEBUG_LOG( "length: %zd\n", length );
     /************************************************************************/
 
     /* Generate the output sections */
@@ -852,6 +857,100 @@ static int do_conv_fp( T_FormatSpec * pspec,
     {
         return do_conv_efg( pspec, code, cons, parg, sign, mantissa, exponent );
     }    
+}
+
+/****************************************************************************/
+/**
+    Process fixed-point conversion (%k).
+
+    @param pspec    Pointer to format specification.
+    @param ap       Reference to optional format arguments list.
+    @param code     Conversion specifier code.
+    @param cons     Pointer to consumer function.
+    @param parg     Pointer to opaque pointer updated by cons.
+
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_k( T_FormatSpec * pspec,
+                      va_list *      ap,
+                      char           code,
+                      void *      (* cons)(void *, const char *, size_t),
+                      void * *       parg )
+{
+    size_t total_bits = pspec->xp.w_int + pspec->xp.w_frac;
+    size_t total_bytes = ( total_bits + 7 ) / 8;
+    long v;
+    unsigned int sign;
+    DEC_MANT_REG_TYPE mantissa;
+    int exponent;
+    union {
+        double d;
+        DEC_MANT_REG_TYPE b;
+    } u;
+
+    if ( total_bytes == 0 )
+        return EXBADFORMAT;
+    
+    if ( total_bytes <= sizeof( int ) )
+        v = (long)va_arg( *ap, int );
+    else
+        v = (long)va_arg( *ap, long );
+
+    DEBUG_LOG( "k: val = 0x%8.8lX ", v );
+    DEBUG_LOG( "w_int = %zd ", pspec->xp.w_int );
+    DEBUG_LOG( "w_frac = %zd ", pspec->xp.w_frac );
+
+    if ( v == 0 ) /* handle zero as special case */
+    {
+        sign     = 0;
+        mantissa = 0;
+        exponent = 0;
+    }
+    else
+    {
+        int i;
+
+        /* Extract sign bit */
+        sign = !!( v & ( 1 << ( total_bits - 1) ) );
+
+        /* If the sign bit is set (number is negative) then apply 2's complement
+         * sign inversion.  We can use the built-in type sign inversion as long
+         * as we then mask out any bits not in the fixed-point type.
+         */
+        if ( sign )
+            v = -v;
+
+        /* Mask out any dross from the input value and save for later */
+        v &= ( 1 << ( total_bits - 1) ) - 1;
+        mantissa = (DEC_MANT_REG_TYPE)v;
+
+        /* Work out where highest bit is */
+        for ( i = -1; v; i++ )
+            v >>= 1;
+
+        /* i gives index of highest '1' bit, which then gives us the exponent */
+        DEBUG_LOG( "i = %d ", i );
+        exponent = i - pspec->xp.w_frac;
+        
+        /* Shift up the mantissa until the top-most bit pops out of the top
+         * of the mantissa, which will then get masked out, which is exactly
+         * what we want - in floating point the '1' is implied.
+         */
+        while ( (mantissa & ~BIN_MANT_MASK) == 0 )
+            mantissa <<= 1;
+
+        DEBUG_LOG("mantissa: %llu\n", mantissa);
+
+        /* Now pack everthing into the binary FP */
+        BIN_PACK_MANT( u.b, mantissa );
+        BIN_PACK_EXPO( u.b, exponent );
+        BIN_PACK_SIGN( u.b, sign     );
+
+        /* Convert to decimal components */
+        radix_convert( u.d, &sign, &mantissa, &exponent );
+    }
+    
+    return do_conv_efg( pspec, 'f', cons, parg, sign, mantissa, exponent );
 }
 
 /*****************************************************************************/
