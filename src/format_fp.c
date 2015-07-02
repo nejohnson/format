@@ -550,6 +550,10 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         /* Turn off the '!' flag - just too messy with g/G */
         pspec->flags &= ~FBANG;
 
+        /* If the precision is zero, it is taken as 1. */
+        if ( pspec->prec == 0 )
+            pspec->prec = 1;
+
         /* Then convert the g/G into e/E or f/F as appropriate. */
         if ( exponent < -4 || exponent >= pspec->prec )
             code = (code == 'g') ? 'e' : 'E';
@@ -563,13 +567,6 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     /* Apply default precision */
     if ( pspec->prec < 0 )
         pspec->prec = 6;
-
-    if ( really_g )
-    {
-        /* g/G: "If the precision is zero, it is taken as 1." */
-        if ( pspec->prec == 0 )
-            pspec->prec = 1;
-    }
 
     /* Generate the prefix, if any */
     if ( sign )

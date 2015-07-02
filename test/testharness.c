@@ -877,10 +877,52 @@ static void test_eEfFgG( void )
 
 
     /* %g and %G */
+    /*
+    
+    g,G     A double argument representing a floating point numer is converted
+            in the style f or e (on in style F or E in the case of a G
+            conversion specifier), with the precision specifying the number
+            of significant digits.  If the precision is zero, it is taken as 1.
+            The style used depends on the value converted; style e (or E) is
+            used only if the exponent resulting from such a conversion is less
+            than -4 or greater than or equal to the precision.  Trailing zeros
+            are removed from the fractional portion of the result unless the
+            # flag is specified; a decimal point character appears only if it
+            is followed by a digit.
+    */
 
+    /*  If the precision is zero, it is taken as 1.
+    */
+    TEST( "1.2", 3, "%.0g", 1.2345 );
+
+    /*  The style used depends on the value converted; style e (or E) is
+        used only if the exponent resulting from such a conversion is less
+        than -4 or greater than or equal to the precision. 
+    */
+    TEST( "1.234500e-05", 12, "%g", 1.2345e-5 );
+    TEST( "0.000123", 8, "%g", 1.2345e-4 );
+
+    TEST( "12.35", 5, "%.2g", 12.345 );
+    TEST( "1.23e+02", 8, "%.2g", 123.45 );
+    TEST( "1.23e+03", 8, "%.2g", 1234.5 );
+
+    /*  Trailing zeros are removed from the fractional portion of the result
+        unless the # flag is specified
+    */
+    TEST( "1.2300", 6, "%#.4g", 1.23 );
+    TEST( "1.23", 4, "%.4g", 1.23 );
+
+    /*  a decimal point character appears only if it
+        is followed by a digit.
+    */
+    TEST( "1",    1, "%.1g", 1.01 );
+    TEST( "1.01", 4, "%.2g", 1.01 );
+
+    /* Miscellaneous tests */
     TEST( "123", 3, "%.6g", 123.0 );
     TEST( "123.000000", 10, "%#.6g", 123.0 );
     TEST( "123.4", 5, "%.6g", 123.4 );
+
 
     /* From http://www.cplusplus.com/reference/cstdio/printf/ */
     /* Note that the outputs given are slightly different with respect to C, which
