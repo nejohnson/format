@@ -1,6 +1,6 @@
 format
 
-Copyright(c) 2010-2012 Neil Johnson
+Copyright(c) 2010-2015 Neil Johnson
 
 
 SUMMARY
