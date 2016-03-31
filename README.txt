@@ -5,8 +5,8 @@ Copyright(c) 2010-2015 Neil Johnson
 
 SUMMARY
 
-A stripped down integer-only implementation of the core of the printf family of
-functions.
+A platform-independent implementation of the core of the printf family of
+functions with significant extensions for formatting output.
 
 
 INTRODUCTION
