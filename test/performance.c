@@ -123,7 +123,7 @@ static int native_test( unsigned int count, char *fmt, double val )
 
 /*****************************************************************************/
 
-static void run_timed_loop( char *name, int(*pf)(unsigned int, char *, double), unsigned int count, char *fmt, double val )
+static unsigned int run_timed_loop( char *name, int(*pf)(unsigned int, char *, double), unsigned int count, char *fmt, double val )
 {
     struct timeval start, end, delta;
 
@@ -141,14 +141,21 @@ static void run_timed_loop( char *name, int(*pf)(unsigned int, char *, double), 
     printf( "   %s took %u.%6.6u seconds (%fus per iteration)\n", 
             name, (unsigned int)delta.tv_sec, (unsigned int)delta.tv_usec,
             (((unsigned int)delta.tv_sec)*1000000.0 + (unsigned int)delta.tv_usec)/count );
+
+    return (((unsigned int)delta.tv_sec)*1000000.0 + (unsigned int)delta.tv_usec);
 }
 
 /*****************************************************************************/
 
 static void run_dual_test( unsigned int count, char *fmt, double val )
 {
-    run_timed_loop( "native", native_test, count, fmt, val );
-    run_timed_loop( "format", format_test, count, fmt, val );
+    unsigned int Tnative = run_timed_loop( "native", native_test, count, fmt, val );
+    unsigned int Tformat = run_timed_loop( "format", format_test, count, fmt, val );
+
+    printf( "   result: format is %f times %s than native\n",
+        ( Tformat >= Tnative ) ? (double)Tformat / Tnative : (double)Tnative / Tformat,
+        ( Tformat >= Tnative ) ? "slower" : "faster"
+    );
 }
 
 /*****************************************************************************/
