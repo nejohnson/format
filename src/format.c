@@ -467,7 +467,8 @@ static int do_conv_fp( T_FormatSpec * pspec,
     size_t length = 0;
     size_t ps1 = 0, ps2 = 0;
     const char *s = "?";
-    double dv = va_arg( *ap, double ); /* consume argument */
+
+    va_arg( *ap, long long ); /* consume argument */
 
     length = STRLEN( s );
     if ( pspec->prec >= 0 )
@@ -490,16 +491,17 @@ static int do_conv_k( T_FormatSpec * pspec,
 {
     size_t total_bits = pspec->xp.w_int + pspec->xp.w_frac;
     size_t total_bytes = ( total_bits + 7 ) / 8;
-    long v;
+    size_t length = 0;
+    size_t ps1 = 0, ps2 = 0;
     const char *s = "?";
         
     if ( total_bytes == 0 )
         return EXBADFORMAT;
     
     if ( total_bytes <= sizeof( int ) )
-        v = (long)va_arg( *ap, int );
+        va_arg( *ap, int );
     else
-        v = (long)va_arg( *ap, long );
+        va_arg( *ap, long );
 
     length = STRLEN( s );
     if ( pspec->prec >= 0 )
