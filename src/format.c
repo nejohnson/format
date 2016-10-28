@@ -883,7 +883,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
 #endif
         const void *  ptr   = pspec->grouping.ptr;
         size_t        glen  = pspec->grouping.len;
-        char          grp;
+        char          grp   = 0;
         int           wid   = 0;
         unsigned int  decade;
         size_t        d_rem = numWidth;
