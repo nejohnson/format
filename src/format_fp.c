@@ -633,7 +633,6 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     if ( is_f && really_g )
     {
         DEC_MANT_REG_TYPE  m = mantissa;
-        int i;
 
         /* strip extraneous digits */
         for ( i = sigfig; i > n_left + n_right; i--, m /= 10 );
