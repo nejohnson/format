@@ -112,7 +112,7 @@ static int do_conv_infnan( T_FormatSpec *, char,
                            void * *,
                            unsigned int, DEC_MANT_REG_TYPE, int );
 
-static void round_mantissa( DEC_MANT_REG_TYPE *, int *, int, int, int, int );
+static void round_mantissa( DEC_MANT_REG_TYPE *, int *, int, int, int );
 
 /*****************************************************************************/
 /* Private functions.  Declare as static.                                    */
@@ -378,12 +378,11 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
     @param exponent		Pointer to exponent
     @param prec			Required precision
     @param is_f                 True for f/F conversion
-    @param really_g             True if specified conversion was g/G
-    @param compressed           True if using compressed engineering or 
+    @param compressed           True if using compressed engineering or
                                    scientific formatting
 **/
-static void round_mantissa( DEC_MANT_REG_TYPE *mantissa, int *exponent, 
-                            int prec, int is_f, int really_g, int compressed )
+static void round_mantissa( DEC_MANT_REG_TYPE *mantissa, int *exponent,
+                            int prec, int is_f, int compressed )
 {
    /* The precision tells us the number of digits that will be sent to the
       output.  The exponent tells us how many of the digits in the
@@ -580,7 +579,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     pfx_n = STRLEN( pfx_s );
 
     /* Perform any rounding on the mantissa prior to formatting */
-    round_mantissa( &mantissa, &exponent, pspec->prec, is_f, really_g, pspec->flags & FBANG );
+    round_mantissa( &mantissa, &exponent, pspec->prec, is_f, pspec->flags & FBANG );
 
     /* Trim trailing zeros from mantissa and compute no. of sig.figures */
     if ( mantissa )
@@ -869,7 +868,6 @@ static int do_conv_fp( T_FormatSpec * pspec,
 **/
 static int do_conv_k( T_FormatSpec * pspec,
                       va_list *      ap,
-                      char           code,
                       void *      (* cons)(void *, const char *, size_t),
                       void * *       parg )
 {

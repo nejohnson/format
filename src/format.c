@@ -252,7 +252,7 @@ static int do_conv_n( T_FormatSpec *, va_list * );
 static int do_conv_c( T_FormatSpec *, va_list *, char,
                       void * (*)(void *, const char *, size_t), void * * );
 
-static int do_conv_s( T_FormatSpec *, va_list *, char,
+static int do_conv_s( T_FormatSpec *, va_list *,
                       void * (*)(void *, const char *, size_t), void * * );
 
 static int do_conv_numeric( T_FormatSpec *, va_list *, char,
@@ -605,7 +605,6 @@ static int do_conv_c( T_FormatSpec * pspec,
 **/
 static int do_conv_s( T_FormatSpec * pspec,
                       va_list *      ap,
-                      char           code,
                       void *      (* cons)(void *, const char *, size_t),
                       void * *       parg )
 {
@@ -1016,7 +1015,7 @@ static int do_conv( T_FormatSpec * pspec,
             return do_conv_s_alt( pspec, ap, code, cons, parg );
         else
 #endif
-            return do_conv_s( pspec, ap, code, cons, parg );
+            return do_conv_s( pspec, ap, cons, parg );
     }
 
     if ( code == 'e' || code == 'E'
@@ -1025,7 +1024,7 @@ static int do_conv( T_FormatSpec * pspec,
         return do_conv_fp( pspec, ap, code, cons, parg );
 
     if ( code == 'k' )
-        return do_conv_k( pspec, ap, code, cons, parg );
+        return do_conv_k( pspec, ap, cons, parg );
 
     /* -------------------------------------------------------------------- */
 
