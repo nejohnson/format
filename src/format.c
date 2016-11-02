@@ -1297,7 +1297,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
             else if ( c == '{' ) /* fixed-point specifier */
             {
-                size_t p, q;
+                int p, q;
 
                 /* skip over opening brace */
                 INC_VOID_PTR( ptr );
@@ -1317,11 +1317,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
                          INC_VOID_PTR( ptr ) )
                     {
                         p = p * 10 + c - '0';
+                        if ( p > MAX_XP_INT )
+                            goto exit_badformat;
                     }
                 }
-
-                if ( p > MAX_XP_INT )
-                    goto exit_badformat;
 
                 /* get fractional width */
                 if ( READ_CHAR( mode, ptr ) != '.' )
@@ -1340,20 +1339,19 @@ int format( void *    (* cons) (void *, const char * , size_t),
                          INC_VOID_PTR( ptr ) )
                     {
                         q = q * 10 + c - '0';
+                        if ( q > MAX_XP_FRAC )
+                            goto exit_badformat;
                     }
                 }
+
+                if ( p + q >= MAX_XP_WIDTH )
+                    goto exit_badformat;
 
                 if ( c == '\0' )
                     goto exit_badformat;
 
                 /* skip over closing brace */
                 INC_VOID_PTR( ptr );
-
-                if ( q > MAX_XP_FRAC )
-                    goto exit_badformat;
-
-                if ( p + q >= MAX_XP_WIDTH )
-                    goto exit_badformat;
 
                 fspec.xp.w_int  = p;
                 fspec.xp.w_frac = q;
