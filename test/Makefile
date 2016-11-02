@@ -1,4 +1,7 @@
-CFLAGS += -I../src -std=c99 -Wall -pedantic -Wunused -Wstrict-prototypes -Wmissing-prototypes
+CFLAGS += -I../src -std=c99 -Wall -pedantic \
+	-Wunused -Wstrict-prototypes -Wmissing-prototypes \
+	-Wshadow -Wmaybe-uninitialized -Wtype-limits
+
 LDFLAGS += 
 
 all: testharness perftest
