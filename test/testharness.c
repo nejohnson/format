@@ -115,34 +115,34 @@ static unsigned int f = 0;
     Format consumer function to write characters to a user-supplied buffer.
 
     @param memptr   Pointer to output buffer
-    @param buf      Pointer to buffer of characters to consume from
+    @param pbuf     Pointer to buffer of characters to consume from
     @param n        Number of characters from @p buf to consume
 
     @returns NULL if failed, else address of next output cell.
 **/
-static void * bufwrite( void * memptr, const char * buf, size_t n )
+static void * bufwrite( void * memptr, const char * pbuf, size_t n )
 {
-    return ( (char *)memcpy( memptr, buf, n ) + n );
+    return ( (char *)memcpy( memptr, pbuf, n ) + n );
 }
 
 /*****************************************************************************/
 /**
     Example use of format() to implement the standard sprintf()
 
-    @param buf      Pointer to receiving buffer
+    @param pbuf     Pointer to receiving buffer
     @param fmt      Format string
 
     @returns Number of characters printed, or -1 if failed.
 **/
-static int test_sprintf( char *buf, const char *fmt, ... )
+static int test_sprintf( char *pbuf, const char *fmt, ... )
 {
     va_list arg;
     int done;
 
     va_start ( arg, fmt );
-    done = format( bufwrite, buf, fmt, arg );
+    done = format( bufwrite, pbuf, fmt, arg );
     if ( 0 <= done )
-        buf[done] = '\0';
+        pbuf[done] = '\0';
     va_end ( arg );
 
     return done;
