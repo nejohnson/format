@@ -58,7 +58,7 @@ extern int putchar( int );
     This function calls the generic putchar() function, which it is assumed is
     available in the target environment.
     
-    @param op      Opaque pointer (UNUSED).
+    @param op      Opaque pointer.
     @param buf     Pointer to input buffer.
     @param n       Number of characters from buffer to send to output.
     
@@ -69,7 +69,7 @@ static void * outfunc( void * op, const char * buf, size_t n )
     while ( n-- )
         putchar( *buf++ );
 
-    return (void *)( !NULL );
+    return op;
 }
 
 /*****************************************************************************/
@@ -87,7 +87,8 @@ static void * outfunc( void * op, const char * buf, size_t n )
 **/
 int vprintf ( const char *fmt, va_list ap )
 {
-    return format( outfunc, NULL, fmt, ap );
+    /* Make the opaque pointer non-NULL and then consumer func returns it. */
+    return format( outfunc, (void *)!NULL, fmt, ap );
 }
 
 /*****************************************************************************/
