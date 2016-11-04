@@ -87,7 +87,7 @@ static void * outfunc( void * op, const char * buf, size_t n )
 **/
 int vprintf ( const char *fmt, va_list ap )
 {
-    return format( outfunc, NULL, fmt, ap );
+    return format( outfunc, (void*)!NULL, fmt, ap );
 }
 
 /*****************************************************************************/
