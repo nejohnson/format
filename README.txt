@@ -1,6 +1,6 @@
 format
 
-Copyright(c) 2010-2015 Neil Johnson
+Copyright(c) 2010-2016 Neil Johnson
 
 
 SUMMARY
@@ -248,10 +248,10 @@ void * outfunc( void * op, const char * buf, size_t n )
     while ( n-- )
         putchar( *buf++ );
 
-    return (void *)( !NULL );
+    return op;
 }
 
-In this case the opaque pointer is not used, and a non-NULL value is returned.
+In this case the opaque pointer is simply returned unchanged.
 Second, the implementation of the printf function:
 
 int printf ( const char *fmt, ... )
@@ -260,14 +260,14 @@ int printf ( const char *fmt, ... )
     int done;
     
     va_start ( arg, fmt );
-    done = format( outfunc, NULL, fmt, arg );
+    done = format( outfunc, (void *)!NULL, fmt, arg );
     va_end ( arg );
     
     return done;
 }
 
-Because the opaque pointer is not used, and the consumer function ignores it,
-a NULL is passed to "format".
+Because the opaque pointer is not used, and the consumer function just returns
+it, a non-NULL is passed to "format".
 
 The second example illustrates how the opaque pointer is used to implement the
 standard C library function sprintf.  In this example the consumer function
