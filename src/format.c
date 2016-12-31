@@ -1305,7 +1305,6 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 if ( READ_CHAR( mode, ptr ) == '*' )
                 {
                     p = va_arg( ap, int );
-                    p = MAX( 0, p );
 
                     INC_VOID_PTR( ptr );
                 }
@@ -1327,7 +1326,6 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
                 {
                     q = va_arg( ap, int );
-                    q = MAX( 0, q );
 
                     INC_VOID_PTR( ptr );
                 }
