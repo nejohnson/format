@@ -60,14 +60,14 @@
 /**
     Define the field flags
 **/
-#define FSPACE          ( 0x01 )
-#define FPLUS           ( 0x02 )
-#define FMINUS          ( 0x04 )
-#define FHASH           ( 0x08 )
-#define FZERO           ( 0x10 )
-#define FBANG           ( 0x20 )
-#define FCARET          ( 0x40 )
-#define F_IS_SIGNED     ( 0x80 )
+#define FSPACE          ( 0x01U )
+#define FPLUS           ( 0x02U )
+#define FMINUS          ( 0x04U )
+#define FHASH           ( 0x08U )
+#define FZERO           ( 0x10U )
+#define FBANG           ( 0x20U )
+#define FCARET          ( 0x40U )
+#define F_IS_SIGNED     ( 0x80U )
 
 /**
     Some length qualifiers are doubled-up (e.g., "hh").
@@ -93,9 +93,9 @@
                                   */
 
 /* Fixed-point field width limits */
-#define MAX_XP_INT      ( sizeof(int) * CHAR_BIT )
-#define MAX_XP_FRAC     ( sizeof(int) * CHAR_BIT )
-#define MAX_XP_WIDTH    ( sizeof(long) * CHAR_BIT )
+#define MAX_XP_INT      ( (unsigned int)(sizeof(int) * CHAR_BIT) )
+#define MAX_XP_FRAC     ( (unsigned int)(sizeof(int) * CHAR_BIT) )
+#define MAX_XP_WIDTH    ( (unsigned int)(sizeof(long) * CHAR_BIT) )
 
 /**
     Return the maximum/minimum of two scalar values.
@@ -188,9 +188,9 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
 typedef struct {
     unsigned int    nChars; /**< number of chars emitted so far     **/
     unsigned int    flags;  /**< flags                              **/
-    int             width;  /**< width                              **/
-    int             prec;   /**< precision                          **/
-    int             base;   /**< numeric base                       **/
+    unsigned int    width;  /**< width                              **/
+    int             prec;   /**< precision, -1 == default precision **/
+    unsigned int    base;   /**< numeric base                       **/
     char            qual;   /**< length qualifier                   **/
     char            repchar;/**< Repetition character               **/
     struct {
@@ -201,8 +201,8 @@ typedef struct {
         size_t        len;  /**< length of grouping spec            **/
     } grouping;
     struct {
-        size_t w_int;       /**< fixed-point integer field width    **/
-        size_t w_frac;      /**< fixed-point fractional field width **/
+        unsigned int w_int;       /**< fixed-point integer field width    **/
+        unsigned int w_frac;      /**< fixed-point fractional field width **/
     } xp;
 } T_FormatSpec;
 
@@ -352,7 +352,7 @@ static int pad( const char *s, size_t n,
 {
     while ( n > 0 )
     {
-        size_t j = MIN( PAD_STRING_LEN, n );
+        size_t j = (size_t)MIN( PAD_STRING_LEN, n );
         if ( emit( s, j, cons, parg ) < 0 )
             return EXBADFORMAT;
         n -= j;
@@ -578,9 +578,9 @@ static int do_conv_c( T_FormatSpec * pspec,
     if ( pspec->prec < 0 )
         pspec->prec = 1;
 
-    rep = MAX( 1, pspec->prec );
+    rep = (unsigned int)MAX( 1, pspec->prec );
 
-    for ( ; rep; rep-- )
+    for ( ; rep > 0; rep-- )
     {
         int r = gen_out( cons, parg, 0, NULL, 0, 0, &cc, 1, 0 );
         if ( r == EXBADFORMAT )
@@ -618,7 +618,7 @@ static int do_conv_s( T_FormatSpec * pspec,
 
     length = STRLEN( s );
     if ( pspec->prec >= 0 )
-        length = MIN( pspec->prec, length );
+        length = (size_t)MIN( pspec->prec, (int)length );
 
     calc_space_padding( pspec, length, &ps1, &ps2 );
 
@@ -744,7 +744,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
             v = (signed char)v;
 
         /* Get absolute value */
-        uv = v < 0 ? -v : v;
+        uv = (unsigned long)(v < 0 ? -v : v);
 
         /* Based on original sign and flags work out any prefix */
         prefix[0] = '\0';
@@ -822,7 +822,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
      */
     if ( base == 10 )
     {
-        for( numWidth = 0; uv; )
+        for( numWidth = 0; uv != 0; )
         {
 #if defined(CONFIG_USE_INLINE_DIV10)
             unsigned long long div_a = uv * 0xCCCCCCCDULL;
@@ -845,10 +845,11 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     else if ( base == 2 || base == 8 || base == 16 )
     {
         unsigned int mask  = base - 1;
-        unsigned int shift = base == 16 ? 4
-                                        : base == 8 ? 3 : 1;
+        int          shift = base == 16 ? 4
+                             : base == 8 ? 3
+                             : 1;
 
-        for( numWidth = 0; uv; uv >>= shift )
+        for( numWidth = 0; uv > 0; uv >>= shift )
         {
             char cc = digits[uv & mask];
 
@@ -862,7 +863,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     }
     else /* all other bases */
     {
-       for ( numWidth = 0; uv; uv /= base )
+       for ( numWidth = 0; uv > 0; uv /= base )
        {
           char cc = digits[uv % base];
 
@@ -883,7 +884,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         const void *  ptr   = pspec->grouping.ptr;
         size_t        glen  = pspec->grouping.len;
         char          grp   = 0;
-        int           wid   = 0;
+        size_t        wid   = 0;
         unsigned int  decade;
         size_t        d_rem = numWidth;
         size_t        idx   = sizeof(numBuffer) - numWidth;
@@ -902,10 +903,11 @@ static int do_conv_numeric( T_FormatSpec * pspec,
 
                 if ( grp == '*' )
                 {
-                    wid = (int)va_arg( *ap, int );
-                    if ( wid < 0 )
+                    int w = (int)va_arg( *ap, int );
+                    if ( w < 0 )
                         break;
 
+                    wid = (size_t)w;
                     DEC_VOID_PTR(ptr);
                     --glen;
                 }
@@ -935,7 +937,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                 if ( d_rem <= wid )
                     break;
 
-                for ( s = idx, n = d_rem - wid; n; n--, s++ )
+                for ( s = idx, n = d_rem - wid; n > 0; n--, s++ )
                     numBuffer[s-1] = numBuffer[s];
 
                 idx--;
@@ -1038,8 +1040,8 @@ static int do_conv( T_FormatSpec * pspec,
         code          = 'X';
         pspec->qual   = ( sizeof(int *) > sizeof( int ) ) ? 'l' : 0;
         pspec->flags  = FHASH | FBANG;
-        pspec->width  = sizeof( int * ) * 2;
-        pspec->prec   = sizeof( int * ) * 2;
+        pspec->width  = (unsigned int)(sizeof( int * ) * 2);
+        pspec->prec   = (int)(sizeof( int * ) * 2);
     }
 
     /* -------------------------------------------------------------------- */
@@ -1122,16 +1124,15 @@ int format( void *    (* cons) (void *, const char * , size_t),
         if ( mode == NORMAL_PTR )
 #endif
         {
-            unsigned int n;
+            size_t n = 0;
             const char *s = (const char *)ptr;
 
             /* For normal RAM-based strings we scan over as many input chars
              *  as we can to minimise calls to emit().
              */
             for ( ; *s && *s != '%'; s++ )
-                ;
+                n++;
 
-            n = s - (const char *)ptr;
             if ( n > 0 )
             {
                 if ( emit( (const char *)ptr, n, cons, &arg ) < 0 )
@@ -1182,12 +1183,13 @@ int format( void *    (* cons) (void *, const char * , size_t),
             /* process width */
             if ( READ_CHAR( mode, ptr ) == '*' )
             {
-                fspec.width = va_arg( ap, int );
-                if ( fspec.width < 0 )
+                int w = va_arg( ap, int );
+                if ( w < 0 )
                 {
-                    fspec.width = -fspec.width;
+                    w = -w;
                     fspec.flags |= FMINUS;
                 }
+                fspec.width = (unsigned int)w;
                 INC_VOID_PTR(ptr);
             }
             else
@@ -1296,7 +1298,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
             else if ( c == '{' ) /* fixed-point specifier */
             {
-                int p, q;
+                unsigned int p, q;
 
                 /* skip over opening brace */
                 INC_VOID_PTR( ptr );
@@ -1304,8 +1306,8 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 /* get integer width */
                 if ( READ_CHAR( mode, ptr ) == '*' )
                 {
-                    p = va_arg( ap, int );
-                    p = MAX( 0, p );
+                    int v = va_arg( ap, int );
+                    p = (unsigned int)MAX( 0, v );
 
                     INC_VOID_PTR( ptr );
                 }
@@ -1326,8 +1328,8 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     goto exit_badformat; /* fractional width is missing */
                 else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
                 {
-                    q = va_arg( ap, int );
-                    q = MAX( 0, q );
+                    int v = va_arg( ap, int );
+                    q = (unsigned int)MAX( 0, v );
 
                     INC_VOID_PTR( ptr );
                 }
@@ -1414,7 +1416,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
     }
 
     va_end( ap );
-    return fspec.nChars;
+    return (int)fspec.nChars;
 
 exit_badformat:
     va_end( ap );

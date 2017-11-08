@@ -173,8 +173,8 @@ static void radix_convert( double              v,
     */
     u.fv = v;
     bin.mantissa = BIN_UNPACK_MANT( u.bits );
-    bin.exponent = BIN_UNPACK_EXPO( u.bits );
-    bin.sign     = BIN_UNPACK_SIGN( u.bits );
+    bin.exponent = (int)BIN_UNPACK_EXPO( u.bits );
+    bin.sign     = (unsigned int)BIN_UNPACK_SIGN( u.bits );
 
 #if ( DBL_DIG > 8 )
     DEBUG_LOG( "FP: bin.m = 0x%llX\n", bin.mantissa );
@@ -291,13 +291,11 @@ static int mant_to_char( char * buf,
     int i;
 
     for ( i = digits_total - digits_to_convert; i > 0; i-- )
-    {
         m /= 10;
-    }
 
-    for ( i = digits_to_convert; i; i-- )
+    for ( i = digits_to_convert; i > 0; i-- )
     {
-        unsigned int d = m % 10;
+        unsigned int d = (unsigned int)(m % 10);
 
         buf[i-1] = '0' + d;
         m /= 10;
@@ -579,11 +577,11 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     pfx_n = STRLEN( pfx_s );
 
     /* Perform any rounding on the mantissa prior to formatting */
-    round_mantissa( &mantissa, &exponent, pspec->prec, is_f, pspec->flags & FBANG );
+    round_mantissa( &mantissa, &exponent, pspec->prec, is_f, (int)(pspec->flags & FBANG) );
 
     /* Trim trailing zeros from mantissa and compute no. of sig.figures */
     if ( mantissa )
-        for ( sigfig = DEC_SIG_FIG; sigfig; sigfig--, mantissa /= 10 )
+        for ( sigfig = DEC_SIG_FIG; sigfig > 0; sigfig--, mantissa /= 10 )
             if ( mantissa % 10 )
                 break;
 
@@ -597,9 +595,9 @@ static int do_conv_efg( T_FormatSpec *     pspec,
             static char sitab[] = { 'y', 'z', 'a', 'f', 'p', 'n', 'u', 'm',
                                     '\0', 
                                     'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' };
-            int idx = NELEMS(sitab) / 2;
+            int idx = (int)NELEMS(sitab) / 2;
 
-            while ( idx > 0 && idx < (NELEMS(sitab) - 1) )
+            while ( idx > 0 && idx < ((int)NELEMS(sitab) - 1) )
             {
                 if ( exponent >= 3 ) { idx++; exponent -= 3; continue; }
                 if ( exponent <  0 ) { idx--; exponent += 3; continue; }
@@ -657,13 +655,13 @@ static int do_conv_efg( T_FormatSpec *     pspec,
 
         /* Add any zero padding after figures but before DP */
         if ( n_left > sigfig )
-            pz2 = n_left - sigfig;
+            pz2 = (size_t)(n_left - sigfig);
 
         /* Add any zero padding between DP and figures on right */
         if ( exponent < -1 && pspec->prec > 0 )
         {
-            pz3 = -1 - exponent;
-            pz3 = MIN( pz3, pspec->prec );
+            int x = -1 - exponent;
+            pz3 = (size_t)MIN( x, pspec->prec );
             length += pz3;
         }
 
@@ -686,7 +684,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     }
 
     /* Compute trailing zeros */
-    if ( pz3 + n_right < pspec->prec
+    if ( (int)(pz3 + n_right) < pspec->prec
          /* g,G     ... Trailing zeros are removed from the fractional portion
           *         of the result unless the # flag is specified; ...
           */
@@ -696,9 +694,9 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         pz4 = pspec->prec - pz3 - n_right;
         length += pz4;
     }
-    else if ( is_f && pz3 + n_right > pspec->prec )
+    else if ( is_f && (int)(pz3 + n_right) > pspec->prec )
     {
-        int x = pz3 + n_right - pspec->prec;
+        int x = (int)pz3 + n_right - pspec->prec;
         length  -= x;
         n_right -= x;
     }
@@ -736,7 +734,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     /* Generate the output sections */
 
     /* LEFT, including leading space and prefix */
-    e_n = n_left ? mant_to_char( e_s, mantissa, sigfig, n_left - pz2 )
+    e_n = n_left ? (size_t)mant_to_char( e_s, mantissa, sigfig, (int)(n_left - pz2) )
                  : 0;
 
     sigfig -= e_n;
@@ -753,10 +751,10 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     count += n;
 
     /* RIGHT */
-    e_n = n_right ? mant_to_char( e_s, mantissa, sigfig, n_right )
+    e_n = n_right ? (size_t)mant_to_char( e_s, mantissa, sigfig, n_right )
                   : 0;
 
-    n = gen_out( cons, parg, 0, ".", want_dp ? 1 : 0, pz3, e_s, e_n, 0 );
+    n = gen_out( cons, parg, 0, ".", (size_t)(want_dp ? 1 : 0), pz3, e_s, e_n, 0 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
@@ -770,15 +768,16 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     /* EXPONENT */
     if ( n_exp )
     {
-        unsigned int absexp = ABS(exponent);
+        unsigned int absexp = (unsigned int)ABS(exponent);
+        int nx;
         char epfx_s[2];
 
         /* Exponent prefix comprises the letter 'e' or 'E' and a +/- sign */
         epfx_s[0] = code;
         epfx_s[1] = ( exponent < 0 ) ? '-' : '+';
 
-        for ( i = n_exp, e_n = 0; i > 0; i--, e_n++, absexp /= 10 )
-            e_s[i-1] = ( absexp % 10 ) + '0';
+        for ( nx = (int)n_exp, e_n = 0; nx > 0; nx--, e_n++, absexp /= 10 )
+            e_s[nx-1] = (char)( absexp % 10 ) + '0';
 
         n = gen_out( cons, parg, 0, epfx_s, sizeof(epfx_s), 0, e_s, e_n, 0 );
         if ( n == EXBADFORMAT )
@@ -787,7 +786,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     }
 
     /* SI multiplier and trailing space */
-    n = gen_out( cons, parg, 0, NULL, 0, 0, &si, si ? 1 : 0, ps2 );
+    n = gen_out( cons, parg, 0, NULL, 0, 0, &si, (size_t)(si ? 1 : 0), ps2 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
@@ -871,7 +870,7 @@ static int do_conv_k( T_FormatSpec * pspec,
                       void *      (* cons)(void *, const char *, size_t),
                       void * *       parg )
 {
-    size_t total_bits = pspec->xp.w_int + pspec->xp.w_frac;
+    unsigned int total_bits = pspec->xp.w_int + pspec->xp.w_frac;
     size_t total_bytes = ( total_bits + 7 ) / 8;
     long v;
     unsigned int sign;
@@ -906,7 +905,7 @@ static int do_conv_k( T_FormatSpec * pspec,
         int i;
 
         /* Extract sign bit */
-        sign = !!( v & ( 1 << ( total_bits - 1) ) );
+        sign = ( v >> ( total_bits - 1 ) ) & 0x01;
 
         /* If the sign bit is set (number is negative) then apply 2's complement
          * sign inversion.  We can use the built-in type sign inversion as long
@@ -920,7 +919,7 @@ static int do_conv_k( T_FormatSpec * pspec,
         mantissa = (DEC_MANT_REG_TYPE)v;
 
         /* Work out where highest bit is */
-        for ( i = -1; v; i++ )
+        for ( i = -1; v != 0; i++ )
             v >>= 1;
 
         /* i gives index of highest '1' bit, which then gives us the exponent */
