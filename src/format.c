@@ -485,7 +485,6 @@ static int do_conv_fp( T_FormatSpec * pspec,
 **/
 static int do_conv_k( T_FormatSpec * pspec,
                       va_list *      ap,
-                      char           code,
                       void *      (* cons)(void *, const char *, size_t),
                       void * *       parg )
 {
