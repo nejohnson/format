@@ -1,6 +1,6 @@
 format
 
-Copyright(c) 2010-2016 Neil Johnson
+Copyright(c) 2010-2019 Neil Johnson
 
 
 SUMMARY
@@ -75,17 +75,45 @@ the following appear in sequence:
   later) or a decimal integer. 
 
 = An optional precision that gives the minimum number of digits to appear for 
-  the b, d, i, I, o, u, U, x, and X conversions, or the maximum number of bytes 
-  to be written for s conversions. The precision takes the form of a period (.) 
-  followed either by an asterisk * (described later) or by an optional decimal 
-  integer; if only the period is specified, the precision is taken as zero.
+  the b, d, i, I, o, u, U, x, and X conversions, the number of digits to appear
+  after the decimal-point character for e, E, f, F and k conversions, the
+  maximum number of significant digits for the g and G conversions, the
+  maximum number of bytes to be written for s conversions, or the number of 
+  repetitions of the character for C conversions. The precision takes the form 
+  of a period (.) followed either by an asterisk * (described later) or by an 
+  optional decimal integer; if only the period is specified, the precision is
+  taken as zero.
   
 = An optional number base modifier that specifies the numeric base to be used
   by the i, I, u and U conversions. The base takes the form of a colon (:)
   followed by either an asterisk * (described later) or by an optional decimal 
   integer; if only the colon is specified the base is taken as decimal.
   
-= An optional grouping modifier that specifies how digits are to be grouped.  
+= An optional grouping modifier that specifies how digits are to be grouped for
+  the b, d, i, I, o, u, U, x, and X conversions.  It is ignored for all other 
+  conversion specifiers.
+
+  A grouping modifier starts with `[` and ends with `]`.  Within the parentheses
+  are symbol-number group specifiers.  The number specifies the number of digits
+  within that group; the symbol specifies the character that is inserted after 
+  the group.  A value of zero disables that particular group.  Unless otherwise
+  terminated the left-most grouping specifier is repeatedly applied to any
+  remaining digits.  If a group specifier begins with `-` then this terminates 
+  any further grouping.  Group specifications are processed right-to-left, 
+  starting with the rightmost symbol-number group and processing leftwards.
+
+  An asterisk * (described later) in place of the number takes the next int 
+  argument after the value to be converted (note this is contra to the width and
+  precision specifiers).  If the value is negative it is treated as a '-', 
+  terminating any further grouping.
+
+= An optional fixed-point modifier that specifies the widths of the integer and
+  fractional parts of the argument to the k conversion.  It is ignored for all
+  other conversion specifiers.  A fixed-point modifier starts with `{` and ends 
+  with `}`.  Within the parentheses are an optional integer width specifier, 
+  a period (.), and an optional fractional width specifier.  Both specifiers are 
+  non-negative decimal integers, or asterisks * (described later) where negative 
+  values are interpreted as zero.
 
 = An optional length modifier that specifies the size of the argument.
 
@@ -120,17 +148,30 @@ space      If the first character of a signed conversion is not a sign, or if a
            the result. If the space and + flags both appear, the space flag is 
            ignored.
 
-#          The result is converted to an ''alternative form''. For o conversion, 
+#          The result is converted to an alternative form. For o conversion, 
            it increases the precision, if and only if necessary, to force the 
            first digit of the result to be a zero (if the value and precision
            are both 0, a single 0 is printed). For x (or X or b) conversion, a  
-           nonzero result has "0x" (or "0X" or "0b") prefixed to it. For other 
+           nonzero result has "0x" (or "0X" or "0b") prefixed to it.  For 
+           continuation and s conversions, it indicates that the pointer 
+           argument is of an alternate form.  For e, E, f, F, g and G 
+           conversions, the result of converting a floating point number always 
+           contains a decimal point character, even if no digits follow it 
+           (normally, a decimal point character appears in the result of these 
+           conversions only if a digit follows it.)  For g and G conversions 
+           trailing zeros and not removed from the result.  For other 
            conversions, the flag is ignored.
            
-!          Modifies the behaviour of the # flag. For b, x and X conversions the
-           result is always prefixed, even when zero.  For x and X conversions 
-           the prefix is always "0x". If the # flag does not appear, or the 
-           conversion is not b, x or X, the flag is ignored.
+!          For b, x and X conversions with the # flag the result is always 
+           prefixed, even when zero.  For x and X conversions the prefix is 
+           always "0x".  For e and E conversions the exponent is forced to a 
+           multiple of three with one to three digits appearing before the 
+           decimal point.  For f and F conversions the result of the conversion
+           is formatted to use the SI multiplier suffixes, with one to three 
+           digits appearing before the decimal point; where the exponent of the 
+           conversion is less than -24 or greater than 27 the result will not 
+           conform to this rule, although it will be correct. For other 
+           conversions, the flag is ignored.
 
 0          For b, d, i, I, o, u, U, x, and X conversions, leading zeros 
            (following any indication of sign or base) are used to pad to the 
@@ -152,6 +193,25 @@ l(ell)     Specifies that a following b, d, i, I, o, u, U, x, or X conversion
            specifier applies to a long int or unsigned long int argument; or 
            that a following n conversion specifier applies to a pointer to a 
            long int argument.
+           
+j          Specifies that a following b, d, i, o, u, x, or X conversion 
+           specifier applies to an intmax_t or uintmax_t argument; or that a 
+           following n conversion specifier applies to a pointer to an intmax_t
+           argument.
+
+z          Specifies that a following b, d, i, o, u, x, or X conversion 
+           specifier applies to a size_t or the corresponding signed integer 
+           type argument; or that a following n conversion specifier applies to
+           a pointer to a signed integer type corresponding to size_t argument.
+
+t          Specifies that a following b, d, i, o, u, x, or X conversion 
+           specifier applies to a ptrdiff_t or the corresponding unsigned 
+           integer type argument; or that a following n conversion specifier 
+           applies to a pointer to a ptrdiff_t argument.
+
+L          Specifies that a following e, E, f, F, g, or G conversion specifier 
+           applies to a long double argument.  Until further notice this is an
+           unsupported feature and will return an error.
 
 If a length modifier appears with any conversion specifier other than as 
 specified above, the length modifier is ignored. 
@@ -178,13 +238,63 @@ b,o,u,U,x,X  The unsigned int argument is converted to unsigned binary (b),
              expanded with leading zeros.  The default precision is 1. The 
              result of converting a zero value with a precision of zero is no
              characters.
+             
+e, E         A double argument representing a floating point number is converted
+             in the style [-]d.ddde[+/-]dd, where there is one digit (which is 
+             non-zero if the argument is nonzero) before the decimal point
+             character and the number of digits after it is equal to the 
+             precision; if the precision is missing, it is taken as 6; if the 
+             precision is zero and the # flag is not specified, no decimal 
+             point character appears.  The value is rounded to the appropriate 
+             number of digits.  The E conversion specifier produces a number 
+             with `E` instead of `e` introducing the exponent.  The exponent 
+             always contains at least two digits, and only as many more digits 
+             as necessary to represent the exponent.  If the value is zero, the 
+             exponent is zero.
+             
+             A double argument representing an infinity or NaN is converted in 
+             the style of an f or F conversion specifier.
+
+f,F          A double argument representing a floating point number is converted
+             to decimal notation in the style [-]ddd.ddd, where the number of 
+             digits after the decimal point character is equal to the precision
+             specification.  If the precision is missing, it is taken as 6; if 
+             the precision is zero and the # flag is not specified, no decimal 
+             point character appears.  If a decimal point character appears, at 
+             least one digit appears before it.  The value is rounded to the 
+             appropriate number of digits.
+             
+             A double argument representing an infinity is converted to the 
+             style [-]inf.  A double argument representing a NaN is converted
+             in the style [-]nan.  The F conversion specifier produces INF or
+             NAN instead of inf or nan respectively.
+
+g,G          A double argument representing a floating point number is converted
+             in the style f or e (on in style F or E in the case of a G 
+             conversion specifier), with the precision specifying the number of 
+             significant digits.  If the precision is zero, it is taken as 1.
+             The style used depends on the value converted; style e (or E) is 
+             used only if the exponent resulting from such a conversion is less 
+             than -4 or greater than or equal to the precision.  Trailing zeros 
+             are removed from the fractional portion of the result unless the 
+             # flag is specified; a decimal point character appears only if it 
+             is followed by a digit.
+             
+             A double argument representing an infinity or NaN is converted in 
+             the style of an f or F conversion specifier.
+
+k            An integer argument representing a signed fixed-point argument is 
+             converted to decimal notation in the style of f.  The parameters of
+             the fixed-point format are specified by the fixed-point modifier 
+             described above.  The default fixed-point format is 16p16.
 
 c            The int argument is converted to an unsigned char, and the
              resulting character is written.
 
-C            The character immediately following the conversion specifier is 
-             written.  The precision specifies how many times the character is
-             written.  The default and minimum precision is 1.
+C            The int argument is converted to an unsigned char, and the
+             resulting character is written.  The precision specifies how many 
+             times the character is written.  The default and minimum precision
+             is 1, equivalent to the c conversion specifier.
 
 s            The argument is a pointer to the initial element of an array of 
              character type. Characters from the array are written up to (but 
