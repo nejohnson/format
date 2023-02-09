@@ -167,7 +167,7 @@ space      If the first character of a signed conversion is not a sign, or if a
            always "0x".  For e and E conversions the exponent is forced to a 
            multiple of three with one to three digits appearing before the 
            decimal point.  For f and F conversions the result of the conversion
-           is formatted to use the SI multiplier suffixes, with one to three 
+           is formatted to use the SI multiplier prefixes, with one to three 
            digits appearing before the decimal point; where the exponent of the 
            conversion is less than -24 or greater than 27 the result will not 
            conform to this rule, although it will be correct. For other 
