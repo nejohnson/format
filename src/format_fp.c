@@ -667,7 +667,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
 
         /* Include any SI multiplier suffix */
         if ( si )
-            length++;
+            length += 2;
     }
     else /* is 'e' */
     {
@@ -786,7 +786,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     }
 
     /* SI multiplier and trailing space */
-    n = gen_out( cons, parg, 0, NULL, 0, 0, &si, (size_t)(si ? 1 : 0), ps2 );
+    n = gen_out( cons, parg, !!si, NULL, 0, 0, &si, !!si, ps2 );
     if ( n == EXBADFORMAT )
         return n;
     count += n;
