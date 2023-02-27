@@ -193,6 +193,9 @@ l(ell)     Specifies that a following b, d, i, I, o, u, U, x, or X conversion
            specifier applies to a long int or unsigned long int argument; or 
            that a following n conversion specifier applies to a pointer to a 
            long int argument.
+
+ll(ell-ell) Specifies that a following n conversion specifier corresponds to a
+           pointer to a long long int argument.
            
 j          Specifies that a following b, d, i, o, u, x, or X conversion 
            specifier applies to an intmax_t or uintmax_t argument; or that a 
