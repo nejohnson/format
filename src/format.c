@@ -534,6 +534,8 @@ static int do_conv_n( T_FormatSpec * pspec,
             *(signed char *)vp = (signed char)pspec->nChars;
         else if ( pspec->qual == 'l' )
             *(long *)vp = (long)pspec->nChars;
+	else if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
+	    *(long long *)vp = (long long)pspec->nChars;
         else if ( pspec->qual == 'j' )
             *(intmax_t *)vp = (intmax_t)pspec->nChars;
         else if ( pspec->qual == 'z' )
