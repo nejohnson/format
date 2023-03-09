@@ -137,11 +137,11 @@ The flag characters and their meanings are:
 | Flag | Description |
 |:---|:---|
 |`-`|   The result of the conversion is left-justified within the field.  It is
-        right-justified if this flag is not specified.|
+right-justified if this flag is not specified.|
 |`^`|   The result of the conversion is centre-justified within the field.  It 
-        is right-justified if this flag is not specified.  When there is an odd
-        number of padding spaces the result of the conversion is biased to the 
-        right.  It is biased to the left if the `-` flag is also  specified.|
+is right-justified if this flag is not specified.  When there is an odd
+number of padding spaces the result of the conversion is biased to the 
+right.  It is biased to the left if the `-` flag is also  specified.|
 |`+`|   The result of a signed conversion always begins with a plus or minus sign.
         It begins with a sign only when a negative value is converted if this 
         flag is not specified.|
