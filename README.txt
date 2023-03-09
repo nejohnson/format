@@ -182,6 +182,13 @@ space      If the first character of a signed conversion is not a sign, or if a
 
 The length modifiers and their meanings are: 
 
+hh         Specifies that a following b, d, i, I, o, u, U, x, or X conversion
+           specifier applies to a signed char or unsigned char argument (the
+           argument will have been promoted according to the integer
+           promotions, but its value shall be converter to signed char or
+           unsigned char before printing); or that a following n conversion
+           specifier applies to a pointer to a signed char argument.
+
 h          Specifies that a following b, d, i, I, o, u, U, x, or X conversion 
            specifier applies to a short int or unsigned short int argument (the 
            argument will have been promoted according to the integer promotions, 
@@ -194,7 +201,7 @@ l(ell)     Specifies that a following b, d, i, I, o, u, U, x, or X conversion
            that a following n conversion specifier applies to a pointer to a 
            long int argument.
 
-ll(ell-ell) Specifies that a following n conversion specifier corresponds to a
+ll(ell-ell) Specifies that a following n conversion specifier applies to a
            pointer to a long long int argument.
            
 j          Specifies that a following b, d, i, o, u, x, or X conversion 

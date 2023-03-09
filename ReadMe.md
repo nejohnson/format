@@ -1,6 +1,7 @@
 A lightweight low-overhead library for processing printf-style format descriptions and arguments designed for the constrained environments of embedded systems.
 
 # News #
+  * March-2023: Tidyups in files and documentation.
   * 10-Mar-2015: Release 1.2 now available.
   * 05-Feb-2015: Add support for fixed-point numbers with the `k` conversion specifier.
   * 06-Nov-2014: Add support for denormalized floating point numbers, for people who like _really small_ numbers.
@@ -51,7 +52,5 @@ New features added include
 
 **format** itself does not send any output characters to any device.  Instead, it calls a _consumer function_, supplied by the caller, to process any output.  A simple example would be a function to send the characters to a UART.  A more advanced use might be sending characters to an LCD.
 
-
 ---
 
-(Logo courtesy of http://www.clker.com)
