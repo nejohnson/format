@@ -534,9 +534,11 @@ static int do_conv_n( T_FormatSpec * pspec,
             *(signed char *)vp = (signed char)pspec->nChars;
         else if ( pspec->qual == 'l' )
             *(long *)vp = (long)pspec->nChars;
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
 	else if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
 	    *(long long *)vp = (long long)pspec->nChars;
-        else if ( pspec->qual == 'j' )
+#endif
+	else if ( pspec->qual == 'j' )
             *(intmax_t *)vp = (intmax_t)pspec->nChars;
         else if ( pspec->qual == 'z' )
             *(size_t *)vp = (size_t)pspec->nChars;
@@ -691,7 +693,7 @@ static int do_conv_s_alt( T_FormatSpec * pspec,
 
 /*****************************************************************************/
 /**
-    Process the numeric conversions (%b, %d, %i, %o, %u, %x, %X).
+    Process the numeric conversions (%b, %d, %i, %I, %o, %u, %U, %x, %X).
 
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list.

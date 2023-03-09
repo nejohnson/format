@@ -77,5 +77,11 @@
 **/
 #define CONFIG_WITH_FP_SUPPORT
 
+/****************************************************************************/
+/** Provide support for long long arguments but only if needed, otherwise we
+    can pull in unwanted libraries on most platforms.
+**/
+#define CONFIG_WITH_LONG_LONG_SUPPORT
+
 
 #endif /* FORMAT_CONFIG_H */

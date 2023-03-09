@@ -259,7 +259,9 @@ static void test_n( void )
     /* Length modifiers */
     TEST( "hello", 5, "hello%ln", &l ); CHECK( (int)l, 5 );
     TEST( "hello", 5, "hello%hn", &s ); CHECK( s, 5 );
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
     TEST( "hello", 5, "hello%lln",&ll); CHECK( (int)ll, 5 );
+#endif
 
     /* Check the 'hh' length qual with a string longer than can be
        written in a valid signed char type.  In this case 320, which should
