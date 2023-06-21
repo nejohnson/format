@@ -29,7 +29,7 @@
 # * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # * ************************************************************************* */
 
-CFLAGS += -I../src -std=c99 -Wall -pedantic \
+CFLAGS += -I../src -std=c99 -Wall -pedantic -g \
 	-Wunused -Wstrict-prototypes -Wmissing-prototypes \
 	-Wshadow -Wmaybe-uninitialized -Wtype-limits
 
@@ -41,6 +41,9 @@ all: testharness perftest libtest
 format.o: ../src/format.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+tinyformat.o: ../src/tinyformat.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 lib.o: ../lib/printf.c
 	$(CC) $(CFLAGS) -I../lib -c $< -o $@
 
@@ -50,6 +53,9 @@ libtest.o: libtest.c
 testharness: testharness.o format.o
 	$(CC) $(LDFLAGS) testharness.o format.o -o testharness
 
+tinytestharness: tinytestharness.o tinyformat.o
+	$(CC) $(LDFLAGS) tinytestharness.o tinyformat.o -o tinytestharness
+
 perftest: performance.o format.o
 	$(CC) $(LDFLAGS) performance.o format.o -o perftest
 
@@ -58,6 +64,7 @@ libtest: libtest.o format.o lib.o
 
 clean:
 	rm -f testharness
+	rm -f tinytestharness
 	rm -f perftest
 	rm -f libtest
 	rm -f *.o
@@ -66,6 +73,7 @@ what:
 	@echo "make targets:"
 	@echo "   all         -- all known targets (the default), then runs the test harness"
 	@echo "   testharness -- the format test program"
+	@echo "   tinytestharness -- test harness for tinyformat"
 	@echo "   perftest    -- runs some float performance tests"
 	@echo "   libtest     -- library tests"
 	@echo "   clean       -- deletes all build artifacts"
