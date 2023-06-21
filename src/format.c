@@ -655,7 +655,7 @@ static int do_conv_s_alt( T_FormatSpec * pspec,
     size_t length = 0;
     size_t ps1 = 0, ps2 = 0;
     size_t n = 0;
-    static ROM_DECL(char null_string[]) = "(null)";
+    static ROM_DECL(char const null_string[]) = "(null)";
 
     const void *vp = (const void*)va_arg( *ap, ROM_PTR_T );
 
