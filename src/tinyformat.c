@@ -63,7 +63,6 @@
 #define FSPACE          ( 0x01U )
 #define FPLUS           ( 0x02U )
 #define FMINUS          ( 0x04U )
-#define FHASH           ( 0x08U )
 #define FZERO           ( 0x10U )
 #define F_IS_SIGNED     ( 0x80U )
 
@@ -92,12 +91,6 @@
     Return the absolute value of a signed scalar value.
 **/
 #define ABS(a)          ( (a) < 0 ? -(a) : (a) )
-
-/** It is nonsensical to increment a void pointer directly, so we kind-of-cheat
-    by casting it to a char pointer and then incrementing. **/
-#define INC_VOID_PTR(v)     ( (v) = ((const char *)(v))+1 )
-#define DEC_VOID_PTR(v)     ( (v) = ((const char *)(v))-1 )
-#define MOVE_VOID_PTR(v,n)  ( (v) = ((const char *)(v))+(n) )
 
 /*****************************************************************************/
 /**
@@ -177,8 +170,6 @@ static void * memcpy( void *, const void *, size_t );
 #endif
 
 /** Conversion handlers **/
-static int do_conv_n( T_FormatSpec *, va_list * );
-
 static int do_conv_c( T_FormatSpec *, va_list *, char,
                       void * (*)(void *, const char *, size_t), void * * );
 
@@ -301,7 +292,7 @@ static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
     if ( pad( ' ', ps1, cons, parg ) < 0 )
         return EXBADFORMAT;
 
-    if ( pfx_s && pfx_n )
+    if ( pfx_s )
     {
         if ( emit( pfx_s, pfx_n, cons, parg ) < 0 )
             return EXBADFORMAT;
@@ -416,7 +407,7 @@ static int do_conv_s( T_FormatSpec * pspec,
 
 /*****************************************************************************/
 /**
-    Process the numeric conversions (%b, %d, %x, %X).
+    Process the numeric conversions (%b, %d, %u, %x, %X).
 
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list.
@@ -439,8 +430,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     size_t ps1 = 0, ps2 = 0, pz = 0, pfx_n = 0;
     const char * pfx_s = NULL;
     uint16_t uv;
-    char prefix[2];
-    size_t pfxWidth = 0;
+    char prefix[1];
     static const char digits[] = "0123456789ABCDEF";
 
     /* Get the value.
@@ -468,31 +458,14 @@ static int do_conv_numeric( T_FormatSpec * pspec,
 
         if ( prefix[0] != '\0' )
         {
-            pfxWidth      = 1;
-	    pspec->flags |= FHASH;
+            length++;
+            pfx_s = prefix;
+            pfx_n = 1;
         }
     }
     else
     {
         uv = (uint16_t)va_arg( *ap, unsigned int );
-        prefix[0] = '0';
-    }
-
-    if ( code == 'x' || code == 'X' || code == 'b' )
-    {
-        /* if non-zero add prefix for hex and binary */
-        if ( uv )
-        {
-            prefix[1] = code;
-            pfxWidth  = 2;
-        }
-    }
-
-    if ( pspec->flags & FHASH )
-    {
-        length += pfxWidth;
-        pfx_s = prefix;
-        pfx_n = pfxWidth;
     }
 
     for( numWidth = 0; uv != 0; )
@@ -634,7 +607,6 @@ int format( void *    (* cons) (void *, const char * , size_t),
 {
     T_FormatSpec fspec;
     char           c;
-    const void   * ptr = (const void *)fmt;
     va_list        ap;
     
     /* Setup varargs -- must va_end( ap ) before exit !! */
@@ -645,24 +617,24 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
     fspec.nChars = 0;
 
-    while ( c = (*(const char *)( ptr ) ) )
+    while ( c = *fmt )
     {
         /* scan for % or \0 */
         {
             size_t n = 0;
-            const char *s = (const char *)ptr;
+            const char *s = fmt;
 
             for ( ; *s && *s != '%'; s++ )
                 n++;
 
-            if ( emit( (const char *)ptr, n, cons, &arg ) < 0 )
+            if ( emit( fmt, n, cons, &arg ) < 0 )
                 goto exit_badformat;
 
             fspec.nChars += n;
-            ptr = (const void *)s;
+            fmt = s;
         }
 
-        if ( (*(const char *)( ptr ) ) )
+        if ( *fmt )
         {
             /* found conversion specifier */
             char convspec;
@@ -672,20 +644,20 @@ int format( void *    (* cons) (void *, const char * , size_t),
             static const unsigned int fbit[] = {
                 FSPACE, FPLUS, FMINUS, FZERO, 0};
 
-            INC_VOID_PTR(ptr);    /* skip the % sign */
+            fmt++; /* skip the % sign */
 
             /* process conversion flags */
             for ( fspec.flags = 0;
-                  (c = (*(const char *)( ptr ) ) ) && (t = STRCHR(fchar, c)) != NULL;
-                  INC_VOID_PTR(ptr) )
+                  ( c = *fmt ) && (t = STRCHR(fchar, c)) != NULL;
+                  fmt++ )
             {
                 fspec.flags |= fbit[t - fchar];
             }
 
             /* process width */
             for ( fspec.width = 0;
-                  ( c = (*(const char *)( ptr ) ) ) && ISDIGIT( c ) && fspec.width < MAXWIDTH;
-                  INC_VOID_PTR(ptr) )
+                  ( c = *fmt ) && ISDIGIT( c ) && fspec.width < MAXWIDTH;
+                  fmt++ )
             {
                 fspec.width = fspec.width * 10 + c - '0';
             }
@@ -694,14 +666,14 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 goto exit_badformat;
 
             /* process precision */
-            if ( (*(const char *)( ptr ) ) != '.' )
+            if ( *fmt != '.' )
                 fspec.prec = -1; /* precision is missing */
             else
             {
-		INC_VOID_PTR(ptr);
+		fmt++;
                 for ( fspec.prec = 0;
-                      ( c = (*(const char *)( ptr ) ) ) && ISDIGIT( c ) && fspec.prec < MAXPREC;
-                      INC_VOID_PTR(ptr) )
+                      ( c = *fmt ) && ISDIGIT( c ) && fspec.prec < MAXPREC;
+                      fmt++ )
                 {
                     fspec.prec = fspec.prec * 10 + c - '0';
                 }
@@ -710,10 +682,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
 
             /* Continuation */
-            c = (*(const char *)( ptr ) );
+            c = *fmt;
             if ( c == '\0' )
             {
-                ptr = va_arg( ap, const char * );
+                fmt = va_arg( ap, const char * );
                 continue;
             }
 
@@ -726,7 +698,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
                 fspec.nChars += (unsigned int)nn;
 
-            INC_VOID_PTR(ptr);
+            fmt++;
         }
     }
 
