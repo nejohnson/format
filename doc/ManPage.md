@@ -78,7 +78,7 @@ Each conversion specification is introduced by the character `%`.  After the
   * An optional precision that gives the minimum number of digits to appear for
     the `b`, `d`, `i`, `I`, `o`, `u`, `U`, `x`, and `X` conversions, the number
     of digits to appear after the decimal-point character for `e`, `E`, `f`, `F`
-    and `k` conversoins, the maximum number of significant digits fro the `g` and
+    and `k` conversions, the maximum number of significant digits for the `g` and
     `G` conversions, the maximum number of bytes to be written for `s` conversions,
     or the number of repetitions for `c` and `C` conversions. The precision takes
     the form of a period (.) followed either by an asterisk `*` (described later)
