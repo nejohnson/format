@@ -617,7 +617,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
     fspec.nChars = 0;
 
-    while ( c = *fmt )
+    while ( ( c = *fmt ) )
     {
         /* scan for % or \0 */
         {
