@@ -1,6 +1,7 @@
 A lightweight low-overhead library for processing printf-style format descriptions and arguments designed for the constrained environments of embedded systems.
 
 # News #
+  * 29-Jun-2023: Add optional support for long long integers with the `ll` qualifier.
   * March-2023: Tidyups in files and documentation.
   * 10-Mar-2015: Release 1.2 now available.
   * 05-Feb-2015: Add support for fixed-point numbers with the `k` conversion specifier.
