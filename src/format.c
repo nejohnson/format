@@ -715,7 +715,12 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     char numBuffer[BUFLEN];
     size_t ps1 = 0, ps2 = 0, pz = 0, pfx_n = 0;
     const char * pfx_s = NULL;
-    unsigned long uv;
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+#define T long long
+#else
+#define T long
+#endif
+    unsigned T uv;
     char prefix[2];
     size_t pfxWidth = 0;
     size_t grp_insertions = 0;
@@ -728,18 +733,23 @@ static int do_conv_numeric( T_FormatSpec * pspec,
      */
     if ( pspec->flags & F_IS_SIGNED )
     {
-        long v;
+        T v;
 
-        if ( pspec->qual == 'l' )
-            v = (long)va_arg( *ap, long );
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+	if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
+	    v = (T)va_arg( *ap, T );
+	else
+#endif
+	if ( pspec->qual == 'l' )
+            v = (T)va_arg( *ap, long );
         else if ( pspec->qual == 'j' )
-            v = (long)va_arg( *ap, intmax_t );
+            v = (T)va_arg( *ap, intmax_t );
         else if ( pspec->qual == 'z' )
-            v = (long)va_arg( *ap, size_t );
+            v = (T)va_arg( *ap, size_t );
         else if ( pspec->qual == 't' )
-            v = (long)va_arg( *ap, ptrdiff_t );
+            v = (T)va_arg( *ap, ptrdiff_t );
         else
-            v = (long)va_arg( *ap, int );
+            v = (T)va_arg( *ap, int );
 
         if ( pspec->qual == 'h' )
             v = (short)v;
@@ -747,7 +757,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
             v = (signed char)v;
 
         /* Get absolute value */
-        uv = (unsigned long)(v < 0 ? -v : v);
+        uv = (unsigned T)(v < 0 ? -v : v);
 
         /* Based on original sign and flags work out any prefix */
         prefix[0] = '\0';
@@ -766,16 +776,21 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     }
     else
     {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+	if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
+	    uv = (unsigned T)va_arg( *ap, unsigned T );
+	else
+#endif
         if ( pspec->qual == 'l' )
-            uv = (unsigned long)va_arg( *ap, unsigned long );
+            uv = (unsigned T)va_arg( *ap, unsigned long );
         else if ( pspec->qual == 'j' )
-            uv = (unsigned long)va_arg( *ap, uintmax_t );
+            uv = (unsigned T)va_arg( *ap, uintmax_t );
         else if ( pspec->qual == 'z' )
-            uv = (unsigned long)va_arg( *ap, size_t );
+            uv = (unsigned T)va_arg( *ap, size_t );
         else if ( pspec->qual == 't' )
-            uv = (unsigned long)va_arg( *ap, ptrdiff_t );
+            uv = (unsigned T)va_arg( *ap, ptrdiff_t );
         else
-            uv = (unsigned long)va_arg( *ap, unsigned int );
+            uv = (unsigned T)va_arg( *ap, unsigned int );
 
         if ( pspec->qual == 'h' )
             uv = (unsigned short)uv;
@@ -810,32 +825,12 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     }
 
     /* work out how many digits in uv */
-    /* Note: splitting it out like this affords us the opportunity to
-     *  avoid calling out to libgcc.
-     *  In the case of decimal, on large word machines we can produce tight
-     *  code for dividing by a known constant by applying "Division by
-     *  Invariant Integers Using Multiplication" algorithm from the 1994 paper
-     *  by Torbjorn Granlund and Peter L. Montgomery.
-     * For the magic number see:
-     *            http://www.hackersdelight.org/magic.htm
-     * We compute the remainder in the obvious way.
-     *
-     * For the other cases we can implement the necessary math through
-     *  bit ops - masking and shifting.
-     */
     if ( base == 10 )
     {
         for( numWidth = 0; uv != 0; )
         {
-#if defined(CONFIG_USE_INLINE_DIV10)
-            unsigned long long div_a = uv * 0xCCCCCCCDULL;
-            unsigned long div_uv = (div_a >> 32) >> 3;
-            unsigned long div_5uv = div_uv + (div_uv << 2);
-            unsigned long div_rem = uv - (div_5uv << 1);
-#else
-            unsigned long div_uv  = uv / 10;
-            unsigned long div_rem = uv % 10;
-#endif
+            unsigned T div_uv  = uv / 10;
+            unsigned T div_rem = uv % 10;
 
             ++numWidth;
             numBuffer[sizeof(numBuffer) - numWidth] = '0' + div_rem;
@@ -847,10 +842,10 @@ static int do_conv_numeric( T_FormatSpec * pspec,
       */
     else if ( base == 2 || base == 8 || base == 16 )
     {
-        unsigned int mask  = base - 1;
-        int          shift = base == 16 ? 4
-                             : base == 8 ? 3
-                             : 1;
+        unsigned T mask  = base - 1;
+        int        shift = base == 16 ? 4
+                           : base == 8 ? 3
+                           : 1;
 
         for( numWidth = 0; uv > 0; uv >>= shift )
         {

@@ -246,7 +246,9 @@ static void test_n( void )
     int n;
     short s;
     long l;
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
     long long ll;
+#endif
     char c;
 
     printf( "Testing \"%%n\"\n" );
@@ -402,6 +404,9 @@ static void test_di( void )
 {
     short int si = 24;
     long int  li = 1234567890L;
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    long long int lli = 123456789123456789LL;
+#endif
 
     printf( "Testing \"%%d\" and \"%%i\"\n" );
 
@@ -489,6 +494,10 @@ static void test_di( void )
     /* lengths */
     TEST( "24", 2, "%hd", si );
     TEST( "1234567890", 10, "%ld", li );
+
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    TEST( "123456789123456789", 18, "%lld", lli );
+#endif
 }
 
 
@@ -507,6 +516,10 @@ b,o,u,x,X  The unsigned int argument is converted to unsigned binary (b),
 **/
 static void test_bouxX( void )
 {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    unsigned long long int ulli = 123456789123456789ULL;
+#endif
+
     printf( "Testing \"%%b\", \"%%o\", \"%%u\", \"%%x\" and \"%%X\"\n" );
 
     TEST( "0", 1, "%b", 0 );
@@ -778,6 +791,11 @@ static void test_bouxX( void )
     TEST( "G", 1, "%:17U", 16 );
     TEST( "XYZ", 3, "%:36U", 44027 );
     TEST( " 00XYZ", 6, "%6.5:36U", 44027 );
+
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    TEST( "123456789123456789", 18, "%llu", ulli );
+    TEST( "1B69B4BACD05F15", 15, "%llX", ulli );
+#endif
 }
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
