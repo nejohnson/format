@@ -2,6 +2,7 @@ A lightweight low-overhead library for processing printf-style format descriptio
 
 # News #
   * 29-Jun-2023: Add optional support for long long integers with the `ll` qualifier.
+  * 21-Jun-2023: Add `tinyformat` for an even smaller feature-reduced version of format for very small embedded systems (compiles to around 1,400 bytes of code for the atmega8 with AVR-GCC).
   * March-2023: Tidyups in files and documentation.
   * 10-Mar-2015: Release 1.2 now available.
   * 05-Feb-2015: Add support for fixed-point numbers with the `k` conversion specifier.
