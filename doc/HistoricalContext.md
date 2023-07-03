@@ -4,6 +4,16 @@ The **format** library is not the first (and likely not the last!) lightweight p
 
 Interestingly I only found out about these projects _after_ I had written the first version of **format**.  In fact, the original version was written way back around 1998 when I was writing the standard C library for an 80186 compiler I was working on at the time, and took inspiration from Plauger's _Standard C Library_.
 
+## NLnet Labs ##
+
+The NLnet Labs project is an independent, non-profit foundation based in the Netherlands. Our mission is to make the core of the Internet a better, safer place by developing open-source software, through applied research and by promoting and contributing to open standards.
+
+As part of this effort they produced a fairly portable implementation of the core `snprintf()` function:
+
+https://github.com/NLnetLabs/unbound/blob/release-1.9.6/compat/snprintf.c
+
+It's compiled size is comparable to **format** but it is missing quite a few features and of course all the features unique to **format**.
+
 ## Dave Hylands' StrPrintf ##
 
 http://www.davehylands.com/Robotics/MRM/Str/
