@@ -79,7 +79,7 @@ Each conversion specification is introduced by the character `%`.  After the
 
   * An optional precision that gives the minimum number of digits to appear for
     the `b`, `d`, `u`, `x`, and `X` conversions, the maximum number of bytes to
-    be written for `s` conversions, or the number of repetitions for `c` and `C`
+    be written for `s` conversions, or the number of repetitions for `c` 
     conversions. The precision takes the form of a period (.) followed by an
     optional decimal integer; if only the period is specified, the precision is
     taken as zero. If a precision appears with any other conversion specifier,
@@ -108,7 +108,6 @@ The conversion specifiers and their meanings are:
 |`d`| The `int` argument is converted to signed decimal (`d`) in the style `[`-`]`dddd. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros. The default precision is 1. The result of converting a zero value with a precision of zero is no characters. |
 |`b`,`u`,`x`,`X`| The `unsigned int` argument is converted to unsigned binary (`b`),  unsigned decimal (`u`), or unsigned hexadecimal notation (`x` or `X`) in the style `dddd`. For bases greater than decimal the letters "A" to "F" are used for `X` conversions, and "a" to "f" for `x` conversions. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros.  The default precision is 1. The result of converting a zero value with a precision of zero is no characters.|
 |`c`|         The `int` argument is converted to an `unsigned char`, and the resulting character is written.  The precision specifies how many times the character is written.  The default and minimum precision is 1.|
-|`C`|         The character immediately following the conversion specifier is written.  The precision specifies how many times the character is written.  The default and minimum precision is 1.|
 |`s`|         The argument is a pointer to the initial element of an array of character type. Characters from the array are written up to (but not including) the terminating null character. If the precision is specified, no more than that many bytes are written. If the precision is not specified or is greater than the size of the array, the array must contain a null character.  A NULL argument is treated as pointer to the string "(null)".|
 |`p`|         The argument is a pointer to `void`. The value of the pointer is converted to a sequence of printing characters using the conversion specification `%4.4X`.|
 |`%`|         A `%` character is written. No argument is converted. The complete conversion specification is `%%`.|
