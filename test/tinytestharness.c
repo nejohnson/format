@@ -294,9 +294,6 @@ d        The int argument is converted to signed decimal in the style [-]dddd.
 **/
 static void test_d( void )
 {
-    short int si = 24;
-    long int  li = 1234567890L;
-
     printf( "Testing \"%%d\" and \"%%i\"\n" );
 
     TEST( "0", 1, "%d", 0 );

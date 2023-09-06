@@ -83,11 +83,6 @@
 #define MIN(a,b)        ( (a) < (b) ? (a) : (b) )
 
 /**
-    Return the number of elements in a static array.
-**/
-#define NELEMS(a)       ( sizeof(a) / sizeof(*(a)) )
-
-/**
     Return the absolute value of a signed scalar value.
 **/
 #define ABS(a)          ( (a) < 0 ? -(a) : (a) )
@@ -137,10 +132,6 @@ typedef struct {
 } T_FormatSpec;
 
 /*****************************************************************************/
-/* Private Data.  Declare as static.                                         */
-/*****************************************************************************/
-
-/*****************************************************************************/
 /* Private function prototypes.  Declare as static.                          */
 /*****************************************************************************/
 
@@ -170,7 +161,7 @@ static void * memcpy( void *, const void *, size_t );
 #endif
 
 /** Conversion handlers **/
-static int do_conv_c( T_FormatSpec *, va_list *, char,
+static int do_conv_c( T_FormatSpec *, va_list *,
                       void * (*)(void *, const char *, size_t), void * * );
 
 static int do_conv_s( T_FormatSpec *, va_list *,
@@ -251,17 +242,17 @@ static int emit( const char *s, size_t n,
     @param cons     Pointer to consumer function
     @param parg     Pointer to opaque pointer arg for @p cons
 
-    @return 0 if successful, or EXBADFORMAT if failed.
+    @return number of emitted characters, or EXBADFORMAT if failed.
 **/
 static int pad( char c, size_t n,
                 void * (* cons)(void *, const char *, size_t), void * * parg )
 {
-    for ( ; n > 0; n-- )
+    for ( size_t i = 0; i < n; i++ )
     {
         if ( emit( &c, 1, cons, parg ) < 0 )
             return EXBADFORMAT;
     }
-    return 0;
+    return (int)n;
 }
 
 /*****************************************************************************/
@@ -345,7 +336,6 @@ static void calc_space_padding( T_FormatSpec * pspec,
 
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list.
-    @param code     Conversion specifier code.
     @param cons     Pointer to consumer function.
     @param parg     Pointer to opaque pointer updated by cons.
 
@@ -353,7 +343,6 @@ static void calc_space_padding( T_FormatSpec * pspec,
 **/
 static int do_conv_c( T_FormatSpec * pspec,
                       va_list *      ap,
-                      char           code,
                       void *      (* cons)(void *, const char *, size_t),
                       void * *       parg )
 {
@@ -365,7 +354,7 @@ static int do_conv_c( T_FormatSpec * pspec,
     /* apply default precision */
     rep = (unsigned int)MAX( 1, pspec->prec );
 
-    if ( pad( cc, rep, cons, parg ) != 0 )
+    if ( pad( cc, rep, cons, parg ) < 0 )
         return EXBADFORMAT;
 
     return rep;
@@ -376,8 +365,7 @@ static int do_conv_c( T_FormatSpec * pspec,
     Process a %s conversion.
 
     @param pspec    Pointer to format specification.
-    @param ap       Reference to optional format arguments list.
-    @param code     Conversion specifier code.
+    @param ap       Reference to optional format arguments list..
     @param cons     Pointer to consumer function.
     @param parg     Pointer to opaque pointer updated by cons.
 
@@ -474,7 +462,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         uint16_t div_rem = uv % base;
         char cc = digits[div_rem];
 
-	/* convert to lower case? */
+        /* convert to lower case? */
         if ( code == 'x' )
             cc |= 0x20;
 
@@ -533,10 +521,10 @@ static int do_conv( T_FormatSpec * pspec,
     unsigned int base = 0;
 
     if ( code == '%' )
-        return gen_out( cons, parg, 0, NULL, 0, 0, &code, 1, 0 );
+        return pad( code, 1, cons, parg );
 
     if ( code == 'c' )
-        return do_conv_c( pspec, ap, code, cons, parg );
+        return do_conv_c( pspec, ap, cons, parg );
 
     if ( code == 's' )
         return do_conv_s( pspec, ap, cons, parg );
@@ -568,7 +556,7 @@ static int do_conv( T_FormatSpec * pspec,
     }
 
     if ( code == 'u' )
-	base = 10;
+    base = 10;
 
     if ( code == 'x' || code == 'X' )
         base = 16;
@@ -637,7 +625,6 @@ int format( void *    (* cons) (void *, const char * , size_t),
         if ( *fmt )
         {
             /* found conversion specifier */
-            char convspec;
             char *t;
             int nn;
             static const char fchar[] = {" +-0"};
@@ -670,7 +657,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 fspec.prec = -1; /* precision is missing */
             else
             {
-		fmt++;
+                fmt++;
                 for ( fspec.prec = 0;
                       ( c = *fmt ) && ISDIGIT( c ) && fspec.prec < MAXPREC;
                       fmt++ )
@@ -689,10 +676,8 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 continue;
             }
 
-            convspec = c;
-
             /* now process the conversion type */
-            nn = do_conv( &fspec, &ap, convspec, cons, &arg );
+            nn = do_conv( &fspec, &ap, c, cons, &arg );
             if ( nn < 0 )
                 goto exit_badformat;
             else
