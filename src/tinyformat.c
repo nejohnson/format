@@ -69,12 +69,10 @@
 /**
     Set limits.
 **/
-#define MAXWIDTH        ( 500 )
-#define MAXPREC         ( 500 )
-#define BUFLEN          ( 18 )   /* Must be long enough for 16-bit pointers
-                                  * in binary and prefix:
-                                  *  "0b" + 16 digits
-                                  */
+#define MAXWIDTH        ( 80 )
+#define MAXPREC         ( 80 )
+#define BUFLEN          ( 16 )   /* Must be long enough for 16-bit pointers
+                                  * in binary */
 
 /**
     Return the maximum/minimum of two scalar values.
@@ -126,9 +124,9 @@
 **/
 typedef struct {
     unsigned int    nChars; /**< number of chars emitted so far     **/
-    unsigned int    flags;  /**< flags                              **/
-    unsigned int    width;  /**< width                              **/
-    int             prec;   /**< precision, -1 == default precision **/
+    uint8_t         flags;  /**< flags                              **/
+    uint8_t         width;  /**< width                              **/
+    int8_t          prec;   /**< precision, -1 == default precision **/
 } T_FormatSpec;
 
 /*****************************************************************************/
@@ -249,7 +247,7 @@ static int pad( char c, size_t n,
 {
     for ( size_t i = 0; i < n; i++ )
     {
-        if ( emit( &c, 1, cons, parg ) < 0 )
+        if ( ( *parg = ( *cons )( *parg, &c, 1 ) ) == NULL )
             return EXBADFORMAT;
     }
     return (int)n;
@@ -326,8 +324,8 @@ static void calc_space_padding( T_FormatSpec * pspec,
     else
         left = width;
 
-    if ( ps1 ) *ps1 = left;
-    if ( ps2 ) *ps2 = right;
+    *ps1 = left;
+    *ps2 = right;
 }
 
 /*****************************************************************************/
@@ -556,7 +554,7 @@ static int do_conv( T_FormatSpec * pspec,
     }
 
     if ( code == 'u' )
-    base = 10;
+        base = 10;
 
     if ( code == 'x' || code == 'X' )
         base = 16;
