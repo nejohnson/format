@@ -97,7 +97,7 @@ The flag characters and their meanings are:
 |`-`|   The result of the conversion is left-justified within the field.  It is right-justified if this flag is not specified.|
 |`+`|   The result of a signed conversion always begins with a plus or minus sign. It begins with a sign only when a negative value is converted if this flag is not specified.|
 |space| If the first character of a signed conversion is not a sign, or if a signed conversion results in no characters, a space is prefixed to the result. If the space and `+` flags both appear, the space flag is ignored.|
-|`0`|   For `b`, `d`, `u`, `x` and `X` conversions, leading zeros (following any indication of sign or base) are used to pad to the field width rather than performing space padding. If the `0` and `-` flags both appear, the `0` flag is ignored.  For `b`, `d`, `u`, `x`, and `X` conversions, if a precision is specified, the `0` flag is ignored. For other conversions, the flag is ignored.|
+|`0`|   For `b`, `d`, `u`, `x` and `X` conversions, leading zeros (following any indication of sign) are used to pad to the field width rather than performing space padding. If the `0` and `-` flags both appear, the `0` flag is ignored.  For `b`, `d`, `u`, `x`, and `X` conversions, if a precision is specified, the `0` flag is ignored. For other conversions, the flag is ignored.|
 
 ### Conversion Specifiers ###
 
@@ -106,7 +106,7 @@ The conversion specifiers and their meanings are:
 | Specifier | Description |
 |:---|:---|
 |`d`| The `int` argument is converted to signed decimal (`d`) in the style `[`-`]`dddd. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros. The default precision is 1. The result of converting a zero value with a precision of zero is no characters. |
-|`b`,`u`,`x`,`X`| The `unsigned int` argument is converted to unsigned binary (`b`),  unsigned decimal (`u`), or unsigned hexadecimal notation (`x` or `X`) in the style `dddd`. For bases greater than decimal the letters "A" to "F" are used for `X` conversions, and "a" to "f" for `x` conversions. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros.  The default precision is 1. The result of converting a zero value with a precision of zero is no characters.|
+|`b`,`u`,`x`,`X`| The `unsigned int` argument is converted to unsigned binary (`b`),  unsigned decimal (`u`), or unsigned hexadecimal notation (`x` or `X`) in the style `dddd`. The letters "A" to "F" are used for `X` conversions, and "a" to "f" for `x` conversions. The precision specifies the minimum number of digits to appear; if the value being converted can be represented in fewer digits, it is expanded with leading zeros.  The default precision is 1. The result of converting a zero value with a precision of zero is no characters.|
 |`c`|         The `int` argument is converted to an `unsigned char`, and the resulting character is written.  The precision specifies how many times the character is written.  The default and minimum precision is 1.|
 |`s`|         The argument is a pointer to the initial element of an array of character type. Characters from the array are written up to (but not including) the terminating null character. If the precision is specified, no more than that many bytes are written. If the precision is not specified or is greater than the size of the array, the array must contain a null character.  A NULL argument is treated as pointer to the string "(null)".|
 |`p`|         The argument is a pointer to `void`. The value of the pointer is converted to a sequence of printing characters using the conversion specification `%4.4X`.|
@@ -131,7 +131,7 @@ occurred.
 
 ## Limits ##
 
-The maximum width and precision are 500.  It is an error if values larger
+The maximum width and precision are 80.  It is an error if values larger
 than this are specified.
 
 
