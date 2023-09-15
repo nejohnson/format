@@ -625,23 +625,22 @@ int format( void *    (* cons) (void *, const char * , size_t),
             /* found conversion specifier */
             char *t;
             int nn;
-            static const char fchar[] = {" +-0"};
-            static const unsigned int fbit[] = {
-                FSPACE, FPLUS, FMINUS, FZERO, 0};
 
             fmt++; /* skip the % sign */
 
             /* process conversion flags */
-            for ( fspec.flags = 0;
-                  ( c = *fmt ) && (t = STRCHR(fchar, c)) != NULL;
-                  fmt++ )
+            for ( fspec.flags = 0; ; fmt++ )
             {
-                fspec.flags |= fbit[t - fchar];
+                if      ( *fmt == ' ' ) fspec.flags |= FSPACE;
+                else if ( *fmt == '+' ) fspec.flags |= FPLUS;
+                else if ( *fmt == '-' ) fspec.flags |= FMINUS;
+                else if ( *fmt == '0' ) fspec.flags |= FZERO;
+                else break;
             }
 
             /* process width */
             for ( fspec.width = 0;
-                  ( c = *fmt ) && ISDIGIT( c ) && fspec.width < MAXWIDTH;
+                  ( c = *fmt ) && ISDIGIT( c ) && fspec.width <= (MAXWIDTH / 10);
                   fmt++ )
             {
                 fspec.width = fspec.width * 10 + c - '0';
@@ -657,7 +656,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             {
                 fmt++;
                 for ( fspec.prec = 0;
-                      ( c = *fmt ) && ISDIGIT( c ) && fspec.prec < MAXPREC;
+                      ( c = *fmt ) && ISDIGIT( c ) && fspec.prec <= (MAXPREC / 10);
                       fmt++ )
                 {
                     fspec.prec = fspec.prec * 10 + c - '0';
