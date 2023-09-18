@@ -1,5 +1,5 @@
 /* ****************************************************************************
- * TinyFormat - minimal lightweight string formatting library for 16-bit CPUs
+ * MicroFormat - extremely small string formatting library for 16-bit CPUs
  * Copyright (C) 2010-2023, Neil Johnson
  * All rights reserved.
  *
@@ -51,7 +51,7 @@
 /*****************************************************************************/
 
 /** Pull in our public header **/
-#include "format.h"
+#include "microformat.h"
 
 /*****************************************************************************/
 /* Macros, constants                                                         */
@@ -123,17 +123,13 @@ typedef struct {
 /* Private function prototypes.  Declare as static.                          */
 /*****************************************************************************/
 
-static int do_conv( T_FormatSpec *, va_list *, char,
-                    void *(*)(void *, const char *, size_t), void * * );
+static int do_conv( T_FormatSpec *, va_list *, char );
 
-static int emit( const char *, size_t,
-                 void * (*)(void *, const char *, size_t ), void * * );
+static int emit( const char *, size_t );
 
-static int pad( char, size_t,
-                void * (*)(void *, const char *, size_t), void * * );
+static int pad( char, size_t );
 
-static int gen_out( void *(*)(void *, const char *, size_t), void * *,
-                    size_t, const char *, size_t, size_t,
+static int gen_out( size_t, const char *, size_t, size_t,
                     const char *, size_t, size_t );
 
 static void calc_space_padding( T_FormatSpec *, size_t, size_t *, size_t * );
@@ -148,14 +144,11 @@ static void * memcpy( void *, const void *, size_t );
 #endif
 
 /** Conversion handlers **/
-static int do_conv_c( T_FormatSpec *, va_list *,
-                      void * (*)(void *, const char *, size_t), void * * );
+static int do_conv_c( T_FormatSpec *, va_list * );
 
-static int do_conv_s( T_FormatSpec *, va_list *,
-                      void * (*)(void *, const char *, size_t), void * * );
+static int do_conv_s( T_FormatSpec *, va_list * );
 
 static int do_conv_numeric( T_FormatSpec *, va_list *, char,
-                            void * (*)(void *, const char *, size_t), void * *,
                             unsigned int );
 
 /*****************************************************************************/
@@ -186,18 +179,18 @@ static size_t xx_strlen( const char *s )
 
     @param s        Pointer to source string
     @param n        Number of characters to emit
-    @param cons     Pointer to consumer function
-    @param parg     Pointer to opaque pointer arg for @p cons
 
     @return 0 if successful, or EXBADFORMAT if failed.
 **/
-static int emit( const char *s, size_t n,
-                 void * (* cons)(void *, const char *, size_t), void * * parg )
+static int emit( const char *s, size_t n )
 {
-    if ( n > 0 && ( *parg = ( *cons )( *parg, s, n ) ) == NULL )
-        return EXBADFORMAT;
-    else
-        return 0;
+    for ( ; n > 0; n-- )
+    {
+        int c = *s++;
+        if ( format_putchar( c ) != c )
+            return EXBADFORMAT;
+    }
+    return 0;
 }
 
 /*****************************************************************************/
@@ -206,17 +199,14 @@ static int emit( const char *s, size_t n,
 
     @param c        Padding character.
     @param n        Number of padding characters to emit.
-    @param cons     Pointer to consumer function
-    @param parg     Pointer to opaque pointer arg for @p cons
 
     @return number of emitted characters, or EXBADFORMAT if failed.
 **/
-static int pad( char c, size_t n,
-                void * (* cons)(void *, const char *, size_t), void * * parg )
+static int pad( char c, size_t n )
 {
     for ( size_t i = 0; i < n; i++ )
     {
-        if ( ( *parg = ( *cons )( *parg, &c, 1 ) ) == NULL )
+        if ( format_putchar( c ) != c )
             return EXBADFORMAT;
     }
     return (int)n;
@@ -226,8 +216,6 @@ static int pad( char c, size_t n,
 /**
     Generate output with spacing, zero padding and prefixing.
 
-    @param cons     Pointer to consumer function
-    @param parg     Pointer to opaque pointer arg for @p cons
     @param ps1      Number of space padding to prefix
     @param pfx_s    Pointer to prefix string
     @param pfx_n    Length of prefix
@@ -238,8 +226,7 @@ static int pad( char c, size_t n,
 
     @return Number of emitted characters, or EXBADFORMAT if failure
 **/
-static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
-                    size_t ps1,
+static int gen_out( size_t ps1,
                     const char *pfx_s, size_t pfx_n,
                     size_t pz,
                     const char *e_s, size_t e_n,
@@ -247,23 +234,23 @@ static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
 {
     size_t n = ps1 + pz + e_n + ps2;
 
-    if ( pad( ' ', ps1, cons, parg ) < 0 )
+    if ( pad( ' ', ps1 ) < 0 )
         return EXBADFORMAT;
 
     if ( pfx_s )
     {
-        if ( emit( pfx_s, pfx_n, cons, parg ) < 0 )
+        if ( emit( pfx_s, pfx_n ) < 0 )
             return EXBADFORMAT;
         n += pfx_n;
     }
 
-    if ( pad( '0', pz, cons, parg ) < 0 )
+    if ( pad( '0', pz ) < 0 )
         return EXBADFORMAT;
 
-    if ( emit( e_s, e_n, cons, parg ) < 0 )
+    if ( emit( e_s, e_n ) < 0 )
         return EXBADFORMAT;
 
-    if ( pad( ' ', ps2, cons, parg ) < 0 )
+    if ( pad( ' ', ps2 ) < 0 )
         return EXBADFORMAT;
 
     return (int)n;
@@ -275,8 +262,8 @@ static int gen_out( void *(*cons)(void *, const char *, size_t), void * * parg,
 
     @param pspec        Pointer to format specification.
     @param length       Length of item
-    @param ps1          Pointer to store left padding.  May be NULL.
-    @param ps2          Pointer to store right padding. May be NULL.
+    @param ps1          Pointer to store left padding.
+    @param ps2          Pointer to store right padding.
 **/
 static void calc_space_padding( T_FormatSpec * pspec,
                                 size_t         length,
@@ -303,28 +290,15 @@ static void calc_space_padding( T_FormatSpec * pspec,
 
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list.
-    @param cons     Pointer to consumer function.
-    @param parg     Pointer to opaque pointer updated by cons.
 
     @return Number of emitted characters, or EXBADFORMAT if failure
 **/
 static int do_conv_c( T_FormatSpec * pspec,
-                      va_list *      ap,
-                      void *      (* cons)(void *, const char *, size_t),
-                      void * *       parg )
+                      va_list *      ap )
 {
-    char cc;
-    unsigned int rep;
+    char cc = (char)va_arg( *ap, int );
 
-    cc = (char)va_arg( *ap, int );
-
-    /* apply default precision */
-    rep = (unsigned int)MAX( 1, pspec->prec );
-
-    if ( pad( cc, rep, cons, parg ) < 0 )
-        return EXBADFORMAT;
-
-    return rep;
+    return pad( cc, 1 );
 }
 
 /*****************************************************************************/
@@ -333,15 +307,11 @@ static int do_conv_c( T_FormatSpec * pspec,
 
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list..
-    @param cons     Pointer to consumer function.
-    @param parg     Pointer to opaque pointer updated by cons.
 
     @return Number of emitted characters, or EXBADFORMAT if failure
 **/
 static int do_conv_s( T_FormatSpec * pspec,
-                      va_list *      ap,
-                      void *      (* cons)(void *, const char *, size_t),
-                      void * *       parg )
+                      va_list *      ap )
 {
     size_t length = 0;
     size_t ps1 = 0, ps2 = 0;
@@ -357,7 +327,7 @@ static int do_conv_s( T_FormatSpec * pspec,
 
     calc_space_padding( pspec, length, &ps1, &ps2 );
 
-    return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
+    return gen_out( ps1, NULL, 0, 0, s, length, ps2 );
 }
 
 /*****************************************************************************/
@@ -367,17 +337,14 @@ static int do_conv_s( T_FormatSpec * pspec,
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list.
     @param code     Conversion specifier code.
-    @param cons     Pointer to consumer function.
-    @param parg     Pointer to opaque pointer updated by cons.
+    @param base     Number base for the conversion
 
     @return Number of emitted characters, or EXBADFORMAT if failure
 **/
 static int do_conv_numeric( T_FormatSpec * pspec,
                             va_list *      ap,
                             char           code,
-                            void *      (* cons)(void *, const char *, size_t),
-                            void * *       parg,
-                            unsigned int base )
+                            unsigned int   base )
 {
     size_t length = 0;
     size_t numWidth, digitWidth;
@@ -459,8 +426,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         ps1 = 0;
     }
 
-    return gen_out( cons, parg,
-                    ps1,
+    return gen_out( ps1,
                     pfx_s, pfx_n,
                     pz,
                     &numBuffer[sizeof(numBuffer) - digitWidth], digitWidth,
@@ -474,27 +440,23 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list.
     @param code     Conversion specifier code.
-    @param cons     Pointer to consumer function.
-    @param parg     Pointer to opaque pointer updated by cons.
 
     @return Number of emitted characters, or EXBADFORMAT if failure
 **/
 static int do_conv( T_FormatSpec * pspec,
                     va_list *      ap,
-                    char           code,
-                    void *      (* cons)(void *, const char *, size_t),
-                    void * *       parg )
+                    char           code )
 {
     unsigned int base = 0;
 
     if ( code == '%' )
-        return pad( code, 1, cons, parg );
+        return pad( code, 1 );
 
     if ( code == 'c' )
-        return do_conv_c( pspec, ap, cons, parg );
+        return do_conv_c( pspec, ap );
 
     if ( code == 's' )
-        return do_conv_s( pspec, ap, cons, parg );
+        return do_conv_s( pspec, ap );
 
     /* -------------------------------------------------------------------- */
 
@@ -532,7 +494,7 @@ static int do_conv( T_FormatSpec * pspec,
         base = 2;
 
     if ( base > 1 )
-        return do_conv_numeric( pspec, ap, code, cons, parg, base );
+        return do_conv_numeric( pspec, ap, code, base );
 
     return EXBADFORMAT;
 }
@@ -542,23 +504,18 @@ static int do_conv( T_FormatSpec * pspec,
     Interpret format specification passing formatted text to consumer function.
 
     Executes the printf-compatible format specification fmt, referring to
-    optional arguments ap.  Any output text is passed to caller-provided
-    consumer function cons, which also takes caller-provided opaque pointer
-    arg.
+    optional arguments ap.  Any output text is passed to the system-provided
+    function "format_putchar".
 
     Note: floating point is not supported.
 
-    @param cons     Pointer to caller-provided consumer function.
-    @param arg      Opaque pointer passed through to cons.
     @param fmt      Printf-compatible format specifier.
     @param apx      List of optional format string arguments.
 
     @return Number of characters sent to @a cons, or EXBADFORMAT.
 **/
-int format( void *    (* cons) (void *, const char * , size_t),
-            void *       arg,
-            const char * fmt,
-            va_list      apx )
+int microformat( const char * fmt,
+                 va_list      apx )
 {
     T_FormatSpec fspec;
     char           c;
@@ -582,7 +539,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             for ( ; *s && *s != '%'; s++ )
                 n++;
 
-            if ( emit( fmt, n, cons, &arg ) < 0 )
+            if ( emit( fmt, n ) < 0 )
                 goto exit_badformat;
 
             fspec.nChars += n;
@@ -592,7 +549,6 @@ int format( void *    (* cons) (void *, const char * , size_t),
         if ( *fmt )
         {
             /* found conversion specifier */
-            char *t;
             int nn;
 
             fmt++; /* skip the % sign */
@@ -634,16 +590,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     goto exit_badformat;
             }
 
-            /* Continuation */
             c = *fmt;
-            if ( c == '\0' )
-            {
-                fmt = va_arg( ap, const char * );
-                continue;
-            }
 
             /* now process the conversion type */
-            nn = do_conv( &fspec, &ap, c, cons, &arg );
+            nn = do_conv( &fspec, &ap, c );
             if ( nn < 0 )
                 goto exit_badformat;
             else
