@@ -1,5 +1,5 @@
 /* ****************************************************************************
- * MicroFormat - very small string formatting library.
+ * MicroFormat - extremely small string formatting library for 16-bit CPUs
  * Copyright (C) 2010-2023, Neil Johnson
  * All rights reserved.
  *
@@ -64,6 +64,6 @@ extern int microformat( const char *    /* fmt  */,
                  -1 on error.
 **/
 
-extern int format_putchar(int c);
+extern int format_putchar( int /* c */ );
 
 #endif

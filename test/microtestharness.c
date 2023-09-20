@@ -251,7 +251,7 @@ static void test_s( void )
     TEST( "hel", 3, "%.3s", "hello" );
 
     /* NULL pointer handled specially */
-    TEST( "(null)", 6, "%s", NULL );
+    TEST( "?", 1, "%s", NULL );
 
     /* Check unused flags and lengths are ignored */
     TEST( "hello", 5, "%+ 0s", "hello" );

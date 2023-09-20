@@ -1,8 +1,10 @@
 A lightweight low-overhead library for processing printf-style format descriptions and arguments designed for the constrained environments of embedded systems.
 
 # News #
-  * 29-Jun-2023: Add optional support for long long integers with the `ll` qualifier.
-  * 21-Jun-2023: Add `tinyformat` for an even smaller feature-reduced version of format for very small embedded systems (compiles to around 1,400 bytes of code for the atmega8 with AVR-GCC).
+  * 18-Sep-2023: Add new `microformat` for a version smaller than `tinyformat` for extremely small platforms.
+  * 06-Sep-2023: Shrinking `tinyformat` for smaller code footprint.
+  * 29-Jun-2023: Add optional support (via config flag) for long long integers with the `ll` qualifier.
+  * 21-Jun-2023: Add `tinyformat` for an even smaller feature-reduced version of format for very small embedded systems (compiles to around 1,300 bytes of code for the atmega8 with AVR-GCC).
   * March-2023: Tidyups in files and documentation.
   * 10-Mar-2015: Release 1.2 now available.
   * 05-Feb-2015: Add support for fixed-point numbers with the `k` conversion specifier.
@@ -36,14 +38,14 @@ A lightweight low-overhead library for processing printf-style format descriptio
 The following features from the ANSI C99 printf() format specifications are not supported in the current version of **format**
 
   * Hexadecimal floating point conversions (`a`,`A`)
-  * Length modifiers `ll` (long long int), `L` (long double)
+  * Length modifier `L` (long double)
 
 New features added include
 
   * `b` binary conversion for formatting unsigned values in base-2
   * `!` flag modifies the behaviour of the `#` flag in binary, octal and hexadecimal conversions to always add the prefix (the default is to drop the prefix for zero results)
   * `!` flag modifies the behaviour of the `e`, `E`, `f` and `F` floating point conversions to use engineering (for `e`/`E`) or SI (`f`/`F`) formatting
-  * interspersing format specification and arguments using a new continuation specifier
+  * Interspersing format specifications and arguments using a new continuation specifier (`%"`)
   * `^` flag centre-justifies conversion results if the field is wide enough to require padding
   * `c` conversion treats precision as a repetition count.
   * `C` conversion is same as `c` but gets character from format string itself.
