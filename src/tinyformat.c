@@ -386,7 +386,8 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     const char * pfx_s = NULL;
     uint16_t uv;
     char prefix[1];
-    static const char digits[] = "0123456789ABCDEF";
+    static const char digits[] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                                   '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
     /* Get the value.
      * Signed values need special handling for negative values and the
@@ -574,25 +575,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
     while ( ( c = *fmt ) )
     {
-        /* scan for % or \0 */
-        {
-            size_t n = 0;
-            const char *s = fmt;
-
-            for ( ; *s && *s != '%'; s++ )
-                n++;
-
-            if ( emit( fmt, n, cons, &arg ) < 0 )
-                goto exit_badformat;
-
-            fspec.nChars += n;
-            fmt = s;
-        }
-
-        if ( *fmt )
+        if ( c == '%' )
         {
             /* found conversion specifier */
-            char *t;
             int nn;
 
             fmt++; /* skip the % sign */
@@ -648,9 +633,14 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 goto exit_badformat;
             else
                 fspec.nChars += (unsigned int)nn;
-
-            fmt++;
         }
+        else
+        {
+            if ( pad( c, 1, cons, &arg ) < 0 )
+                goto exit_badformat;
+            fspec.nChars++;
+        }
+        fmt++;
     }
 
     va_end( ap );
