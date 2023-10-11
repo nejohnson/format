@@ -535,10 +535,10 @@ static int do_conv_n( T_FormatSpec * pspec,
         else if ( pspec->qual == 'l' )
             *(long *)vp = (long)pspec->nChars;
 #if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
-	else if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
-	    *(long long *)vp = (long long)pspec->nChars;
+        else if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
+            *(long long *)vp = (long long)pspec->nChars;
 #endif
-	else if ( pspec->qual == 'j' )
+        else if ( pspec->qual == 'j' )
             *(intmax_t *)vp = (intmax_t)pspec->nChars;
         else if ( pspec->qual == 'z' )
             *(size_t *)vp = (size_t)pspec->nChars;
@@ -736,11 +736,11 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         T v;
 
 #if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
-	if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
-	    v = (T)va_arg( *ap, T );
-	else
+        if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
+            v = (T)va_arg( *ap, T );
+        else
 #endif
-	if ( pspec->qual == 'l' )
+        if ( pspec->qual == 'l' )
             v = (T)va_arg( *ap, long );
         else if ( pspec->qual == 'j' )
             v = (T)va_arg( *ap, intmax_t );
@@ -777,9 +777,9 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     else
     {
 #if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
-	if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
-	    uv = (unsigned T)va_arg( *ap, unsigned T );
-	else
+        if ( pspec->qual == DOUBLE_QUAL( 'l' ) )
+            uv = (unsigned T)va_arg( *ap, unsigned T );
+        else
 #endif
         if ( pspec->qual == 'l' )
             uv = (unsigned T)va_arg( *ap, unsigned long );
@@ -825,53 +825,16 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     }
 
     /* work out how many digits in uv */
-    if ( base == 10 )
+    for ( numWidth = 0; uv > 0; uv /= base )
     {
-        for( numWidth = 0; uv != 0; )
-        {
-            unsigned T div_uv  = uv / 10;
-            unsigned T div_rem = uv % 10;
+        char cc = digits[uv % base];
 
-            ++numWidth;
-            numBuffer[sizeof(numBuffer) - numWidth] = '0' + div_rem;
-            uv = div_uv;
-        }
-    }
-     /* Special-case for bases 2, 8 or 16 for the dedicated conversion
-      * specifiers %b, %o and %x/%X.
-      */
-    else if ( base == 2 || base == 8 || base == 16 )
-    {
-        unsigned T mask  = base - 1;
-        int        shift = base == 16 ? 4
-                           : base == 8 ? 3
-                           : 1;
+        /* convert to lower case? */
+        if ( code == 'x' || code == 'i' || code == 'u' )
+            cc |= 0x20;
 
-        for( numWidth = 0; uv > 0; uv >>= shift )
-        {
-            char cc = digits[uv & mask];
-
-            /* convert to lower case? */
-            if ( code == 'x' || code == 'i' || code == 'u' )
-                cc |= 0x20;
-
-            ++numWidth;
-            numBuffer[sizeof(numBuffer) - numWidth] = cc;
-        }
-    }
-    else /* all other bases */
-    {
-       for ( numWidth = 0; uv > 0; uv /= base )
-       {
-          char cc = digits[uv % base];
-
-          /* convert to lower case? */
-          if ( code == 'i' || code == 'u' )
-             cc |= 0x20;
-
-          ++numWidth;
-          numBuffer[sizeof(numBuffer) - numWidth] = cc;
-       }
+        ++numWidth;
+        numBuffer[sizeof(numBuffer) - numWidth] = cc;
     }
 
     if ( pspec->grouping.len )
