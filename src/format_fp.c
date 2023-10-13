@@ -94,11 +94,15 @@
    Ref: Resolution 4 of the 19th meeting of the CGPM (1991)
         http://www.bipm.org/en/CGPM/db/19/4/
 */
-#define COMP_EXP_LIMIT		( 24 )
+#define COMP_EXP_LIMIT          ( 24 )
 
 /*****************************************************************************/
 /* Private function prototypes.  Declare as static.                          */
 /*****************************************************************************/
+
+static void extract_parts( double, unsigned int *, DEC_MANT_REG_TYPE *, int * );
+
+static char hexchar( int );
 
 static void radix_convert( double, unsigned int *, DEC_MANT_REG_TYPE *, int * );
 
@@ -117,6 +121,34 @@ static void round_mantissa( DEC_MANT_REG_TYPE *, int *, int, int, int );
 /*****************************************************************************/
 /* Private functions.  Declare as static.                                    */
 /*****************************************************************************/
+
+/*****************************************************************************/
+/**
+   Extract the three parts from the FP value.
+
+   @param v             Input value to be converted
+   @param d_sign        Output sign (0 = +ve, 1 = -ve)
+   @param d_mantissa    Output mantissa
+   @param d_exponent    Output exponent
+**/
+static void extract_parts( double              v,
+                           unsigned int       *psign,
+                           DEC_MANT_REG_TYPE  *pmantissa,
+                           int                *pexponent )
+{
+    union {
+        double            v;
+        DEC_MANT_REG_TYPE bits;
+    } u;
+
+    /* Get the double value into a bit-addressable format with a union and then
+    *  extract the mantissa, exponent and sign fields.
+    */
+    u.v = v;
+    if ( pmantissa ) *pmantissa = BIN_UNPACK_MANT( u.bits );
+    if ( pexponent ) *pexponent = (int)BIN_UNPACK_EXPO( u.bits );
+    if ( psign )     *psign     = (unsigned int)BIN_UNPACK_SIGN( u.bits );
+}
 
 /*****************************************************************************/
 /**
@@ -341,12 +373,12 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
     size_t ps1 = 0, ps2 = 0;
 
     if ( DEC_FP_IS_NAN( sign, mantissa, exponent ) )
-        if ( code == 'f' || code == 'e' || code == 'g' )
+        if ( code == 'a' || code == 'f' || code == 'e' || code == 'g' )
             e_s = "nan";
         else
             e_s = "NAN";
     else
-        if ( code == 'f' || code == 'e' || code == 'g' )
+        if ( code == 'a' || code == 'f' || code == 'e' || code == 'g' )
             e_s = "inf";
         else
             e_s = "INF";
@@ -372,12 +404,12 @@ static int do_conv_infnan( T_FormatSpec *     pspec,
 /**
     Round the mantissa according to the conversion type and precision
 
-    @param mantissa 		Pointer to mantissa to round
-    @param exponent		Pointer to exponent
-    @param prec			Required precision
-    @param is_f                 True for f/F conversion
-    @param compressed           True if using compressed engineering or
-                                   scientific formatting
+    @param mantissa     Pointer to mantissa to round
+    @param exponent     Pointer to exponent
+    @param prec         Required precision
+    @param is_f         True for f/F conversion
+    @param compressed   True if using compressed engineering or
+                         scientific formatting
 **/
 static void round_mantissa( DEC_MANT_REG_TYPE *mantissa, int *exponent,
                             int prec, int is_f, int compressed )
@@ -385,7 +417,6 @@ static void round_mantissa( DEC_MANT_REG_TYPE *mantissa, int *exponent,
    /* The precision tells us the number of digits that will be sent to the
       output.  The exponent tells us how many of the digits in the
       mantissa are after the decimal point.
-
     */
 
    DEC_MANT_REG_TYPE addend = DEC_1P0 * 5;
@@ -796,6 +827,260 @@ static int do_conv_efg( T_FormatSpec *     pspec,
 
 /*****************************************************************************/
 /**
+    Convert bottom four bits into hexadecimal character
+
+    Function Parameters
+    -------------------
+
+    @param i    value to convert
+
+    @return hex character, uppercase for letters
+**/
+static char hexchar( int i )
+{
+    static char hex[] = "0123456789ABCDEF";
+    i &= 0xF;
+    return hex[i];
+}
+
+/*****************************************************************************/
+/**
+    Process the floating point %a, %A.
+
+    Generating a/A output
+    ---------------------
+
+    "A double argument representing a floating-point number is converted in the
+     style [−]0xh.hhhhp[+/-]d, where there is one hexadecimal digit (which is
+     nonzero if the argument is a normalized floating-point number and is
+     otherwise unspecified) before the decimal-point character and the number
+     of hexadecimal digits after it is equal to the precision; if the precision is
+     missing then the precision is sufficient for an exact representation of the
+     value; if the precision is zero and the # flag is not specified, no decimal
+     point character appears.
+     The letters abcdef are used for a conversion and the letters ABCDEF for
+     A conversion. The A conversion specifier produces a number with X and P
+     instead of x and p. The exponent always contains at least one digit, and
+     only as many more digits as necessary to represent the decimal exponent
+     of 2. If the value is zero, the exponent is zero."
+
+    Output model (? = optional, * = 0 or more, + = 1 or more)
+    ------------
+
+    [space*][sign?][0][xX][zero*][digit][.?][digit+][zero*][pP][sign][digit+][space*]
+       PS1                  PZ1              n_right  PZ4              n_exp    PS2
+
+    Function Parameters
+    -------------------
+
+    @param pspec        Pointer to format specification.
+    @param ap           Reference to optional format arguments list.
+    @param code         Conversion specifier code.
+    @param cons         Pointer to consumer function.
+    @param parg         Pointer to opaque pointer updated by cons.
+    @param sign         0 = +ve, 1 = -ve
+    @param mantissa     Decimal-coded matissa, of form d[.]ddddddd
+    @param exponent     Radix-10 exponent.
+
+    @return Number of emitted characters, or EXBADFORMAT if failure
+**/
+static int do_conv_a( T_FormatSpec *     pspec,
+                      char               code,
+                      void *          (* cons)(void *, const char *, size_t),
+                      void * *           parg,
+                      unsigned int       sign,
+                      DEC_MANT_REG_TYPE  mantissa,
+                      int                exponent )
+{
+    int nudge_bit;
+    int overflow = 0;
+    const char * pfx_s;
+    const char * oxX;
+    size_t pfx_n;
+    char   e_s[DEC_SIG_FIG];
+    size_t e_n = 0;
+    size_t length = 0;
+    size_t ps1 = 0, ps2 = 0;
+    size_t pz1 = 0, pz4 = 0;
+    int count = 0;
+    int n;
+    int want_dp = 0;
+    int n_left, n_right;
+    int i;
+    size_t n_exp = 0;
+
+    /************************************************************************/
+    DEBUG_LOG( ">>>> do_conv_a with %%%c: ", code );
+    DEBUG_LOG( "width: %d, ", pspec->width );
+    DEBUG_LOG( "prec: %d, ", pspec->prec );
+    DEBUG_LOG( "flags: %X, ", pspec->flags );
+    DEBUG_LOG( "sign: %d, ", sign );
+    DEBUG_LOG( "mantissa: %llX, ", mantissa );
+    DEBUG_LOG( "exponent: %d\n", exponent );
+    /************************************************************************/
+
+    /* Generate the prefix, if any */
+    if ( sign )
+        pfx_s = "-";
+    else if ( !sign && pspec->flags & FPLUS )
+        pfx_s = "+";
+    else if ( !sign && pspec->flags & FSPACE )
+        pfx_s = " ";
+    else
+        pfx_s = "";
+    pfx_n = STRLEN( pfx_s );
+
+    oxX = code == 'a' ? "0x" : "0X";
+
+    /* Compute no. of digits after DP */
+    if ( pspec->prec < 0 )
+    {
+        DEC_MANT_REG_TYPE m = mantissa << BIN_MANT_LEFT_ALIGN;
+
+        for ( n_right = 0; m != 0; n_right++, m <<= 4 )
+            ;
+    }
+    else
+        n_right = pspec->prec;
+
+    n_left = 1;
+
+    DEBUG_LOG( "n_left: %d ", n_left );
+    DEBUG_LOG( "n_right: %d\n", n_right );
+
+    /* Compute length of the actual generated text */
+    length = pfx_n + 2 + n_left + n_right;
+
+    /* Add length of exponent suffix, remembering that the length of the
+     *  exponent field is minimum of 1.
+     */
+    exponent -= BIN_EXP_BIAS;  /* Subtract exponent bias */
+    for ( i = ABS(exponent), n_exp = 0; i > 0; n_exp++, i /= 10 )
+        ;
+
+    n_exp = MAX( n_exp, 1 );
+
+    /* Total length = 'p'/'P' + sign + 'dd..d' */
+    length += 2 + n_exp;
+
+    /* Compute trailing zeros */
+    if ( (int)(n_right) < pspec->prec )
+    {
+        pz4 = pspec->prec - n_right;
+        length += pz4;
+    }
+
+    /* Add DP if required */
+    if ( pz4 || n_right > 0 || pspec->flags & FHASH )
+    {
+        want_dp = 1;
+        length++;
+    }
+
+    calc_space_padding( pspec, length, &ps1, &ps2 );
+
+    /* Convert space padding into zero padding if we have the ZERO flag */
+    if ( pspec->flags & FZERO )
+    {
+        pz1 += ps1;
+        ps1 = 0;
+    }
+
+    /* Consider rounding: if the next bit (if any) in the mantissa is 1
+     * then propagate up.
+     * If there is overflow then change the left-hand digit to a "2".
+     */
+    nudge_bit = BIN_MANT_WIDTH - ( 4 * ( n_right + 1 ) ) - 1;
+
+    if ( nudge_bit >= 0 )
+        mantissa += BIN_MANT_SINGLE_BIT << nudge_bit;
+
+    overflow = !!( mantissa & ( BIN_MANT_SINGLE_BIT << BIN_MANT_WIDTH ) );
+
+    /* Hacky bit this: we use the properties of left-shift to remove the bits
+     * we no longer want from the top of mantissa, then shift down the top
+     * four bits to produce the hex character.
+     */
+    mantissa <<= BIN_MANT_LEFT_ALIGN;
+    for ( e_n = 0; e_n < n_right; e_n++, mantissa <<= 4)
+    {
+        e_s[e_n] = hexchar( (int)( mantissa >> ( ( sizeof( double ) * CHAR_BIT ) - 4 ) ) );
+        if ( code == 'a' )
+            e_s[e_n] |= 0x20;
+    }
+
+    /************************************************************************/
+    DEBUG_LOG( "pz1: %zd, ", pz1 );
+    DEBUG_LOG( "pz4: %zd, ", pz4 );
+    DEBUG_LOG( "ps1: %zd, ", ps1 );
+    DEBUG_LOG( "ps2: %zd, ", ps2 );
+    DEBUG_LOG( "want_dp: %d\n", want_dp );
+
+    DEBUG_LOG( "n_left: %d, ", n_left );
+    DEBUG_LOG( "n_right: %d, ", n_right );
+    DEBUG_LOG( "n_exp: %zd, ", n_exp );
+    DEBUG_LOG( "length: %zd\n", length );
+
+    DEBUG_LOG( "overflow = %d, ", overflow );
+    DEBUG_LOG( "nudge_bit = %d\n", nudge_bit );
+    /************************************************************************/
+
+    /* Generate the output sections */
+
+    /* LEFT, including leading space and prefix */
+    n = gen_out( cons, parg, ps1, pfx_s, pfx_n, 0, oxX, 2, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    n = gen_out( cons, parg, 0, NULL, 0, pz1, overflow ? "2" : "1", 1, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* RIGHT, starting at the DP */
+    n = gen_out( cons, parg, 0, ".", (size_t)(want_dp ? 1 : 0), 0, e_s, e_n, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* Trailing zeros, if any */
+    n = gen_out( cons, parg, 0, NULL, 0, pz4, NULL, 0, 0 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    /* EXPONENT */
+    if ( n_exp )
+    {
+        unsigned int absexp = (unsigned int)ABS(exponent);
+        int nx;
+        char epfx_s[2];
+
+        /* Exponent prefix comprises the letter 'p' or 'P' and a +/- sign */
+        epfx_s[0] = code == 'A' ? 'P' : 'p';
+        epfx_s[1] = ( exponent < 0 ) ? '-' : '+';
+
+        for ( nx = (int)n_exp, e_n = 0; nx > 0; nx--, e_n++, absexp /= 10 )
+            e_s[nx-1] = (char)( absexp % 10 ) + '0';
+
+        n = gen_out( cons, parg, 0, epfx_s, sizeof(epfx_s), 0, e_s, e_n, 0 );
+        if ( n == EXBADFORMAT )
+            return n;
+        count += n;
+    }
+
+    /* Trailing space */
+    n = gen_out( cons, parg, 0, NULL, 0, 0, NULL, 0, ps2 );
+    if ( n == EXBADFORMAT )
+        return n;
+    count += n;
+
+    return count;
+}
+
+/*****************************************************************************/
+/**
     Process the floating point conversions (%e, %E, %f, %F, %g, %G).
 
     We simplify things here by using the radix converter above and then using
@@ -847,8 +1132,14 @@ static int do_conv_fp( T_FormatSpec * pspec,
     {
         return do_conv_infnan( pspec, code, cons, parg, sign, mantissa, exponent );
     }
+    else if ( code == 'a' || code == 'A' )
+    {
+        extract_parts( dv, &sign, &mantissa, &exponent );
+        return do_conv_a( pspec, code, cons, parg, sign, mantissa, exponent );
+    }
     else
     {
+        radix_convert( dv, &sign, &mantissa, &exponent );
         return do_conv_efg( pspec, code, cons, parg, sign, mantissa, exponent );
     }    
 }

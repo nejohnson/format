@@ -155,7 +155,7 @@ static int test_sprintf( char *pbuf, const char *fmt, ... )
 /**
     Execute tests on plain strings
 **/
-static void test( void )
+static void test_strings( void )
 {
     printf( "Testing basic strings\n" );
 
@@ -801,13 +801,40 @@ static void test_bouxX( void )
 #if defined(CONFIG_WITH_FP_SUPPORT)
 /*****************************************************************************/
 /**
-    Execute tests on e,E,f,F,g,G conversion specifiers.
+    Execute tests on a,A,e,E,f,F,g,G conversion specifiers.
 
 
 **/
-static void test_eEfFgG( void )
+static void test_aAeEfFgG( void )
 {
-    printf( "Testing \"%%e\", \"%%E\", \"%%f\", \"%%F\", \"%%g\" and \"%%G\"\n" );
+    printf( "Testing \"%%a\", \"%%A\", \"%%e\", \"%%E\", \"%%f\", \"%%F\", \"%%g\" and \"%%G\"\n" );
+
+    /* %a and %A */
+
+    TEST( "inf", 3, "%a", +1.0/0.0 );
+    TEST( "+inf", 4, "%+a", +1.0/0.0 );
+    TEST( "-inf", 4, "%a", -1.0/0.0 );
+    TEST( "INF", 3, "%A", +1.0/0.0 );
+    TEST( "+INF", 4, "%+A", +1.0/0.0 );
+    TEST( "-INF", 4, "%A", -1.0/0.0 );
+
+    TEST( "0x1p+0", 6, "%a", 1.0 );
+    TEST( "0X1P+0", 6, "%A", 1.0 );
+    TEST( "-0x1p+0", 7, "%a", -1.0 );
+
+    TEST( "0x2.0p+0", 8, "%.1a", 1.998046875 );
+    TEST( "-0x2.0p+0", 9, "%.1a", -1.998046875 );
+
+    TEST( "0x1.de18f06716de4p+408", 22, "%a", 1.234567e+123 );
+
+    TEST( "-0x00001.0p+0", 13, "%013.1a", -1.0 );
+    TEST( "    -0x1.0p+0", 13, "% 13.1a", -1.0 );
+    TEST( "-0x1.0p+0    ", 13, "%-13.1a", -1.0 );
+    TEST( "    +0x1.0p+0", 13, "%+13.1a",  1.0 );
+    TEST( "   0x1.0p+0  ", 13, "%^13.1a",  1.0 );
+
+    TEST( "0x1p+0", 6, "%.0a", 1.0 );
+    TEST( "0x1.p+0", 7, "%#.0a", 1.0 );
 
     /* %e and %E */
 
@@ -832,7 +859,6 @@ static void test_eEfFgG( void )
 
     TEST( "1e+00", 5, "%.0e", 1.0 );
     TEST( "1.e+00", 6, "%#.0e", 1.0 );
-
 
     /* %f and %F */
 
@@ -875,8 +901,6 @@ static void test_eEfFgG( void )
           "000000000000000000000000000000000000000",
           405, "%.100f", 1234.5678e300 );
 
-
-
     TEST( "inf",  3, "%f", +1.0/0.0 );
     TEST( "-inf", 4, "%f", -1.0/0.0 );
     TEST( "+inf", 4, "%+f", +1.0/0.0 );
@@ -895,8 +919,6 @@ static void test_eEfFgG( void )
     TEST( "  inf ", 6, "%^6f", +1.0/0.0 );
     TEST( " inf  ", 6, "%-^6f", +1.0/0.0 );
     TEST( " -inf ", 6, "%^6f", -1.0/0.0 );
-
-
 
     /* %g and %G */
     /*
@@ -945,7 +967,6 @@ static void test_eEfFgG( void )
     TEST( "123.000000", 10, "%#.6g", 123.0 );
     TEST( "123.4", 5, "%.6g", 123.4 );
 
-
     /* From http://www.cplusplus.com/reference/cstdio/printf/ */
     /* Note that the outputs given are slightly different with respect to C, which
      *  states that there should be a minimum of two digits in the exponent, not three as shown
@@ -961,7 +982,6 @@ static void test_eEfFgG( void )
     TEST( "Width trick:    10 \n", 20, "Width trick: %*d \n", 5, 10);
     TEST( "A string \n", 10, "%s \n", "A string");
 
-
     /* Engineering formatting */
     TEST( "12.345e+03", 10, "%!.3e", 12345.0 );
     TEST( "12.345e-03", 10, "%!.3e", 0.012345 );
@@ -974,7 +994,6 @@ static void test_eEfFgG( void )
     TEST( "123.45 Y", 8, "%!.2f", 123.45e+24 );
     TEST( "0.12345 y", 9, "%!.5f", 0.12345e-24 );
     TEST( "1.2345 y", 8, "%!.4f", 1.2345e-24 );
-
 
     /*******   Rounding   ****************************************************/
 
@@ -1007,7 +1026,6 @@ static void test_eEfFgG( void )
 #endif
     }
 }
-
 /*****************************************************************************/
 /**
     Execute tests on k (fixed-point) conversion specifier.
@@ -1046,7 +1064,7 @@ static void test_k( void )
 #else /* no CONFIG_WITH_FP_SUPPORT */
 
 /* Dummy functions that test the non-FP support */
-static void test_eEfFgG( void )
+static void test_aAeEfFgG( void )
 {
     TEST( "?", 1, "%e", 1.0f );
 }
@@ -1166,20 +1184,52 @@ static void test_cont( void )
 /**
     Run all tests on format library.
 **/
-static void run_tests( void )
+static void run_tests( char * passes )
 {
-    test();
-    test_pc();
-    test_cC();
-    test_n();
-    test_s();
-    test_p();
-    test_di();
-    test_bouxX();
-    test_eEfFgG();
-    test_k();
-    test_asterisk();
-    test_cont();
+    if ( !passes )
+        passes = "S%cnspdbak*\"";
+
+    if ( !strcmp( passes, "-help" ) )
+    {
+        printf( "Passes:\n"
+                " S    - strings\n"
+                " %%    - percent\n"
+                " c    - %%c character conversion\n"
+                " n    - %%n conversion\n"
+                " s    - %%s string conversion\n"
+                " p    - %%p pointer conversion\n"
+                " d    - %%d, %%i integer conversions\n"
+                " b    - %%b, %%o, %%u, %%x, %%X fixed base conversions\n"
+                " a    - %%a, %%A, %%e, %%E, %%f, %%F, %%g, %%G floating point conversions\n"
+                " k    - %%k fixed-point conversion\n"
+                " *    - asterisk parameters (width, precision\n"
+                " \"    - continuation\n"
+                );
+        return;
+    }
+
+    printf( "Passes: %s\n", passes );
+
+    while ( *passes )
+    {
+        switch ( *passes )
+        {
+            case 'S': test_strings(); break;
+            case '%': test_pc();      break;
+            case 'c': test_cC();      break;
+            case 'n': test_n();       break;
+            case 's': test_s();       break;
+            case 'p': test_p();       break;
+            case 'd': test_di();      break;
+            case 'b': test_bouxX();   break;
+            case 'a': test_aAeEfFgG(); break;
+            case 'k': test_k();        break;
+            case '*': test_asterisk(); break;
+            case '\"': test_cont();   break;
+            default: printf( "Unknown test '%c'\n", *passes ); break;
+        }
+        passes++;
+    }
 
     printf( "-----------------------\n"
             "Summary: %s (%u failures)\n", f ? "FAIL" : "PASS", f );
@@ -1226,7 +1276,7 @@ int main( int argc, char *argv[] )
     system_init();
 
     printf( ":: format test harness ::\n");
-    run_tests();
+    run_tests( argc > 1 ? argv[1] : NULL);
     return 0;
 }
 

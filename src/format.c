@@ -981,7 +981,8 @@ static int do_conv( T_FormatSpec * pspec,
             return do_conv_s( pspec, ap, cons, parg );
     }
 
-    if ( code == 'e' || code == 'E'
+    if ( code == 'a' || code == 'A'
+      || code == 'e' || code == 'E'
       || code == 'f' || code == 'F'
       || code == 'g' || code == 'G' )
         return do_conv_fp( pspec, ap, code, cons, parg );
