@@ -346,7 +346,7 @@ static void test_s( void )
 **/
 static void test_p( void )
 {
-    int ptr_size = sizeof( int * );
+    int ptr_size = sizeof( void * );
     void * p0 = (void *)0x0;
     void * p1 = (void *)0x1234;
     void * p2 = (void *)(-1);
@@ -355,9 +355,9 @@ static void test_p( void )
 
     if ( ptr_size == 2 )
     {
-        TEST( "0x0000", 6, "%p", p0 );
-        TEST( "0x1234", 6, "%p", p1 );
-        TEST( "0xFFFF", 6, "%p", p2 );
+        TEST( "0000", 6, "%p", p0 );
+        TEST( "1234", 6, "%p", p1 );
+        TEST( "FFFF", 6, "%p", p2 );
 
         /* Check all flags, precision, width, length are ignored */
         TEST( "0xFFFF", 6, "%-+ #0!^12.24lp", p2 );
@@ -365,9 +365,9 @@ static void test_p( void )
     }
     else if ( ptr_size == 4 )
     {
-        TEST( "0x00000000", 10, "%p", p0 );
-        TEST( "0x00001234", 10, "%p", p1 );
-        TEST( "0xFFFFFFFF", 10, "%p", p2 );
+        TEST( "00000000", 10, "%p", p0 );
+        TEST( "00001234", 10, "%p", p1 );
+        TEST( "FFFFFFFF", 10, "%p", p2 );
 
         /* Check all flags, precision, width, length are ignored */
         TEST( "0xFFFFFFFF", 10, "%-+ #0!^12.24lp", p2 );
