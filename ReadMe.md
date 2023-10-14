@@ -1,6 +1,7 @@
 A lightweight low-overhead library for processing printf-style format descriptions and arguments designed for the constrained environments of embedded systems.
 
 # News #
+  * 15-Oct-2023: Implement the `a` and `A` hexadecimal floating point conversion specifiers.
   * 18-Sep-2023: Add new `microformat` for a version smaller than `tinyformat` for extremely small platforms.
   * 06-Sep-2023: Shrinking `tinyformat` for smaller code footprint.
   * 29-Jun-2023: Add optional support (via config flag) for long long integers with the `ll` qualifier.
@@ -37,7 +38,6 @@ A lightweight low-overhead library for processing printf-style format descriptio
 
 The following features from the ANSI C99 printf() format specifications are not supported in the current version of **format**
 
-  * Hexadecimal floating point conversions (`a`,`A`)
   * Length modifier `L` (long double)
 
 New features added include
