@@ -1000,10 +1000,9 @@ static int do_conv( T_FormatSpec * pspec,
     if ( code == 'p' )
     {
         code          = 'X';
-        pspec->qual   = ( sizeof(int *) > sizeof( int ) ) ? 'l' : 0;
-        pspec->flags  = FHASH | FBANG;
-        pspec->width  = (unsigned int)(sizeof( int * ) * 2);
-        pspec->prec   = (int)(sizeof( int * ) * 2);
+        pspec->qual   = ( sizeof( void * ) > sizeof( int ) ) ? DOUBLE_QUAL('l') : 0;
+        pspec->width  = (unsigned int)(sizeof( void * ) * 2);
+        pspec->prec   = (int)(sizeof( void * ) * 2);
     }
 
     /* -------------------------------------------------------------------- */

@@ -347,9 +347,9 @@ static void test_s( void )
 static void test_p( void )
 {
     int ptr_size = sizeof( int * );
-    int * p0 = (int *)0x0;
-    int * p1 = (int *)0x1234;
-    int * p2 = (int *)(-1);
+    void * p0 = (void *)0x0;
+    void * p1 = (void *)0x1234;
+    void * p2 = (void *)(-1);
 
     printf( "Testing \"%%p\" on platform with %d-byte pointers\n", ptr_size );
 
@@ -375,9 +375,9 @@ static void test_p( void )
     }
     else if ( ptr_size == 8 )
     {
-        TEST( "0x0000000000000000", 18, "%p", p0 );
-        TEST( "0x0000000000001234", 18, "%p", p1 );
-        TEST( "0xFFFFFFFFFFFFFFFF", 18, "%p", p2 );
+        TEST( "0000000000000000", 16, "%p", p0 );
+        TEST( "0000000000001234", 16, "%p", p1 );
+        TEST( "FFFFFFFFFFFFFFFF", 16, "%p", p2 );
 
         /* Check all flags, precision, width, length are ignored */
         TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!^24.48lp", p2 );

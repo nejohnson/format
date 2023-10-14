@@ -1182,8 +1182,8 @@ static int do_conv_k( T_FormatSpec * pspec,
         v = (long)va_arg( *ap, long );
 
     DEBUG_LOG( "k: val = 0x%8.8lX ", v );
-    DEBUG_LOG( "w_int = %zd ", pspec->xp.w_int );
-    DEBUG_LOG( "w_frac = %zd ", pspec->xp.w_frac );
+    DEBUG_LOG( "w_int = %u ", pspec->xp.w_int );
+    DEBUG_LOG( "w_frac = %u ", pspec->xp.w_frac );
 
     if ( v == 0 ) /* handle zero as special case */
     {
