@@ -29,10 +29,10 @@ A lightweight low-overhead library for processing printf-style format descriptio
 
 # Features #
 
-  * Small code size (3kB code size without floating point formats, 6kB code with float support, compiled for ARM with GCC 4.4)
+  * Small code size (4kB code size without floating point formats, 8kB code with float support, compiled for ARM with GCC 12.2)
   * Low system overheads (no large buffers)
   * Fully re-entrant
-  * Supports most of ANSI C99 printf() format specifications (see below for exceptions) with many useful features
+  * Supports most of ANSI C99 printf() format specifications (see below for exceptions) with many useful additional features
 
 ## ANSI Exceptions ##
 
@@ -40,7 +40,9 @@ The following features from the ANSI C99 printf() format specifications are not 
 
   * Length modifier `L` (long double)
 
-New features added include
+## New Features ##
+
+**format** brings new features to the world of printf, including
 
   * `b` binary conversion for formatting unsigned values in base-2
   * `!` flag modifies the behaviour of the `#` flag in binary, octal and hexadecimal conversions to always add the prefix (the default is to drop the prefix for zero results)
@@ -50,7 +52,9 @@ New features added include
   * `c` conversion treats precision as a repetition count.
   * `C` conversion is same as `c` but gets character from format string itself.
   * `#` flag with continuation and `s` conversions to select alternate ROM-based string pointers
-  * `I` and `U` conversions, together with a numeric base modifier, for arbitrary numeric base conversions
+  * `I` and `U` conversions, together with a numeric base modifier, for arbitrary numeric base conversions (base 2-36)
+  * 'k' fixed-point conversion specifier
+  * grouping modifier for formatting the output in useful ways
 
 # Producing Output #
 
