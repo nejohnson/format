@@ -306,11 +306,13 @@ d        The int argument is converted to signed decimal in the style [-]dddd.
 **/
 static void test_d( void )
 {
-    printf( "Testing \"%%d\" and \"%%i\"\n" );
+    printf( "Testing \"%%d\"\n" );
 
     TEST( "0", 1, "%d", 0 );
     TEST( "1234", 4, "%d", 1234 );
     TEST( "-1234", 5, "%d", -1234 );
+    TEST( "-32768", 6, "%d", -32768 );
+    TEST( "32767", 5, "%d", 32767 );
 
     /* 0 value with 0 precision produces no characters */
     TEST( "", 0, "%.0d", 0 );
