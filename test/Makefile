@@ -37,6 +37,8 @@ LDFLAGS +=
 
 all: testharness perftest libtest
 	./testharness
+	./perftest
+	./libtest
 
 format.o: ../src/format.c
 	$(CC) $(CFLAGS) -c $< -o $@
