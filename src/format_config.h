@@ -43,17 +43,6 @@
 #endif
 
 /*****************************************************************************/
-/** On some machines it is better (smaller/faster) to do the long div-10 math
-    inline rather than calling out to compiler support library.  If this switch
-    is defined then format will use an inline divide-by-ten.
-    Only recommended for 32-bit machines (eg. ARM) as the necessary math
-    produces a 64-bit (or larger) result.
-**/
-#if defined(__arm__) || defined(__i386__)
-  #define CONFIG_USE_INLINE_DIV10
-#endif
-
-/*****************************************************************************/
 /** Some machines have a separate memory space for constants.  This macro and
      type support addressing strings in this alternate data space.
     The default is treated as normal data accesses.
