@@ -136,10 +136,6 @@ static void calc_space_padding( T_FormatSpec *, size_t, size_t *, size_t * );
 static size_t xx_strlen( const char * );
 #endif
 
-#if defined(CONFIG_NEED_LOCAL_MEMCPY)
-static void * memcpy( void *, const void *, size_t );
-#endif
-
 /** Conversion handlers **/
 static int do_conv_s( T_FormatSpec *, va_list * );
 
@@ -274,10 +270,9 @@ static int do_conv_s( T_FormatSpec * pspec,
 
     const char *s = va_arg( *ap, const char * );
 
-    /* microformat diverges from format and tinyformat by printing a 
-     * single '?' character if passed a NULL pointer instead of a
-     * valid string pointer.  Any flags, width or precision are
-     * ignored.
+    /* microformat diverges from format and tinyformat by printing a
+     * single '?' character if passed a NULL pointer. Any flags, width
+     * or precision are ignored.
      */
     if ( s == NULL )
         return emit( NULL, '?', 1 );
