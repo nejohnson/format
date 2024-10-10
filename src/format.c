@@ -1,6 +1,6 @@
 /* ****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010-2023, Neil Johnson
+ * Copyright (C) 2010-2024, Neil Johnson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -200,10 +200,12 @@ typedef struct {
         const void *  ptr;  /**< ptr to grouping specification      **/
         size_t        len;  /**< length of grouping spec            **/
     } grouping;
+#if defined(CONFIG_WITH_FP_SUPPORT)
     struct {
         unsigned int w_int;       /**< fixed-point integer field width    **/
         unsigned int w_frac;      /**< fixed-point fractional field width **/
     } xp;
+#endif
 } T_FormatSpec;
 
 /*****************************************************************************/
@@ -449,67 +451,10 @@ static void calc_space_padding( T_FormatSpec * pspec,
 /*****************************************************************************/
 /**
     Floating Point code is in a separate source file for clarity.
-    Pull it in if required, otherwise emit "?".
+    Pull it in if required.
 **/
 #if defined(CONFIG_WITH_FP_SUPPORT)
 #include "format_fp.c"
-#else
-/**
-    When float support is not compiled in then consume the double argument
-    and print out a single "?".  Apply padding, spacing, etc.
-**/
-static int do_conv_fp( T_FormatSpec * pspec,
-                       va_list *      ap,
-                       char           code,
-                       void *      (* cons)(void *, const char *, size_t),
-                       void * *       parg )
-{
-    size_t length = 0;
-    size_t ps1 = 0, ps2 = 0;
-    const char *s = "?";
-
-    va_arg( *ap, long long ); /* consume argument */
-
-    length = STRLEN( s );
-    if ( pspec->prec >= 0 )
-        length = MIN( pspec->prec, length );
-
-    calc_space_padding( pspec, length, &ps1, &ps2 );
-
-    return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
-}
-
-/**
-    Likewise, consume the argument (of the appropriate size), and print out
-    a single "?", with padding, spacing, etc.
-**/
-static int do_conv_k( T_FormatSpec * pspec,
-                      va_list *      ap,
-                      void *      (* cons)(void *, const char *, size_t),
-                      void * *       parg )
-{
-    size_t total_bits = pspec->xp.w_int + pspec->xp.w_frac;
-    size_t total_bytes = ( total_bits + 7 ) / 8;
-    size_t length = 0;
-    size_t ps1 = 0, ps2 = 0;
-    const char *s = "?";
-        
-    if ( total_bytes == 0 )
-        return EXBADFORMAT;
-    
-    if ( total_bytes <= sizeof( int ) )
-        va_arg( *ap, int );
-    else
-        va_arg( *ap, long );
-
-    length = STRLEN( s );
-    if ( pspec->prec >= 0 )
-        length = MIN( pspec->prec, length );
-
-    calc_space_padding( pspec, length, &ps1, &ps2 );
-
-    return gen_out( cons, parg, ps1, NULL, 0, 0, s, length, ps2 );
-}
 #endif
 
 /*****************************************************************************/
@@ -981,6 +926,7 @@ static int do_conv( T_FormatSpec * pspec,
             return do_conv_s( pspec, ap, cons, parg );
     }
 
+#if defined(CONFIG_WITH_FP_SUPPORT)
     if ( code == 'a' || code == 'A'
       || code == 'e' || code == 'E'
       || code == 'f' || code == 'F'
@@ -989,6 +935,7 @@ static int do_conv( T_FormatSpec * pspec,
 
     if ( code == 'k' )
         return do_conv_k( pspec, ap, cons, parg );
+#endif
 
     /* -------------------------------------------------------------------- */
 
@@ -1218,9 +1165,11 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     goto exit_badformat; 
             }
 
+#if defined(CONFIG_WITH_FP_SUPPORT)
             /* default fixed-point format is 16p16 */
             fspec.xp.w_int  = 16;
             fspec.xp.w_frac = 16;
+#endif
 
             /* test for grouping qualifier */
             fspec.grouping.len = 0;
@@ -1257,6 +1206,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 /* record the grouping spec length */
                 fspec.grouping.len = gplen;
             }
+#if defined(CONFIG_WITH_FP_SUPPORT)
             else if ( c == '{' ) /* fixed-point specifier */
             {
                 unsigned int p, q;
@@ -1318,6 +1268,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 fspec.xp.w_int  = p;
                 fspec.xp.w_frac = q;
             }
+#endif
 
             /* test for length qualifier */
             c = READ_CHAR( mode, ptr );

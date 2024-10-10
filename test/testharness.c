@@ -1038,6 +1038,8 @@ static void test_k( void )
     int s8p4;
     int s4p8;
 
+    printf( "Testing \"%%k\"\n" );
+
     /* zero */
     TEST( "0.000000", 8, "%{4.4}k", 0 );
 
@@ -1060,17 +1062,6 @@ static void test_k( void )
     /* Formatting */
     s4p8 =  ( ( 1 ) << 8 ) | (int)( 0.5 * 256 ); /* 1.50 */
     TEST( "  1.50  ", 8, "%^8.2{4.8}k", s4p8 );  
-}
-#else /* no CONFIG_WITH_FP_SUPPORT */
-
-/* Dummy functions that test the non-FP support */
-static void test_aAeEfFgG( void )
-{
-    TEST( "?", 1, "%e", 1.0f );
-}
-static void test_k( void )
-{
-    TEST( "?", 1, "%{4.4}k", 0 );
 }
 #endif /* CONFIG_WITH_FP_SUPPORT */
 
@@ -1187,7 +1178,11 @@ static void test_cont( void )
 static void run_tests( char * passes )
 {
     if ( !passes )
-        passes = "S%cnspdbak*\"";
+        passes = "S%cnspdb"
+#if defined(CONFIG_WITH_FP_SUPPORT)
+		"ak"
+#endif
+		"*\"";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -1200,8 +1195,10 @@ static void run_tests( char * passes )
                 " p    - %%p pointer conversion\n"
                 " d    - %%d, %%i integer conversions\n"
                 " b    - %%b, %%o, %%u, %%x, %%X fixed base conversions\n"
-                " a    - %%a, %%A, %%e, %%E, %%f, %%F, %%g, %%G floating point conversions\n"
+#if defined(CONFIG_WITH_FP_SUPPORT)
+		" a    - %%a, %%A, %%e, %%E, %%f, %%F, %%g, %%G floating point conversions\n"
                 " k    - %%k fixed-point conversion\n"
+#endif
                 " *    - asterisk parameters (width, precision\n"
                 " \"    - continuation\n"
                 );
@@ -1222,8 +1219,10 @@ static void run_tests( char * passes )
             case 'p': test_p();       break;
             case 'd': test_di();      break;
             case 'b': test_bouxX();   break;
-            case 'a': test_aAeEfFgG(); break;
+#if defined(CONFIG_WITH_FP_SUPPORT)
+	    case 'a': test_aAeEfFgG(); break;
             case 'k': test_k();        break;
+#endif
             case '*': test_asterisk(); break;
             case '\"': test_cont();   break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
