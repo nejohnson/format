@@ -454,6 +454,7 @@ static void test_di( void )
     /* Centering */
     TEST( "  1234  ", 8, "%^8d", 1234 );
 
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
     /* Grouping */
     TEST( "12,34", 5, "%[,2]d", 1234 );
     TEST( "12,34,56", 8, "%[,2]d", 123456 );
@@ -468,6 +469,7 @@ static void test_di( void )
     TEST( "0012_34", 7, "%.6[_2]d", 1234 );
     TEST( " 0012_34", 8, "%8.6[_2]d", 1234 );
     TEST( "0012_34 ", 8, "%-8.6[_2]d", 1234 );
+#endif
 
     /* no effect */
     TEST( "1234", 4, "%!#d", 1234 );
@@ -765,10 +767,12 @@ static void test_bouxX( void )
     TEST( " 0XABCD ", 8, "%^#8X", 0xABCD );
     TEST( " 0X0000ABCD ", 12, "%^#12.8X", 0xABCD );
 
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
     /* Grouping */
     TEST( "AB_CD", 5, "%[_2]X", 0xABCD );
     TEST( "1_1_1_1_0_0_0_0", 15, "%[_1]b", 0xF0 );
     TEST( "1111_00_11", 10, "%[-_2_2]b", 0xF3 );
+#endif
 
     /* No effect: +,space */
     TEST( "1101", 4, "%+ b", 13 );
@@ -1088,9 +1092,11 @@ static void test_asterisk( void )
     /* Both together */
     TEST( "  001234", 8, "%*.*d", 8, 6, 1234 );
 
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
     /* Grouping */
     TEST( "1,2_34", 6, "%[,*_*]d", 1234, 2, 1 );
     TEST( "1234", 4, "%[_1,*]d", 1234, -1 );
+#endif
 
     /* Also check maximum precision and widths */
     TEST( "00000000000000000000000000000000000000000000000000"

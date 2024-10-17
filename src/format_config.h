@@ -72,5 +72,9 @@
 **/
 #define CONFIG_WITH_LONG_LONG_SUPPORT
 
+/****************************************************************************/
+/** Provide support for the grouping feature if needed.
+**/
+#define CONFIG_WITH_GROUPING_SUPPORT
 
 #endif /* FORMAT_CONFIG_H */

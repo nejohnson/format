@@ -193,6 +193,7 @@ typedef struct {
     unsigned int    base;   /**< numeric base                       **/
     char            qual;   /**< length qualifier                   **/
     char            repchar;/**< Repetition character               **/
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
     struct {
 #if defined(CONFIG_HAVE_ALT_PTR)
         enum ptr_mode mode; /**< grouping spec pointer type         **/
@@ -200,6 +201,7 @@ typedef struct {
         const void *  ptr;  /**< ptr to grouping specification      **/
         size_t        len;  /**< length of grouping spec            **/
     } grouping;
+#endif
 #if defined(CONFIG_WITH_FP_SUPPORT)
     struct {
         unsigned int w_int;       /**< fixed-point integer field width    **/
@@ -782,6 +784,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         numBuffer[sizeof(numBuffer) - numWidth] = cc;
     }
 
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
     if ( pspec->grouping.len )
     {
 #if defined(CONFIG_HAVE_ALT_PTR)
@@ -857,6 +860,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                 break;
         }
     }
+#endif /* CONFIG_WITH_GROUPING_SUPPORT */
 
     digitWidth = numWidth;
 
@@ -1171,14 +1175,19 @@ int format( void *    (* cons) (void *, const char * , size_t),
             fspec.xp.w_frac = 16;
 #endif
 
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
             /* test for grouping qualifier */
             fspec.grouping.len = 0;
             fspec.grouping.ptr = NULL;
 #if defined(CONFIG_HAVE_ALT_PTR)
             fspec.grouping.mode = NORMAL_PTR;
 #endif
-            c = READ_CHAR( mode, ptr );
-            if ( c == '[' )
+#endif
+
+            switch( READ_CHAR( mode, ptr ) )
+            {
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+            case '[': /* grouping specifier */
             {
                 size_t gplen = 0;
 
@@ -1206,8 +1215,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 /* record the grouping spec length */
                 fspec.grouping.len = gplen;
             }
+	    break;
+#endif
 #if defined(CONFIG_WITH_FP_SUPPORT)
-            else if ( c == '{' ) /* fixed-point specifier */
+	    case '{': /* fixed-point specifier */
             {
                 unsigned int p, q;
 
@@ -1268,7 +1279,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 fspec.xp.w_int  = p;
                 fspec.xp.w_frac = q;
             }
+	    break;
 #endif
+            } /* switch(..)
 
             /* test for length qualifier */
             c = READ_CHAR( mode, ptr );
