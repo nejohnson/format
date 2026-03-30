@@ -1193,22 +1193,17 @@ static void test_errors( void )
 
     /* ===== Invalid Conversion Specifiers ===== */
 
-    /* BUG #1: Length qualifiers without conversion specifiers cause SEGFAULT
-     * When format string ends with a length qualifier (h,l,j,z,t,L),
-     * it's incorrectly treated as a continuation marker, causing va_arg
-     * to fetch garbage pointer → NULL dereference in main loop.
-     * These SHOULD return EXBADFORMAT but currently CRASH:
-     *   FAIL( "%h", 0 );   -- CRASHES
-     *   FAIL( "%l", 0 );   -- CRASHES
-     *   FAIL( "%j", 0 );   -- CRASHES
-     *   FAIL( "%z", 0 );   -- CRASHES
-     *   FAIL( "%t", 0 );   -- CRASHES
-     *   FAIL( "%L", 0 );   -- CRASHES
-     * Fix required in format.c lines 1297-1316 to distinguish true end-of-string
-     * from continuation marker when preceded by length qualifier.
-     */
+    /* Length qualifiers without conversion (Bug #1 - now fixed) */
+    FAIL( "%h", 0 );    /* short qualifier without conversion */
+    FAIL( "%l", 0 );    /* long qualifier without conversion */
+    FAIL( "%j", 0 );    /* intmax_t qualifier without conversion */
+    FAIL( "%z", 0 );    /* size_t qualifier without conversion */
+    FAIL( "%t", 0 );    /* ptrdiff_t qualifier without conversion */
+    FAIL( "%L", 0 );    /* long double qualifier without conversion */
+    FAIL( "%ll", 0 );   /* long long qualifier without conversion */
+    FAIL( "%hh", 0 );   /* char qualifier without conversion */
 
-    /* Valid tests: Invalid conversion specifiers (non-length-qualifiers) */
+    /* Other invalid conversion specifiers */
     FAIL( "%Q", 0 );    /* Invalid specifier Q */
     FAIL( "%@", 0 );    /* Invalid specifier @ */
     FAIL( "%&", 0 );    /* Invalid specifier & */
@@ -1226,29 +1221,31 @@ static void test_errors( void )
     FAIL( "%(", 0 );    /* Invalid specifier ( */
     FAIL( "%)", 0 );    /* Invalid specifier ) */
 
-    /* ===== Malformed Format Strings ===== */
+    /* ===== Incomplete Format Specifications (Bug #1 - now fixed) ===== */
 
-    /* BUG #1 (Expanded): Format strings ending with % or incomplete specs
-     * All of these are treated as continuation markers and cause SEGFAULT:
-     *   FAIL( "test%", 0 );       -- String ending with %
-     *   FAIL( "test%-", 0 );      -- Flags without conversion
-     *   FAIL( "test%+", 0 );      -- Flags without conversion
-     *   FAIL( "test%#", 0 );      -- Flags without conversion
-     *   FAIL( "test%0", 0 );      -- Flags without conversion
-     *   FAIL( "test%!", 0 );      -- Flags without conversion
-     *   FAIL( "test%^", 0 );      -- Flags without conversion
-     *   FAIL( "test%5", 0 );      -- Width without conversion
-     *   FAIL( "test%10", 0 );     -- Width without conversion
-     *   FAIL( "test%*", 5, 0 );   -- Asterisk width without conversion
-     *   FAIL( "test%.", 0 );      -- Incomplete precision
-     *   FAIL( "test%.5", 0 );     -- Precision without conversion
-     *   FAIL( "test%.*", 5, 0 );  -- Asterisk precision without conversion
-     *   FAIL( "test%:", 0 );      -- Incomplete base
-     *   FAIL( "test%:5", 0 );     -- Base without conversion
-     * Root cause: Continuation feature (line 1299) cannot distinguish between
-     * valid continuation ("hello %", "world") and incomplete spec ("test%").
-     * Comprehensive bug report in BUG_REPORT_1_EXPANDED.md
-     */
+    /* Flags without conversion */
+    FAIL( "test%-", 0 );    /* Minus flag without conversion */
+    FAIL( "test%+", 0 );    /* Plus flag without conversion */
+    FAIL( "test%#", 0 );    /* Hash flag without conversion */
+    FAIL( "test% ", 0 );    /* Space flag without conversion */
+    FAIL( "test%0", 0 );    /* Zero flag without conversion */
+    FAIL( "test%!", 0 );    /* Bang flag without conversion */
+    FAIL( "test%^", 0 );    /* Caret flag without conversion */
+
+    /* Width without conversion */
+    FAIL( "test%5", 0 );    /* Width without conversion */
+    FAIL( "test%10", 0 );   /* Width without conversion */
+    FAIL( "test%*", 5, 0 ); /* Asterisk width without conversion */
+
+    /* Precision without conversion */
+    FAIL( "test%.", 0 );    /* Incomplete precision (just dot) */
+    FAIL( "test%.5", 0 );   /* Precision without conversion */
+    FAIL( "test%.*", 5, 0 ); /* Asterisk precision without conversion */
+
+    /* Base specification without conversion */
+    FAIL( "test%:", 0 );    /* Incomplete base (just colon) */
+    FAIL( "test%:5", 0 );   /* Base without conversion */
+    FAIL( "test%:10", 0 );  /* Base without conversion */
 
     /* ===== Base Boundary Violations ===== */
 
@@ -1350,26 +1347,16 @@ static void test_errors( void )
     TEST( "a", 1, "%[,3]c", 'a' );        /* Grouping with %c */
 #endif
 
-    /* ===== Fixed-Point Specification Errors ===== */
+    /* ===== Fixed-Point Specification Errors (Bug #2 - now fixed) ===== */
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
-    /* Fixed-point specification errors */
-
-    /* BUG #2: Incomplete fixed-point specs cause SEGFAULT (related to Bug #1)
-     * These end parsing in incomplete state, trigger continuation logic:
-     *   FAIL( "%{4.k", 0 );    -- Missing fractional width - CRASHES
-     *   FAIL( "%{.4k", 0 );    -- Missing integer width - CRASHES
-     *   FAIL( "%{}k", 0 );     -- Empty spec - CRASHES
-     *   FAIL( "%{.}k", 0 );    -- Dot only - CRASHES
-     * These ARE caught correctly: */
+    /* Incomplete fixed-point specifications */
     FAIL( "%{k", 0 );          /* Missing closing brace */
     FAIL( "%{4k", 0 );         /* Missing dot and closing brace */
-
-    /* Valid fixed-point widths (these should work) */
-    /* TODO: Add tests for valid {4.4}k specifications */
-
-    /* Invalid fixed-point widths - test if these are caught */
-    /* Skipping zero-width and out-of-range tests until Bug #2 is fixed */
+    FAIL( "%{4.k", 0 );        /* Missing fractional width */
+    FAIL( "%{.4k", 0 );        /* Missing integer width */
+    FAIL( "%{}k", 0 );         /* Empty specification */
+    FAIL( "%{.}k", 0 );        /* Dot only, no widths */
 #endif
 
     /* ===== Asterisk Edge Cases ===== */
@@ -1381,6 +1368,17 @@ static void test_errors( void )
     /* Negative precision should be ignored (treated as not specified) */
     TEST( "0", 1, "%.*d", -1, 0 );
     TEST( "123", 3, "%.*d", -10, 123 );
+
+    /* ===== Continuation Feature (verify still works after Bug #1 fix) ===== */
+
+    /* Bare % continuation should work */
+    TEST( "hello world", 11, "hello %", "world" );
+    TEST( "hello old world", 15, "hello %", "old %", "world" );
+
+    /* Interspersed conversions with continuation */
+    TEST( "One: 1,Two: 2,Three: 3", 22, "One: %d,%", 1,
+                                        "Two: %c,%", '2',
+                                        "Three: %s", "3" );
 }
 
 
