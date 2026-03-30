@@ -1020,6 +1020,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
     char           c;
     const void   * ptr = (const void *)fmt;
     va_list        ap;
+    int            parsing_conversion = 0;  /* Track if inside conversion spec */
     
     /* Setup varargs -- must va_end( ap ) before exit !! */
     va_copy( ap, apx );
@@ -1083,6 +1084,11 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 FSPACE, FPLUS, FMINUS, FHASH, FZERO, FBANG, FCARET, 0};
 
             INC_VOID_PTR(ptr);    /* skip the % sign */
+
+            /* If next char is not '\0', we're parsing a conversion specification.
+             * If it IS '\0', it's bare '%' continuation (don't set flag). */
+            if ( READ_CHAR( mode, ptr ) != '\0' )
+                parsing_conversion = 1;
 
             /* process conversion flags */
             for ( fspec.flags = 0;
@@ -1298,6 +1304,11 @@ int format( void *    (* cons) (void *, const char * , size_t),
             c = READ_CHAR( mode, ptr );
             if ( c == '\0' )
             {
+                /* If we're in middle of parsing a conversion, it's incomplete */
+                if ( parsing_conversion )
+                    goto exit_badformat;
+
+                /* Otherwise, bare '%' continuation is valid */
 #if defined(CONFIG_HAVE_ALT_PTR)
                 if ( fspec.flags & FHASH )
                 {
@@ -1334,7 +1345,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
             if ( nn < 0 )
                 goto exit_badformat;
             else
+            {
                 fspec.nChars += (unsigned int)nn;
+                parsing_conversion = 0;  /* Conversion completed successfully */
+            }
 
             INC_VOID_PTR(ptr);
         }
