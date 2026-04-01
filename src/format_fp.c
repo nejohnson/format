@@ -96,6 +96,17 @@
 */
 #define COMP_EXP_LIMIT          ( 24 )
 
+/** Fixed Point macros **/
+
+/* Field width limits */
+#define MIN_XP_INT      ( 1 )
+#define MAX_XP_INT      ( (unsigned int)(sizeof(int) * CHAR_BIT) )
+
+#define MIN_XP_FRAC     ( 1 )
+#define MAX_XP_FRAC     ( (unsigned int)(sizeof(int) * CHAR_BIT) )
+
+#define MAX_XP_WIDTH    ( (unsigned int)(sizeof(long) * CHAR_BIT) )
+
 /*****************************************************************************/
 /* Private function prototypes.  Declare as static.                          */
 /*****************************************************************************/
@@ -1148,6 +1159,21 @@ static int do_conv_fp( T_FormatSpec * pspec,
 /**
     Process fixed-point conversion (%k).
 
+    For format comprises three sections and an implied decimal point:
+       S[I]+"."[F]+
+
+    where:
+       S = sign bit
+       I = optional integer bits
+       F = optional fractional bits
+    The decimal point is always present. The default format is "{16.16}".
+
+    Examples:
+       {16.16} = 1 sign bit, 15 integer bits, 16 fractional bits
+       {24.8}  = 1 sign bit, 23 integer bits, 8 fractional bits
+       {1.15}  = 1 sign bit, no integer bits, 15 fractional bits
+       {4.4}   = 1 sign bit, 3 integer bits, 4 fractional bits
+
     @param pspec    Pointer to format specification.
     @param ap       Reference to optional format arguments list.
     @param code     Conversion specifier code.
@@ -1161,8 +1187,8 @@ static int do_conv_k( T_FormatSpec * pspec,
                       void *      (* cons)(void *, const char *, size_t),
                       void * *       parg )
 {
-    unsigned int total_bits = pspec->xp.w_int + pspec->xp.w_frac;
-    size_t total_bytes = ( total_bits + 7 ) / 8;
+    unsigned int total_bits;
+    size_t total_bytes;
     long v;
     unsigned int sign;
     DEC_MANT_REG_TYPE mantissa;
@@ -1173,9 +1199,12 @@ static int do_conv_k( T_FormatSpec * pspec,
     } u;
     u.d = 0.0;
 
-    if ( total_bytes == 0 )
-        return EXBADFORMAT;
-    
+    if ( pspec->xp.w_int < MIN_XP_INT || pspec->xp.w_frac < MIN_XP_FRAC )
+	return EXBADFORMAT;
+
+    total_bits = (unsigned int)(pspec->xp.w_int + pspec->xp.w_frac);
+    total_bytes = ( total_bits + 7 ) / 8;
+
     if ( total_bytes <= sizeof( int ) )
         v = (long)va_arg( *ap, int );
     else
@@ -1208,8 +1237,7 @@ static int do_conv_k( T_FormatSpec * pspec,
         /* Mask out any dross from the input value and save for later */
         v &= ( 1 << ( total_bits - 1) ) - 1;
 
-        /* If the masked magnitude is zero (can happen with w_int=0 formats),
-         * treat this as zero to avoid infinite loop in mantissa normalization */
+        /* Special-case zero to avoid infinite loop in mantissa normalization */
         if ( v == 0 )
         {
             mantissa = 0;

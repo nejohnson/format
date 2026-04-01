@@ -1129,24 +1129,60 @@ static void test_k_edge_cases( void )
 
     /* ===== Different Bit Width Combinations ===== */
 
-    /* 16.0 format - maximal integer, no fractional */
+    /* ===== Minimum Valid Format Tests ===== */
+
+    /* {1.1}k format - absolute minimum (1 sign + 0 integer + 1 fractional = 2 bits) */
     {
-        int s16p0 = 1234;
-        TEST( "1234.000000", 11, "%{16.0}k", s16p0 );
-        TEST( "-1234.000000", 12, "%{16.0}k", -s16p0 );
+        /* Range: [-1.0, +0.5] in 0.5 increments */
+        char s1p1_zero = 0;       /* 0.0 */
+        char s1p1_half = 1;       /* 0.5 */
+        char s1p1_negone = -2;    /* -1.0 (0b10 in two's complement) */
+        TEST( "0.000000", 8, "%{1.1}k", s1p1_zero );
+        TEST( "0.500000", 8, "%{1.1}k", s1p1_half );
+        TEST( "-1.000000", 9, "%{1.1}k", s1p1_negone );
     }
 
-    /* 0.16 format - no integer bits (Bug #1 - fixed, no longer hangs) */
+    /* {2.1}k format - 1 sign + 1 integer + 1 fractional = 3 bits */
     {
-        TEST( "-1.000000", 9, "%{0.16}k", 0x8000 );
-        TEST( "0.250000", 8, "%{0.16}k", 0x4000 );
-        TEST( "0.000000", 8, "%{0.16}k", 0 );
+        /* Range: [-1.5, +1.5] in 0.5 increments (sign-magnitude) */
+        char s2p1_zero = 0;       /* 0.0 */
+        char s2p1_half = 1;       /* 0.5 */
+        char s2p1_one = 2;        /* 1.0 */
+        char s2p1_onehalf = 3;    /* 1.5 (max positive) */
+        char s2p1_neghalf = -1;   /* -0.5 */
+        char s2p1_negone = -2;    /* -1.0 */
+        char s2p1_negonehalf = -3; /* -1.5 (min negative) */
+        TEST( "0.000000", 8, "%{2.1}k", s2p1_zero );
+        TEST( "0.500000", 8, "%{2.1}k", s2p1_half );
+        TEST( "1.000000", 8, "%{2.1}k", s2p1_one );
+        TEST( "1.500000", 8, "%{2.1}k", s2p1_onehalf );
+        TEST( "-0.500000", 9, "%{2.1}k", s2p1_neghalf );
+        TEST( "-1.000000", 9, "%{2.1}k", s2p1_negone );
+        TEST( "-1.500000", 9, "%{2.1}k", s2p1_negonehalf );
     }
 
-    /* 0.8 format - minimal fractional width with no integer bits */
+    /* {1.2}k format - 1 sign + 0 integer + 2 fractional = 3 bits */
     {
-        TEST( "-1.000000", 9, "%{0.8}k", 0x80 );
-        TEST( "0.000000", 8, "%{0.8}k", 0 );
+        /* Range: [-1.0, +0.75] in 0.25 increments */
+        char s1p2_zero = 0;       /* 0.0 */
+        char s1p2_qtr = 1;        /* 0.25 */
+        char s1p2_half = 2;       /* 0.5 */
+        char s1p2_threequart = 3; /* 0.75 (max positive) */
+        char s1p2_negone = -4;    /* -1.0 (min negative) */
+        TEST( "0.000000", 8, "%{1.2}k", s1p2_zero );
+        TEST( "0.250000", 8, "%{1.2}k", s1p2_qtr );
+        TEST( "0.500000", 8, "%{1.2}k", s1p2_half );
+        TEST( "0.750000", 8, "%{1.2}k", s1p2_threequart );
+        TEST( "-1.000000", 9, "%{1.2}k", s1p2_negone );
+    }
+
+    /* {1.15}k format - fractional only (1 sign + 0 integer + 15 fractional = 16 bits) */
+    {
+        /* Range: [-0.999969, +0.999969] with sign-magnitude (15-bit magnitude) */
+        TEST( "0.500000", 8, "%{1.15}k", (int)(0.5 * (1 << 15)) );
+        TEST( "-0.500000", 9, "%{1.15}k", (int)(-0.5 * (1 << 15)) );
+        TEST( "0.999969", 8, "%{1.15}k", 0x7FFF );  /* Max positive = 32767/32768 */
+        TEST( "-0.999969", 9, "%{1.15}k", -0x7FFF ); /* Min negative = -32767/32768 */
     }
 
     /* 8.8 format - balanced */
@@ -1242,13 +1278,6 @@ static void test_k_edge_cases( void )
         int s8p8 = 1;  /* 0.00390625 in 8.8 */
         TEST( "0.003906", 8, "%{8.8}k", s8p8 );
     }
-
-    /* Known bugs documented but not tested:
-     * - TODO: 1.15 format produces incorrect output (sign bit issue)
-     * - TODO: 0.16 format (0 integer bits) causes infinite loop
-     * - TODO: Grouping with %k returns EXBADFORMAT (not supported)
-     * - TODO: Length modifiers with %k produce empty/incorrect output
-     */
 }
 #endif /* CONFIG_WITH_FP_SUPPORT */
 
@@ -1540,6 +1569,37 @@ static void test_errors( void )
     FAIL( "%{.4k", 0 );        /* Missing integer width */
     FAIL( "%{}k", 0 );         /* Empty specification */
     FAIL( "%{.}k", 0 );        /* Dot only, no widths */
+
+    /* Mandatory modifier requirement - bare %k without modifier is invalid */
+    FAIL( "%k", 0 );           /* No width modifier specified */
+
+    /* Minimum width violations */
+    FAIL( "%{0.1}k", 0 );      /* w_int=0 violates MIN_XP_INT=1 */
+    FAIL( "%{0.16}k", 0 );     /* w_int=0 violates MIN_XP_INT=1 */
+    FAIL( "%{1.0}k", 0 );      /* w_frac=0 violates MIN_XP_FRAC=1 */
+    FAIL( "%{16.0}k", 0 );     /* w_frac=0 violates MIN_XP_FRAC=1 */
+
+    /* Maximum width boundary - depends on sizeof(long) * CHAR_BIT */
+    /* On 64-bit: MAX_XP_WIDTH = 64, so {32.32}k should fail (32+32=64) */
+    /* {32.31}k should succeed (32+31=63 < 64) */
+    #if ( ULONG_MAX == 0xFFFFFFFFFFFFFFFFUL )  /* 64-bit long */
+        /* Test boundary: 32+31=63 is valid, 32+32=64 should fail */
+        TEST( "0.000000", 8, "%{32.31}k", 0L );  /* Valid: 63 bits < 64 */
+        FAIL( "%{32.32}k", 0L );                 /* Invalid: 64 bits >= 64 */
+    #endif
+
+    /* Length modifiers with %k should fail (not supported) */
+    FAIL( "%hh{4.4}k", (char)0 );    /* hh modifier */
+    FAIL( "%h{4.4}k", (short)0 );    /* h modifier */
+    FAIL( "%l{4.4}k", 0L );          /* l modifier */
+    FAIL( "%ll{4.4}k", 0LL );        /* ll modifier */
+    FAIL( "%L{4.4}k", 0.0L );        /* L modifier */
+
+    /* Grouping with %k should fail (not supported) */
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+    FAIL( "%[,]{4.4}k", 0 );         /* Grouping with fixed-point */
+    FAIL( "%[_2]{4.4}k", 0 );        /* Grouping with custom separator */
+#endif
 #endif
 
     /* ===== Asterisk Edge Cases ===== */

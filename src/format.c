@@ -1,6 +1,6 @@
 /* ****************************************************************************
  * Format - lightweight string formatting library.
- * Copyright (C) 2010-2024, Neil Johnson
+ * Copyright (C) 2010-2026, Neil Johnson
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -91,11 +91,6 @@
                                   * prefix:
                                   *  "0b" + 64 digits + 64 grouping chars
                                   */
-
-/* Fixed-point field width limits */
-#define MAX_XP_INT      ( (unsigned int)(sizeof(int) * CHAR_BIT) )
-#define MAX_XP_FRAC     ( (unsigned int)(sizeof(int) * CHAR_BIT) )
-#define MAX_XP_WIDTH    ( (unsigned int)(sizeof(long) * CHAR_BIT) )
 
 /**
     Return the maximum/minimum of two scalar values.
@@ -204,8 +199,8 @@ typedef struct {
 #endif
 #if defined(CONFIG_WITH_FP_SUPPORT)
     struct {
-        unsigned int w_int;       /**< fixed-point integer field width    **/
-        unsigned int w_frac;      /**< fixed-point fractional field width **/
+        int w_int;          /**< fixed-point integer field width    **/
+        int w_frac;         /**< fixed-point fractional field width **/
     } xp;
 #endif
 } T_FormatSpec;
@@ -1176,9 +1171,8 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
-            /* default fixed-point format is 16p16 */
-            fspec.xp.w_int  = 16;
-            fspec.xp.w_frac = 16;
+            fspec.xp.w_int  = -1;
+            fspec.xp.w_frac = -1;
 #endif
 
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
@@ -1226,7 +1220,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
 #if defined(CONFIG_WITH_FP_SUPPORT)
 	    case '{': /* fixed-point specifier */
             {
-                unsigned int p, q;
+                int p, q;
 
                 /* skip over opening brace */
                 INC_VOID_PTR( ptr );
@@ -1234,21 +1228,25 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 /* get integer width */
                 if ( READ_CHAR( mode, ptr ) == '*' )
                 {
-                    int v = va_arg( ap, int );
-                    p = (unsigned int)MAX( 0, v );
+                    p = va_arg( ap, int );
+                    p = MAX( MIN_XP_INT, p );  /* clamp negative values to minimum */
 
                     INC_VOID_PTR( ptr );
                 }
                 else
                 {
                     for ( p = 0;
-                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && p < MAX_XP_INT;
+                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c );
                          INC_VOID_PTR( ptr ) )
                     {
                         p = p * 10 + c - '0';
                         if ( p > MAX_XP_INT )
                             goto exit_badformat;
                     }
+
+                    /* explicit values must meet minimum */
+                    if ( p < MIN_XP_INT )
+                        goto exit_badformat;
                 }
 
                 /* get fractional width */
@@ -1256,21 +1254,25 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     goto exit_badformat; /* fractional width is missing */
                 else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
                 {
-                    int v = va_arg( ap, int );
-                    q = (unsigned int)MAX( 0, v );
+                    q = va_arg( ap, int );
+                    q = MAX( MIN_XP_FRAC, q );  /* clamp negative values to minimum */
 
                     INC_VOID_PTR( ptr );
                 }
                 else
                 {
                     for ( q = 0;
-                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && q < MAX_XP_FRAC;
+                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c );
                          INC_VOID_PTR( ptr ) )
                     {
                         q = q * 10 + c - '0';
                         if ( q > MAX_XP_FRAC )
                             goto exit_badformat;
                     }
+
+                    /* explicit values must meet minimum */
+                    if ( q < MIN_XP_FRAC )
+                        goto exit_badformat;
                 }
 
                 if ( p + q >= MAX_XP_WIDTH )
@@ -1287,7 +1289,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
 	    break;
 #endif
-            } /* switch(..)
+            } /* switch(..) */
 
             /* test for length qualifier */
             c = READ_CHAR( mode, ptr );

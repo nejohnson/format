@@ -112,10 +112,10 @@ Each conversion specification is introduced by the character `%`.  After the
   * An optional fixed-point modifier that specifies the widths of the integer and
     fractional parts of the argument to the k conversion.  It is ignored for all
     other conversion specifiers.  A fixed-point modifier starts with `{` and ends 
-    with `}`.  Within the parentheses are an optional integer width specifier, 
-    a period (.), and an optional fractional width specifier.  Both specifiers are 
-    non-negative decimal integers, or asterisks `*` (described later) where negative 
-    values are interpreted as zero.
+    with `}`.  Within the parentheses are an integer width specifier, a period (.),
+    and a fractional width specifier.  Both specifiers are non-negative decimal
+    integers, or asterisks `*` (described later) where negative values are
+    interpreted as the minimum field value.
 
   * An optional length modifier that specifies the size of the argument.
 
@@ -190,15 +190,22 @@ separated by commas.  Applied to the number `123456789` the output would be
 ### Fixed-Point Modifier ###
 
 The fixed-point modifier specifies the formatting rules for the `k` conversion
-specifier.  It is ignored for all other conversion specifiers.
+specifier. It is required for all `k` conversions. It is ignored for all other
+conversion specifiers.
 
-A fixed-point modifier starts with `{` and ends with `}`.  Within the 
-parentheses are an optional integer width specifier, and period `.`, and a 
-fractional width specifier.  Both specifiers are positive decimal integers or 
-asterisks `*` as described above where negative values are treated as zero.
+A fixed-point modifier starts with `{` and ends with `}`. Within the parentheses
+are an integer width specifier, a period `.`, and a fractional width specifier.
+Both specifiers are positive decimal integers, or asterisks `*` as described
+above where negative values are treated as the minimum field widths.
+The integer width includes a mandatory sign bit; unsigned conversions are not
+supported.
 
-For example, "`{24.8}`" specifies a fixed-point format comprising 24 integer 
-bits and 8 fractional bits.
+The minimum integer width is 1 (sign bit only, no integer bits), and the minimum
+fractional width is 1. The maximum width (integer + fractional) is the number of
+bits in a `long` integer type.
+
+For example, "`{24.8}`" specifies a fixed-point format comprising one sign bit,
+23 integer bits and 8 fractional bits.
 
 ### Conversion Specifiers ###
 
