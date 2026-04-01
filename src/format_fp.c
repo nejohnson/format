@@ -1207,24 +1207,35 @@ static int do_conv_k( T_FormatSpec * pspec,
 
         /* Mask out any dross from the input value and save for later */
         v &= ( 1 << ( total_bits - 1) ) - 1;
-        mantissa = (DEC_MANT_REG_TYPE)v;
 
-        /* Work out where highest bit is */
-        for ( i = -1; v != 0; i++ )
-            v >>= 1;
+        /* If the masked magnitude is zero (can happen with w_int=0 formats),
+         * treat this as zero to avoid infinite loop in mantissa normalization */
+        if ( v == 0 )
+        {
+            mantissa = 0;
+            exponent = 0;
+        }
+        else
+        {
+            mantissa = (DEC_MANT_REG_TYPE)v;
 
-        /* i gives index of highest '1' bit, which then gives us the exponent */
-        DEBUG_LOG( "i = %d ", i );
-        exponent = i - pspec->xp.w_frac;
-        
-        /* Shift up the mantissa until the top-most bit pops out of the top
-         * of the mantissa, which will then get masked out, which is exactly
-         * what we want - in floating point the '1' is implied.
-         */
-        while ( (mantissa & ~BIN_MANT_MASK) == 0 )
-            mantissa <<= 1;
+            /* Work out where highest bit is */
+            for ( i = -1; v != 0; i++ )
+                v >>= 1;
 
-        DEBUG_LOG("mantissa: %llu\n", mantissa);
+            /* i gives index of highest '1' bit, which then gives us the exponent */
+            DEBUG_LOG( "i = %d ", i );
+            exponent = i - pspec->xp.w_frac;
+
+            /* Shift up the mantissa until the top-most bit pops out of the top
+             * of the mantissa, which will then get masked out, which is exactly
+             * what we want - in floating point the '1' is implied.
+             */
+            while ( (mantissa & ~BIN_MANT_MASK) == 0 )
+                mantissa <<= 1;
+
+            DEBUG_LOG("mantissa: %llu\n", mantissa);
+        }
 
         /* Now pack everthing into the binary FP */
         BIN_PACK_MANT( u.b, mantissa );

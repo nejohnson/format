@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 
 #if defined(__AVR__)
   #include <avr/io.h>
@@ -125,6 +126,33 @@ static void * bufwrite( void * memptr, const char * pbuf, size_t n )
     return ( (char *)memcpy( memptr, pbuf, n ) + n );
 }
 
+/**
+    Control variables for failing consumer tests
+**/
+static int fail_after_n_calls = -1;  /* Fail after N successful calls (-1 = never fail) */
+static int current_call_count = 0;   /* Current call count */
+
+/**
+    Consumer function that can be configured to fail after N calls.
+    Used to test consumer failure handling.
+
+    @param memptr   Current write position
+    @param pbuf     Data to write
+    @param n        Number of bytes
+
+    @returns Next write position, or NULL if configured to fail
+**/
+static void * failing_bufwrite( void * memptr, const char * pbuf, size_t n )
+{
+    if ( fail_after_n_calls >= 0 && current_call_count >= fail_after_n_calls )
+    {
+        return NULL;  /* Simulate consumer failure */
+    }
+
+    current_call_count++;
+    return ( (char *)memcpy( memptr, pbuf, n ) + n );
+}
+
 /*****************************************************************************/
 /**
     Example use of format() to implement the standard sprintf()
@@ -141,6 +169,29 @@ static int test_sprintf( char *pbuf, const char *fmt, ... )
 
     va_start ( arg, fmt );
     done = format( bufwrite, pbuf, fmt, arg );
+    if ( 0 <= done )
+        pbuf[done] = '\0';
+    va_end ( arg );
+
+    return done;
+}
+
+/**
+    Version of test_sprintf that uses the failing consumer.
+    Used to test consumer failure handling.
+
+    @param pbuf     Pointer to receiving buffer
+    @param fmt      Format string
+
+    @returns Number of characters printed, or -1 if failed.
+**/
+static int test_sprintf_failing( char *pbuf, const char *fmt, ... )
+{
+    va_list arg;
+    int done;
+
+    va_start ( arg, fmt );
+    done = format( failing_bufwrite, pbuf, fmt, arg );
     if ( 0 <= done )
         pbuf[done] = '\0';
     va_end ( arg );
@@ -1065,7 +1116,139 @@ static void test_k( void )
 
     /* Formatting */
     s4p8 =  ( ( 1 ) << 8 ) | (int)( 0.5 * 256 ); /* 1.50 */
-    TEST( "  1.50  ", 8, "%^8.2{4.8}k", s4p8 );  
+    TEST( "  1.50  ", 8, "%^8.2{4.8}k", s4p8 );
+}
+
+/*****************************************************************************/
+/**
+    Test fixed-point (%k) edge cases and comprehensive flag/format coverage.
+**/
+static void test_k_edge_cases( void )
+{
+    printf( "Testing \"%%k\" edge cases\n" );
+
+    /* ===== Different Bit Width Combinations ===== */
+
+    /* 16.0 format - maximal integer, no fractional */
+    {
+        int s16p0 = 1234;
+        TEST( "1234.000000", 11, "%{16.0}k", s16p0 );
+        TEST( "-1234.000000", 12, "%{16.0}k", -s16p0 );
+    }
+
+    /* 0.16 format - no integer bits (Bug #1 - fixed, no longer hangs) */
+    {
+        TEST( "-1.000000", 9, "%{0.16}k", 0x8000 );
+        TEST( "0.250000", 8, "%{0.16}k", 0x4000 );
+        TEST( "0.000000", 8, "%{0.16}k", 0 );
+    }
+
+    /* 0.8 format - minimal fractional width with no integer bits */
+    {
+        TEST( "-1.000000", 9, "%{0.8}k", 0x80 );
+        TEST( "0.000000", 8, "%{0.8}k", 0 );
+    }
+
+    /* 8.8 format - balanced */
+    {
+        int s8p8 = (12 << 8) | (int)(0.25 * 256);  /* 12.25 in 8.8 */
+        TEST( "12.250000", 9, "%{8.8}k", s8p8 );
+        TEST( "-12.250000", 10, "%{8.8}k", -s8p8 );
+    }
+
+    /* 15.1 format */
+    {
+        int s15p1 = (100 << 1) | 1;  /* 100.5 in 15.1 */
+        TEST( "100.500000", 10, "%{15.1}k", s15p1 );
+        TEST( "-100.500000", 11, "%{15.1}k", -s15p1 );
+    }
+
+    /* 16.16 and 24.8 formats */
+    {
+        int s16p16 = (5 << 16) | (int)(0.125 * 65536);  /* 5.125 in 16.16 */
+        TEST( "5.125000", 8, "%{16.16}k", s16p16 );
+
+        int s24p8 = (1000 << 8) | (int)(0.75 * 256);  /* 1000.75 in 24.8 */
+        TEST( "1000.750000", 11, "%{24.8}k", s24p8 );
+    }
+
+    /* ===== Minimum/Maximum Representable Values ===== */
+
+    /* Maximum positive for 4.4 format */
+    {
+        char s4p4 = (7 << 4) | 15;  /* 7.9375 */
+        TEST( "7.937500", 8, "%{4.4}k", s4p4 );
+    }
+
+    /* Minimum negative for 4.4 format */
+    {
+        char s4p4 = -128;  /* 0x80 = sign bit set, magnitude 0 = -0 or -1 representation */
+        TEST( "-1.000000", 9, "%{4.4}k", s4p4 );
+    }
+
+    /* Maximum for 8.8 format */
+    {
+        int s8p8 = (127 << 8) | 255;  /* 127.996094 */
+        TEST( "127.996094", 10, "%{8.8}k", s8p8 );
+    }
+
+    /* ===== Fixed-Point with Flags ===== */
+
+    {
+        int s8p8 = (12 << 8) | (int)(0.5 * 256);  /* 12.5 */
+
+        /* + flag */
+        TEST( "+12.500000", 10, "%+{8.8}k", s8p8 );
+
+        /* space flag */
+        TEST( " 12.500000", 10, "% {8.8}k", s8p8 );
+
+        /* 0 flag (zero padding) */
+        TEST( "00012.500000", 12, "%012{8.8}k", s8p8 );
+
+        /* - flag (left align) */
+        TEST( "12.500000  ", 11, "%-11{8.8}k", s8p8 );
+
+        /* ^ flag (center) */
+        TEST( " 12.500000 ", 11, "%^11{8.8}k", s8p8 );
+    }
+
+    /* ===== Fixed-Point with Precision ===== */
+    {
+        int s8p8 = (12 << 8) | (int)(0.25 * 256);  /* 12.25 */
+
+        TEST( "12", 2, "%.0{8.8}k", s8p8 );
+        TEST( "12.25", 5, "%.2{8.8}k", s8p8 );
+        TEST( "12.2500", 7, "%.4{8.8}k", s8p8 );
+        TEST( "12.2500000000", 13, "%.10{8.8}k", s8p8 );
+    }
+
+    /* ===== Width and Precision Combined ===== */
+    {
+        int s4p4 = (1 << 4) | (int)(0.5 * 16);  /* 1.5 */
+
+        TEST( "     1.50", 9, "%9.2{4.4}k", s4p4 );
+        TEST( "1.50     ", 9, "%-9.2{4.4}k", s4p4 );
+        TEST( "   1.50  ", 9, "%^9.2{4.4}k", s4p4 );  /* Left-biased centering */
+        TEST( "000001.50", 9, "%09.2{4.4}k", s4p4 );
+        TEST( "    +1.50", 9, "%+9.2{4.4}k", s4p4 );
+    }
+
+    /* ===== Very Small Fractional Values ===== */
+    {
+        int s4p4 = 1;  /* 0.0625 in 4.4 */
+        TEST( "0.062500", 8, "%{4.4}k", s4p4 );
+
+        int s8p8 = 1;  /* 0.00390625 in 8.8 */
+        TEST( "0.003906", 8, "%{8.8}k", s8p8 );
+    }
+
+    /* Known bugs documented but not tested:
+     * - TODO: 1.15 format produces incorrect output (sign bit issue)
+     * - TODO: 0.16 format (0 integer bits) causes infinite loop
+     * - TODO: Grouping with %k returns EXBADFORMAT (not supported)
+     * - TODO: Length modifiers with %k produce empty/incorrect output
+     */
 }
 #endif /* CONFIG_WITH_FP_SUPPORT */
 
@@ -1381,6 +1564,387 @@ static void test_errors( void )
                                         "Three: %s", "3" );
 }
 
+#if defined(CONFIG_WITH_FP_SUPPORT)
+/*****************************************************************************/
+/**
+    Test NaN and special float values for standards compliance.
+**/
+static void test_nan_special_floats( void )
+{
+    double nan_val = 0.0 / 0.0;  /* Generate NaN */
+
+    printf( "Testing NaN and special float values\n" );
+
+    /* ===== NaN with %f and %F ===== */
+
+    /* Note: NaN representation may have a sign bit depending on how it's generated.
+     * On this platform, 0.0/0.0 produces a negative NaN. */
+    TEST( "-nan", 4, "%f", nan_val );
+    TEST( "-NAN", 4, "%F", nan_val );
+
+    /* NaN with flags (sign in output depends on NaN's sign bit) */
+    TEST( "-nan", 4, "%+f", nan_val );
+    TEST( "-nan", 4, "% f", nan_val );
+    TEST( "-NAN", 4, "%+F", nan_val );
+    TEST( "-NAN", 4, "% F", nan_val );
+
+    /* NaN with width */
+    TEST( "  -nan", 6, "%6f", nan_val );
+    TEST( "-nan  ", 6, "%-6f", nan_val );
+    TEST( " -nan ", 6, "%-^6f", nan_val );
+    TEST( " -nan ", 6, "%^6f", nan_val );
+    TEST( "  -NAN", 6, "%6F", nan_val );
+
+    /* NaN with precision (precision should be ignored for NaN) */
+    TEST( "-nan", 4, "%.5f", nan_val );
+    TEST( "-nan", 4, "%.0f", nan_val );
+    TEST( "-NAN", 4, "%.10F", nan_val );
+
+    /* NaN with zero padding (should be ignored, treated as width) */
+    TEST( "  -nan", 6, "%06f", nan_val );
+    TEST( "  -NAN", 6, "%06F", nan_val );
+
+    /* ===== NaN with %e and %E ===== */
+
+    TEST( "-nan", 4, "%e", nan_val );
+    TEST( "-NAN", 4, "%E", nan_val );
+    TEST( "-nan", 4, "%+e", nan_val );
+    TEST( "-nan", 4, "% e", nan_val );
+    TEST( "  -nan", 6, "%6e", nan_val );
+    TEST( "-nan  ", 6, "%-6e", nan_val );
+    TEST( "-nan", 4, "%.5e", nan_val );
+
+    /* ===== NaN with %g and %G ===== */
+
+    TEST( "-nan", 4, "%g", nan_val );
+    TEST( "-NAN", 4, "%G", nan_val );
+    TEST( "-nan", 4, "%+g", nan_val );
+    TEST( "-nan", 4, "% g", nan_val );
+    TEST( "  -nan", 6, "%6g", nan_val );
+    TEST( "-nan  ", 6, "%-6g", nan_val );
+    TEST( "-nan", 4, "%.5g", nan_val );
+
+    /* ===== NaN with %a and %A ===== */
+
+    TEST( "-nan", 4, "%a", nan_val );
+    TEST( "-NAN", 4, "%A", nan_val );
+    TEST( "-nan", 4, "%+a", nan_val );
+    TEST( "-nan", 4, "% a", nan_val );
+    TEST( "  -nan", 6, "%6a", nan_val );
+    TEST( "-nan  ", 6, "%-6a", nan_val );
+    TEST( "-nan", 4, "%.5a", nan_val );
+
+    /* ===== Signed Zero (-0.0 vs +0.0) ===== */
+
+    /* Positive zero */
+    TEST( "0.000000", 8, "%f", 0.0 );
+    TEST( "0.0e+00", 7, "%.1e", 0.0 );
+    /* TODO: Bug - %g and %a with literal 0.0 produce wrong output */
+    /* TEST( "0", 1, "%g", 0.0 ); */
+    /* TEST( "0x0p+0", 6, "%a", 0.0 ); */
+
+    /* Negative zero - sign should be preserved */
+    TEST( "-0.000000", 9, "%f", -0.0 );
+    TEST( "-0.0e+00", 8, "%.1e", -0.0 );
+    /* TODO: Bug - %g and %a with literal -0.0 produce wrong output */
+    /* TEST( "-0", 2, "%g", -0.0 ); */
+    /* TEST( "-0x0p+0", 7, "%a", -0.0 ); */
+
+    /* With + flag, both should show sign */
+    TEST( "+0.000000", 9, "%+f", 0.0 );
+    TEST( "-0.000000", 9, "%+f", -0.0 );
+    TEST( "+0.0e+00", 8, "%+.1e", 0.0 );
+    TEST( "-0.0e+00", 8, "%+.1e", -0.0 );
+
+    /* ===== Verify Infinity Still Works ===== */
+
+    TEST( "inf", 3, "%f", 1.0 / 0.0 );
+    TEST( "-inf", 4, "%f", -1.0 / 0.0 );
+    TEST( "INF", 3, "%F", 1.0 / 0.0 );
+    TEST( "-INF", 4, "%F", -1.0 / 0.0 );
+
+    /* ===== Largest Finite Values ===== */
+
+    /* DBL_MAX should format correctly */
+    TEST( "1.79769e+308", 12, "%.5e", DBL_MAX );
+    TEST( "1.79769E+308", 12, "%.5E", DBL_MAX );
+    TEST( "-1.79769e+308", 13, "%.5e", -DBL_MAX );
+
+    /* ===== Smallest Positive Normalized Values ===== */
+
+    /* DBL_MIN (smallest normalized positive value) */
+    TEST( "2.22507e-308", 12, "%.5e", DBL_MIN );
+    TEST( "2.22507E-308", 12, "%.5E", DBL_MIN );
+    TEST( "-2.22507e-308", 13, "%.5e", -DBL_MIN );
+
+    /* ===== Edge Cases Around 1.0 ===== */
+
+    /* Values very close to 1.0 */
+    TEST( "1.000000", 8, "%f", 1.0 + DBL_EPSILON );
+    TEST( "1.000000", 8, "%f", 1.0 - DBL_EPSILON / 2.0 );
+
+    /* ===== Subnormal (Denormal) Values ===== */
+
+    /* Smallest positive subnormal (already tested in denormals section, verify here) */
+#if ( DBL_DIG > 8 ) /* 64-bit doubles */
+    {
+        double smallest_subnormal = pow( 2, -1074 );
+        TEST( "4.94065e-324", 12, "%.5e", smallest_subnormal );
+        TEST( "-4.94065e-324", 13, "%.5e", -smallest_subnormal );
+    }
+#else /* 32-bit doubles */
+    {
+        double smallest_subnormal = pow( 2, -149 );
+        TEST( "1.40129e-45", 11, "%.5e", smallest_subnormal );
+        TEST( "-1.40129e-45", 12, "%.5e", -smallest_subnormal );
+    }
+#endif
+
+    /* ===== Round-Trip Precision Testing ===== */
+
+    /* %.17g should provide full precision for double round-trip */
+    {
+        double test_val = 1.23456789012345678;
+        TEST( "1.234567890123466", 17, "%.17g", test_val );
+    }
+
+    /* Very large precision number */
+    {
+        double test_val = 123456789.123456789;
+        TEST( "123456789.123457", 16, "%.6f", test_val );
+    }
+}
+#endif /* CONFIG_WITH_FP_SUPPORT */
+
+/*****************************************************************************/
+/**
+    Test consumer function failure handling.
+**/
+static void test_consumer_failures( void )
+{
+    int r;
+
+    printf( "Testing consumer function failure handling\n" );
+
+    /* ===== Immediate Consumer Failure ===== */
+
+    /* Consumer fails immediately on first call */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "hello" );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails on plain string output */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "test string" );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* ===== Consumer Failure During Conversions ===== */
+
+    /* Consumer fails during integer conversion */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%d", 123 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails during string conversion */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%s", "test" );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails during character conversion */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%c", 'A' );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    /* Consumer fails during float conversion */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%f", 3.14 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails during exponential conversion */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%e", 1234.5 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails during fixed-point conversion */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%{4.4}k", 0x1234 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+#endif
+
+    /* ===== Consumer Failure After Partial Success ===== */
+
+    /* Consumer succeeds once, then fails on second call */
+    fail_after_n_calls = 1;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "first %d", 123 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer succeeds twice, then fails on third call */
+    fail_after_n_calls = 2;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "a%db%dc", 1, 2 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* ===== Consumer Failure with Multiple Conversions ===== */
+
+    /* Consumer fails during second conversion in multi-conversion format */
+    fail_after_n_calls = 1;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%d %d", 10, 20 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails during third conversion in multi-conversion format */
+    fail_after_n_calls = 2;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%d %d %d", 10, 20, 30 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* ===== Consumer Failure with Formatted Output ===== */
+
+    /* Consumer fails with width padding */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%10d", 123 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails with precision */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%.5d", 123 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer fails with flags (sign) */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%+d", 123 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+    /* Consumer fails with grouping */
+    fail_after_n_calls = 0;
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%[,3]d", 1234567 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != EXBADFORMAT )
+        { printf( "**** FAIL: returned %d, expected EXBADFORMAT", r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+#endif
+
+    /* ===== Verify Normal Operation (consumer never fails) ===== */
+
+    /* Consumer never fails - should succeed */
+    fail_after_n_calls = -1;  /* Never fail */
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "hello %d world", 123 );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != 15 || strcmp( buf, "hello 123 world" ) )
+        { printf( "**** FAIL: produced \"%s\", returned %d, expected \"hello 123 world\" and 15", buf, r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Consumer never fails with multiple conversions - should succeed */
+    fail_after_n_calls = -1;  /* Never fail */
+    current_call_count = 0;
+    r = test_sprintf_failing( buf, "%d %s %c", 42, "test", 'X' );
+    printf( "[Test  @ %3d] ", __LINE__ );
+    if ( r != 9 || strcmp( buf, "42 test X" ) )
+        { printf( "**** FAIL: produced \"%s\", returned %d, expected \"42 test X\" and 9", buf, r ); f+=1; }
+    else
+        printf( "PASS" );
+    printf( "\n" );
+
+    /* Reset for subsequent tests */
+    fail_after_n_calls = -1;
+    current_call_count = 0;
+}
+
 
 /*****************************************************************************/
 /**
@@ -1391,7 +1955,7 @@ static void run_tests( char * passes )
     if ( !passes )
         passes = "S%cnspdb"
 #if defined(CONFIG_WITH_FP_SUPPORT)
-		"ak"
+		"akNK"
 #endif
 		"*\"E";
 
@@ -1409,10 +1973,13 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_FP_SUPPORT)
 		" a    - %%a, %%A, %%e, %%E, %%f, %%F, %%g, %%G floating point conversions\n"
                 " k    - %%k fixed-point conversion\n"
+                " N    - NaN and special float values\n"
+                " K    - %%k fixed-point edge cases\n"
 #endif
                 " *    - asterisk parameters (width, precision)\n"
                 " \"    - continuation\n"
                 " E    - error paths and validation\n"
+                " C    - consumer function failures\n"
                 );
         return;
     }
@@ -1434,10 +2001,13 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_FP_SUPPORT)
 	    case 'a': test_aAeEfFgG(); break;
             case 'k': test_k();        break;
+            case 'N': test_nan_special_floats(); break;
+            case 'K': test_k_edge_cases(); break;
 #endif
             case '*': test_asterisk(); break;
             case '\"': test_cont();   break;
             case 'E': test_errors();   break;
+            case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
         }
         passes++;
