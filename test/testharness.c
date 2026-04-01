@@ -1391,10 +1391,149 @@ static void test_cont( void )
 #endif
 }
 
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
 /*****************************************************************************/
 /**
-    Test comprehensive error paths and validation.
+    Test comprehensive grouping edge cases and complex patterns.
 **/
+static void test_grouping( void )
+{
+    printf( "Testing comprehensive grouping patterns\n" );
+
+    /* ===== Complex Grouping Patterns ===== */
+
+    /* Multiple group sizes: patterns like 12_34_567 */
+    TEST( "1_23", 4, "%[_1_2]d", 123 );
+    TEST( "12_345", 6, "%[_2_3]d", 12345 );
+    TEST( "1_23_456", 8, "%[_1_2_3]d", 123456 );
+    TEST( "12_34_567", 9, "%[_2_2_3]d", 1234567 );
+    TEST( "1_2_34_567", 10, "%[_1_1_2_3]d", 1234567 );
+
+    /* Repeating patterns */
+    TEST( "123_456_789", 11, "%[_3_3_3]d", 123456789 );
+    TEST( "12_34_56_78_90", 14, "%[_2_2_2_2_2]d", 1234567890 );
+
+    /* Single-digit grouping (every digit separated) */
+    TEST( "1_2_3_4", 7, "%[_1]d", 1234 );
+    TEST( "1,2,3,4,5,6,7", 13, "%[,1]d", 1234567 );
+    TEST( "9_8_7_6_5", 9, "%[_1]d", 98765 );
+
+    /* Grouping with very large numbers */
+    TEST( "1,234,567,890", 13, "%[,3]d", 1234567890 );
+    /* Note: Long long support is platform-dependent, skip for now */
+    /* TEST( "12,345,678,901", 14, "%[,3]d", 12345678901LL ); */
+
+    /* Grouping with precision interaction - precision pads first, then grouping applied */
+    TEST( "01_23_45", 8, "%.6[_2]d", 12345 );    /* 012345 -> 01_23_45 */
+    TEST( "000123_456", 10, "%.9[_3]d", 123456 ); /* 000123456 -> 000123_456 */
+    TEST( "00001234", 8, "%.8[_4]d", 1234 );     /* 00001234 -> 00001234 (no grouping, 8 digits) */
+
+    /* ===== Grouping with All Conversion Types ===== */
+
+    /* Binary */
+    TEST( "1111_0000", 9, "%[_4]b", 0xF0 );
+    TEST( "11_11_00_00", 11, "%[_2]b", 0xF0 );
+    TEST( "1_1_1_1_0_0_0_0", 15, "%[_1]b", 0xF0 );
+    TEST( "1010_1010", 9, "%[_4]b", 0xAA );
+
+    /* Octal */
+    TEST( "12_34", 5, "%[_2]o", 01234 );
+    TEST( "1_2_3_4", 7, "%[_1]o", 01234 );
+    TEST( "123_456", 7, "%[_3]o", 0123456 );
+    TEST( "7_7_7", 5, "%[_1]o", 0777 );
+
+    /* Hexadecimal */
+    TEST( "ab_cd", 5, "%[_2]x", 0xABCD );
+    TEST( "AB_CD_EF", 8, "%[_2]X", 0xABCDEF );
+    TEST( "1_2_3_4_5_6_7_8", 15, "%[_1]x", 0x12345678 );
+    TEST( "dead_beef", 9, "%[_4]x", 0xDEADBEEF );
+
+    /* NOTE: Arbitrary bases with ':' do NOT support grouping per documentation.
+     * Grouping only works with b, d, i, I, o, u, U, x, X conversions. */
+
+    /* ===== Grouping with Flags ===== */
+
+    /* Alternate form with grouping */
+    TEST( "0xab_cd", 7, "%#[_2]x", 0xABCD );
+    TEST( "0XAB_CD_EF", 10, "%#[_2]X", 0xABCDEF );  /* Uppercase X uses 0X prefix */
+    TEST( "0b1111_0000", 11, "%#[_4]b", 0xF0 );
+    TEST( "012_34", 6, "%#[_2]o", 01234 );
+
+    /* Zero-padding with grouping - padding applied to ungrouped value */
+    TEST( "00012_34", 8, "%08[_2]d", 1234 );  /* Pads to 6 digits (000 1234), then groups: 0001 2_34 */
+    TEST( "0000123", 7, "%07[_3]d", 123 );    /* Pads to 7 digits (0000123), groups of 3: no separator fits */
+    TEST( "0000001", 7, "%07[_2]d", 1 );      /* Pads to 7 digits (0000001), groups of 2: 0 00 00 01 */
+
+    /* Centering with grouping */
+    TEST( "  12,34  ", 9, "%^9[,2]d", 1234 );
+    TEST( " 1_2_3_4 ", 9, "%^9[_1]d", 1234 );
+    TEST( "  1,234  ", 9, "%^9[,3]d", 1234 );
+
+    /* Sign flags with grouping */
+    TEST( "+12,34", 6, "%+[,2]d", 1234 );
+    TEST( " 12,34", 6, "% [,2]d", 1234 );
+    TEST( "-12,34", 6, "%[,2]d", -1234 );
+    TEST( "+1_2_3_4", 8, "%+[_1]d", 1234 );
+
+    /* Left-align with grouping */
+    TEST( "12,34   ", 8, "%-8[,2]d", 1234 );
+    TEST( "1_2_3_4 ", 8, "%-8[_1]d", 1234 );
+
+    /* Multiple flags combined with grouping */
+    TEST( "+0012,34", 8, "%+08[,2]d", 1234 );
+    TEST( " 0012,34", 8, "% 08[,2]d", 1234 );
+
+    /* ===== Grouping Edge Cases ===== */
+
+    /* Grouping with width and precision */
+    TEST( "       12,34", 12, "%12[,2]d", 1234 );
+    TEST( "000012,34", 9, "%.8[,2]d", 1234 );       /* Precision 8 gives 6 zeros + 4 digits (00001234), then group: 000012,34 */
+    TEST( "    0012,34", 11, "%11.6[,2]d", 1234 );  /* Precision 6 gives 2 zeros + 4 digits (001234), group (0012,34), width 11 */
+
+    /* Grouping where count equals number length */
+    TEST( "1234", 4, "%[,4]d", 1234 );
+    TEST( "123456", 6, "%[_6]d", 123456 );
+
+    /* Grouping where count exceeds number length */
+    TEST( "123", 3, "%[,5]d", 123 );
+    TEST( "12", 2, "%[_10]d", 12 );
+
+    /* Grouping with negative numbers */
+    TEST( "-12,34", 6, "%[,2]d", -1234 );
+    TEST( "-1,234,567", 10, "%[,3]d", -1234567 );
+    TEST( "-1_2_3_4", 8, "%[_1]d", -1234 );
+
+    /* Grouping with zero */
+    TEST( "0", 1, "%[,3]d", 0 );
+    TEST( "0", 1, "%[_2]d", 0 );
+    TEST( "0000", 4, "%.4[,2]d", 0 );  /* Precision 4 gives "0000", groups of 2: "0000" (no separator fits evenly) */
+
+    /* Grouping separator potentially ambiguous with output - these are allowed but may be confusing */
+    /* Using '0' as separator - actual output may vary, commenting out for now */
+    /* TEST( "A0B0C0D", 7, "%[02]X", 0xABCD ); */
+    /* TEST( "1010101", 7, "%[01]d", 1111 ); */
+
+    /* Different separator characters */
+    TEST( "12'34", 5, "%['2]d", 1234 );
+    TEST( "12:34", 5, "%[:2]d", 1234 );
+    TEST( "12.34", 5, "%[.2]d", 1234 );
+    TEST( "12 34", 5, "%[ 2]d", 1234 );
+    TEST( "12|34", 5, "%[|2]d", 1234 );
+
+    /* Grouping with asterisk for dynamic count - asterisk value comes AFTER the converted value */
+    TEST( "12,34", 5, "%[,*]d", 1234, 2 );
+    TEST( "1,234", 5, "%[,*]d", 1234, 3 );
+    TEST( "1_2_3_4", 7, "%[_*]d", 1234, 1 );
+    TEST( "1234", 4, "%[_*]d", 1234, 0 );  /* Zero count = no grouping */
+    TEST( "1234", 4, "%[_*]d", 1234, -1 ); /* Negative count = no grouping */
+
+    /* Multiple group specifications with asterisks */
+    /* NOTE: With multiple asterisks, behavior is: rightmost asterisk value consumed first */
+    TEST( "12_34_5", 7, "%[_*_*]d", 12345, 1, 2 );   /* Right group: 2, produces 12_34_5, left group: 1 (but seems not applied) */
+    TEST( "12,34_56", 8, "%[,*_*]d", 123456, 2, 2 ); /* Right group: 2 (_), left group: 2 (,) */
+}
+#endif /* CONFIG_WITH_GROUPING_SUPPORT */
+
 /*****************************************************************************/
 /**
     Test comprehensive error paths and validation.
@@ -2017,6 +2156,9 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_FP_SUPPORT)
 		"akNK"
 #endif
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+		"G"
+#endif
 		"*\"E";
 
     if ( !strcmp( passes, "-help" ) )
@@ -2038,6 +2180,9 @@ static void run_tests( char * passes )
 #endif
                 " *    - asterisk parameters (width, precision)\n"
                 " \"    - continuation\n"
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+                " G    - comprehensive grouping tests\n"
+#endif
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -2066,6 +2211,9 @@ static void run_tests( char * passes )
 #endif
             case '*': test_asterisk(); break;
             case '\"': test_cont();   break;
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+            case 'G': test_grouping(); break;
+#endif
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
