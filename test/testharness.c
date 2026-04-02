@@ -38,6 +38,8 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
+#include <stdint.h>
+#include <stddef.h>
 
 #if defined(__AVR__)
   #include <avr/io.h>
@@ -1776,6 +1778,269 @@ static void test_centering( void )
 
 /*****************************************************************************/
 /**
+    Test comprehensive length modifiers with all conversions.
+**/
+static void test_length_modifiers( void )
+{
+    printf( "Testing comprehensive length modifiers\n" );
+
+    /* ===== hh (char) Qualifier Tests ===== */
+
+    /* %hhd with values in char range */
+    TEST( "127", 3, "%hhd", 127 );           /* SCHAR_MAX */
+    TEST( "-128", 4, "%hhd", -128 );         /* SCHAR_MIN */
+    TEST( "0", 1, "%hhd", 0 );
+
+    /* %hhd with values beyond char range (should wrap/truncate) */
+    TEST( "0", 1, "%hhd", 256 );             /* 256 % 256 = 0 */
+    TEST( "1", 1, "%hhd", 257 );             /* 257 % 256 = 1 */
+    TEST( "-1", 2, "%hhd", 255 );            /* 255 as signed char = -1 */
+    TEST( "127", 3, "%hhd", 383 );           /* 383 % 256 = 127 */
+    TEST( "-128", 4, "%hhd", 128 );          /* 128 as signed char = -128 */
+
+    /* %hhu with unsigned char values */
+    TEST( "255", 3, "%hhu", 255 );           /* UCHAR_MAX */
+    TEST( "0", 1, "%hhu", 0 );
+    TEST( "128", 3, "%hhu", 128 );
+    TEST( "0", 1, "%hhu", 256 );             /* Wraps to 0 */
+    TEST( "1", 1, "%hhu", 257 );             /* Wraps to 1 */
+    TEST( "255", 3, "%hhu", 511 );           /* 511 % 256 = 255 */
+
+    /* %hhx, %hho, %hhb with char values */
+    TEST( "ff", 2, "%hhx", 255 );
+    TEST( "7f", 2, "%hhx", 127 );
+    TEST( "0", 1, "%hhx", 256 );             /* Wraps */
+    TEST( "377", 3, "%hho", 255 );
+    TEST( "0", 1, "%hho", 256 );
+    TEST( "11111111", 8, "%hhb", 255 );
+    TEST( "0", 1, "%hhb", 256 );
+
+    /* %hhn with wrapping */
+    {
+        signed char c = 0;
+        TEST( "test", 4, "test%hhn", &c );
+        CHECK( c, 4 );
+
+        /* Value > SCHAR_MAX should wrap */
+        TEST( "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "12345678901234567890", 320,
+              "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "123456789012345678901234567890123456789012345678901234567890"
+              "12345678901234567890%hhn", &c );
+        CHECK( c, 64 );  /* 320 % 256 = 64 */
+    }
+
+    /* ===== h (short) Qualifier Tests ===== */
+
+    /* %hd with values in short range */
+    TEST( "32767", 5, "%hd", 32767 );        /* SHRT_MAX */
+    TEST( "-32768", 6, "%hd", -32768 );      /* SHRT_MIN */
+    TEST( "0", 1, "%hd", 0 );
+    TEST( "1234", 4, "%hd", 1234 );
+    TEST( "-1234", 5, "%hd", -1234 );
+
+    /* %hu with unsigned short values */
+    TEST( "65535", 5, "%hu", 65535 );        /* USHRT_MAX */
+    TEST( "0", 1, "%hu", 0 );
+    TEST( "32768", 5, "%hu", 32768 );
+
+    /* %hx, %ho with short values */
+    TEST( "ffff", 4, "%hx", 65535 );
+    TEST( "7fff", 4, "%hx", 32767 );
+    TEST( "177777", 6, "%ho", 65535 );
+
+    /* %hn */
+    {
+        short s = 0;
+        TEST( "hello", 5, "hello%hn", &s );
+        CHECK( s, 5 );
+    }
+
+    /* ===== l (long) Qualifier Tests ===== */
+
+    /* %ld with long values */
+    TEST( "1234567890", 10, "%ld", 1234567890L );
+    TEST( "-1234567890", 11, "%ld", -1234567890L );
+    TEST( "0", 1, "%ld", 0L );
+
+    /* %lu with unsigned long values */
+    TEST( "4294967295", 10, "%lu", 4294967295UL );  /* ULONG_MAX on 32-bit */
+    TEST( "0", 1, "%lu", 0UL );
+
+    /* %lx, %lo with long values */
+    TEST( "499602d2", 8, "%lx", 1234567890L );
+    TEST( "11145401322", 11, "%lo", 1234567890L );
+
+    /* %ln */
+    {
+        long l = 0;
+        TEST( "hello", 5, "hello%ln", &l );
+        CHECK( (int)l, 5 );
+    }
+
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    /* ===== ll (long long) Qualifier Tests ===== */
+
+    /* %lld with long long values */
+    TEST( "123456789123456789", 18, "%lld", 123456789123456789LL );
+    TEST( "-123456789123456789", 19, "%lld", -123456789123456789LL );
+    TEST( "0", 1, "%lld", 0LL );
+
+    /* %llu with unsigned long long values */
+    TEST( "18446744073709551615", 20, "%llu", 18446744073709551615ULL );  /* ULLONG_MAX */
+    TEST( "0", 1, "%llu", 0ULL );
+
+    /* %llx, %llo with long long values */
+    TEST( "1b69b4bacd05f15", 15, "%llx", 123456789123456789LL );
+    TEST( "6664664565464057425", 19, "%llo", 123456789123456789LL );
+
+    /* %lln */
+    {
+        long long ll = 0;
+        TEST( "hello", 5, "hello%lln", &ll );
+        CHECK( (int)ll, 5 );
+    }
+#endif
+
+    /* ===== j (intmax_t) Qualifier Tests ===== */
+
+    /* %jd with intmax_t values */
+    TEST( "1234567890", 10, "%jd", (intmax_t)1234567890 );
+    TEST( "-1234567890", 11, "%jd", (intmax_t)-1234567890 );
+    TEST( "0", 1, "%jd", (intmax_t)0 );
+
+    /* %ju with uintmax_t values */
+    TEST( "1234567890", 10, "%ju", (uintmax_t)1234567890 );
+    TEST( "0", 1, "%ju", (uintmax_t)0 );
+
+    /* %jx, %jo with intmax_t values */
+    TEST( "499602d2", 8, "%jx", (intmax_t)1234567890 );
+    TEST( "11145401322", 11, "%jo", (intmax_t)1234567890 );
+
+    /* %jn */
+    {
+        intmax_t j = 0;
+        TEST( "hello", 5, "hello%jn", &j );
+        CHECK( (int)j, 5 );
+    }
+
+    /* ===== z (size_t) Qualifier Tests ===== */
+
+    /* %zd with size_t values (as signed) */
+    TEST( "1234", 4, "%zd", (size_t)1234 );
+    TEST( "0", 1, "%zd", (size_t)0 );
+
+    /* %zu with size_t values */
+    TEST( "1234567890", 10, "%zu", (size_t)1234567890 );
+    TEST( "0", 1, "%zu", (size_t)0 );
+
+    /* %zx, %zo with size_t values */
+    TEST( "499602d2", 8, "%zx", (size_t)1234567890 );
+    TEST( "11145401322", 11, "%zo", (size_t)1234567890 );
+
+    /* %zn */
+    {
+        size_t z = 0;
+        TEST( "hello", 5, "hello%zn", &z );
+        CHECK( (int)z, 5 );
+    }
+
+    /* ===== t (ptrdiff_t) Qualifier Tests ===== */
+
+    /* %td with ptrdiff_t values */
+    TEST( "1234567890", 10, "%td", (ptrdiff_t)1234567890 );
+    TEST( "-1234567890", 11, "%td", (ptrdiff_t)-1234567890 );
+    TEST( "0", 1, "%td", (ptrdiff_t)0 );
+
+    /* %tu with ptrdiff_t values (as unsigned) */
+    TEST( "1234567890", 10, "%tu", (ptrdiff_t)1234567890 );
+    TEST( "0", 1, "%tu", (ptrdiff_t)0 );
+
+    /* %tx, %to with ptrdiff_t values */
+    TEST( "499602d2", 8, "%tx", (ptrdiff_t)1234567890 );
+    TEST( "11145401322", 11, "%to", (ptrdiff_t)1234567890 );
+
+    /* %tn */
+    {
+        ptrdiff_t t = 0;
+        TEST( "hello", 5, "hello%tn", &t );
+        CHECK( (int)t, 5 );
+    }
+
+#if defined(CONFIG_WITH_FP_SUPPORT) && 0  /* Long double not currently supported */
+    /* ===== L (long double) Qualifier Tests ===== */
+
+    /* %Lf with long double values */
+    TEST( "1.500000", 8, "%Lf", 1.5L );
+    TEST( "-1.500000", 9, "%Lf", -1.5L );
+    TEST( "0.000000", 8, "%Lf", 0.0L );
+
+    /* %Le, %LE with long double values */
+    TEST( "1.500000e+00", 12, "%Le", 1.5L );
+    TEST( "1.500000E+00", 12, "%LE", 1.5L );
+
+    /* %Lg, %LG with long double values */
+    TEST( "1.5", 3, "%Lg", 1.5L );
+    TEST( "1.5", 3, "%LG", 1.5L );
+    TEST( "1.23457e+10", 11, "%Lg", 12345678901.0L );
+#endif
+
+    /* ===== Length Modifier Combinations and Edge Cases ===== */
+
+    /* Length modifiers with flags and precision */
+    TEST( "+127", 4, "%+hhd", 127 );
+    TEST( " 127", 4, "% hhd", 127 );
+    TEST( "00127", 5, "%.5hhd", 127 );
+    TEST( "  127", 5, "%5hhd", 127 );
+    TEST( "127  ", 5, "%-5hhd", 127 );
+
+    TEST( "+32767", 6, "%+hd", 32767 );
+    TEST( "0032767", 7, "%.7hd", 32767 );
+
+    TEST( "+1234567890", 11, "%+ld", 1234567890L );
+    TEST( "001234567890", 12, "%.12ld", 1234567890L );
+
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    TEST( "+123456789123456789", 19, "%+lld", 123456789123456789LL );
+#endif
+
+    /* Length modifiers with alternate form */
+    TEST( "0xff", 4, "%#hhx", 255 );
+    TEST( "0377", 4, "%#hho", 255 );
+    TEST( "0xffff", 6, "%#hx", 65535 );
+    TEST( "0x499602d2", 10, "%#lx", 1234567890L );
+
+    /* Length modifiers with width and zero-padding */
+    TEST( "000127", 6, "%06hhd", 127 );
+    TEST( "032767", 6, "%06hd", 32767 );
+    TEST( "01234567890", 11, "%011ld", 1234567890L );
+
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+    /* Length modifiers with grouping */
+    TEST( "1,234,567,890", 13, "%[,3]ld", 1234567890L );
+    TEST( "12,34,56,78,90", 14, "%[,2]ld", 1234567890L );
+#endif
+
+    /* ===== Invalid Combinations (should work with conversion, modifier ignored) ===== */
+
+    /* Length modifiers are generally ignored for %c, %s, %p, %n handles them */
+    TEST( "A", 1, "%lc", 'A' );     /* l ignored for %c */
+    TEST( "A", 1, "%hc", 'A' );     /* h ignored for %c */
+    TEST( "hello", 5, "%hs", "hello" );  /* h ignored for %s */
+    TEST( "hello", 5, "%ls", "hello" );  /* l ignored for %s */
+
+    /* %n properly handles length modifiers, tested above */
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -2399,7 +2664,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
 #endif
-		"^*\"E";
+		"^L*\"E";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -2424,6 +2689,7 @@ static void run_tests( char * passes )
                 " G    - comprehensive grouping tests\n"
 #endif
                 " ^    - comprehensive centering flag tests\n"
+                " L    - comprehensive length modifier tests\n"
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -2456,6 +2722,7 @@ static void run_tests( char * passes )
             case 'G': test_grouping(); break;
 #endif
             case '^': test_centering(); break;
+            case 'L': test_length_modifiers(); break;
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
