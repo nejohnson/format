@@ -2041,6 +2041,210 @@ static void test_length_modifiers( void )
 
 /*****************************************************************************/
 /**
+    Test comprehensive alternate form (#) flag edge cases.
+**/
+static void test_alternate_form( void )
+{
+    printf( "Testing comprehensive alternate form (#) flag\n" );
+
+    /* ===== Alternate Form with All Bases ===== */
+
+    /* Binary (%#b) - adds 0b prefix */
+    TEST( "0", 1, "%#b", 0 );                /* Zero with # - no prefix (like %#x) */
+    TEST( "0b1", 3, "%#b", 1 );
+    TEST( "0b1010", 6, "%#b", 0xA );
+    TEST( "0b11111111", 10, "%#b", 0xFF );
+    TEST( "0b10101010", 10, "%#b", 0xAA );
+
+    /* Octal (%#o) - adds 0 prefix */
+    TEST( "0", 1, "%#o", 0 );                /* Zero with # - just "0" */
+    TEST( "01", 2, "%#o", 1 );
+    TEST( "012", 3, "%#o", 10 );
+    TEST( "0377", 4, "%#o", 0xFF );
+    TEST( "01234", 5, "%#o", 01234 );
+    TEST( "07777", 5, "%#o", 07777 );
+
+    /* Hexadecimal lowercase (%#x) - adds 0x prefix */
+    TEST( "0", 1, "%#x", 0 );                /* Zero with # - no prefix */
+    TEST( "0x1", 3, "%#x", 1 );
+    TEST( "0xa", 3, "%#x", 10 );
+    TEST( "0xff", 4, "%#x", 0xFF );
+    TEST( "0xabcd", 6, "%#x", 0xABCD );
+    TEST( "0xdeadbeef", 10, "%#x", 0xDEADBEEF );
+
+    /* Hexadecimal uppercase (%#X) - adds 0X prefix (matches case) */
+    TEST( "0", 1, "%#X", 0 );                /* Zero with # - no prefix */
+    TEST( "0X1", 3, "%#X", 1 );              /* Prefix case matches format specifier */
+    TEST( "0XA", 3, "%#X", 10 );
+    TEST( "0XFF", 4, "%#X", 0xFF );
+    TEST( "0XABCD", 6, "%#X", 0xABCD );
+    TEST( "0XDEADBEEF", 10, "%#X", 0xDEADBEEF );
+
+    /* Arbitrary bases with # - NOT SUPPORTED (# flag doesn't work with : notation) */
+    TEST( "10", 2, "%#:5I", 5 );             /* Base 5, # ignored */
+    TEST( "10", 2, "%#:5i", 5 );             /* Base 5, # ignored */
+    TEST( "G", 1, "%#:17I", 16 );            /* Base 17, # ignored */
+    TEST( "g", 1, "%#:17i", 16 );            /* Base 17, # ignored */
+    TEST( "100", 3, "%#:11U", 121 );         /* Base 11, # ignored */
+
+    /* ===== Alternate Form with ! Flag (Force Prefix) ===== */
+
+    /* ! flag forces prefix even for zero */
+    TEST( "0b0", 3, "%!#b", 0 );             /* ! forces 0b prefix for zero */
+    TEST( "0x0", 3, "%!#x", 0 );             /* ! forces 0x prefix for zero */
+    TEST( "0x0", 3, "%!#X", 0 );             /* ! with # produces lowercase prefix */
+
+    /* ! and # together with non-zero values */
+    TEST( "0b1010", 6, "%!#b", 0xA );
+    TEST( "0x1234", 6, "%!#x", 0x1234 );
+    TEST( "0x1234", 6, "%!#X", 0x1234 );     /* ! with # produces lowercase prefix */
+
+    /* ===== Alternate Form with Floating Point ===== */
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    /* %#g, %#G - # doesn't modify %g behavior significantly */
+    TEST( "1.000000e+00", 12, "%#g", 1.0 );  /* # doesn't prevent exponential notation */
+    TEST( "1.000000E+00", 12, "%#G", 1.0 );
+    TEST( "1.2300", 6, "%#.4g", 1.23 );      /* # with explicit precision */
+    TEST( "1.5000", 6, "%#.4g", 1.5 );
+    TEST( "123.000000", 10, "%#.6g", 123.0 ); /* # doesn't prevent exponential notation */
+
+    /* %#.0f - alternate form with zero precision shows decimal point */
+    TEST( "1.", 2, "%#.0f", 1.0 );           /* # adds decimal point even with .0 precision */
+    TEST( "2.", 2, "%#.0f", 1.5 );           /* Rounds to 2, # adds decimal point */
+    TEST( "0.", 2, "%#.0f", 0.0 );
+    TEST( "123.", 4, "%#.0f", 123.0 );
+    TEST( "-1.", 3, "%#.0f", -1.0 );
+
+    /* %#.0e, %#.0E - alternate form with zero precision shows decimal point */
+    TEST( "1.e+00", 6, "%#.0e", 1.0 );       /* # adds decimal point */
+    TEST( "2.e+00", 6, "%#.0e", 1.5 );
+    TEST( "1.E+00", 6, "%#.0E", 1.0 );
+    TEST( "1.e+02", 6, "%#.0e", 123.0 );
+
+    /* %#a - alternate form with hex float */
+    TEST( "0x1.p+0", 7, "%#.0a", 1.0 );      /* # keeps decimal point */
+    TEST( "0x1.8p+0", 8, "%#.1a", 1.5 );
+    TEST( "0x1.0p+0", 8, "%#.1a", 1.0 );     /* # shows trailing zero */
+#endif
+
+    /* ===== Alternate Form with Precision and Width ===== */
+
+    /* # with precision (minimum digits) */
+    TEST( "0b00001010", 10, "%#.8b", 0xA );
+    TEST( "000001234", 9, "%#.8o", 01234 );
+    TEST( "0x0000abcd", 10, "%#.8x", 0xABCD );
+    TEST( "0X0000ABCD", 10, "%#.8X", 0xABCD );
+
+    /* # with width */
+    TEST( "  0b1010", 8, "%#8b", 0xA );
+    TEST( "   01234", 8, "%#8o", 01234 );
+    TEST( "  0xabcd", 8, "%#8x", 0xABCD );
+    TEST( "  0XABCD", 8, "%#8X", 0xABCD );
+
+    /* # with width and precision */
+    TEST( "  0b00001010", 12, "%#12.8b", 0xA );
+    TEST( "   000001234", 12, "%#12.8o", 01234 );
+    TEST( "  0x0000abcd", 12, "%#12.8x", 0xABCD );
+    TEST( "  0X0000ABCD", 12, "%#12.8X", 0xABCD ); /* Prefix case matches */
+
+    /* # with zero-padding (0 flag) */
+    TEST( "0b00001010", 10, "%#010b", 0xA );
+    TEST( "0000001234", 10, "%#010o", 01234 );
+    TEST( "0x0000abcd", 10, "%#010x", 0xABCD );
+    TEST( "0X0000ABCD", 10, "%#010X", 0xABCD );
+
+    /* # with left-align (- flag) */
+    TEST( "0b1010  ", 8, "%#-8b", 0xA );
+    TEST( "01234   ", 8, "%#-8o", 01234 );
+    TEST( "0xabcd  ", 8, "%#-8x", 0xABCD );
+    TEST( "0XABCD  ", 8, "%#-8X", 0xABCD );
+
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+    /* # with grouping */
+    TEST( "0xab_cd", 7, "%#[_2]x", 0xABCD );
+    TEST( "0XAB_CD", 7, "%#[_2]X", 0xABCD );
+    TEST( "0b11_11_00_00", 13, "%#[_2]b", 0xF0 );
+    TEST( "012_34", 6, "%#[_2]o", 01234 );
+#endif
+
+    /* ===== Alternate Form with Invalid Conversions (Should be Ignored) ===== */
+
+    /* # should be ignored for %d (signed decimal) */
+    TEST( "123", 3, "%#d", 123 );
+    TEST( "-123", 4, "%#d", -123 );
+    TEST( "0", 1, "%#d", 0 );
+
+    /* # should be ignored for %i (signed integer) */
+    TEST( "123", 3, "%#i", 123 );
+    TEST( "-123", 4, "%#i", -123 );
+
+    /* # should be ignored for %u (unsigned decimal) */
+    TEST( "123", 3, "%#u", 123 );
+    TEST( "0", 1, "%#u", 0 );
+
+    /* # should be ignored for %c (character) */
+    TEST( "A", 1, "%#c", 'A' );
+    TEST( "x", 1, "%#c", 'x' );
+
+    /* # should be ignored for %s (string) */
+    TEST( "hello", 5, "%#s", "hello" );
+    TEST( "test", 4, "%#s", "test" );
+
+    /* # should be ignored for %p (pointer) */
+    {
+        void *ptr = (void *)0x1234;
+        TEST( "0X0000000000001234", 18, "%#p", ptr );  /* # adds 0X prefix to pointer */
+    }
+
+    /* # should be ignored for %n (count) */
+    {
+        int n = 0;
+        TEST( "test", 4, "test%#n", &n );
+        CHECK( n, 4 );
+    }
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    /* ===== Alternate Form Edge Cases with Floats ===== */
+
+    /* # with various float formats */
+    TEST( "1.500000", 8, "%#f", 1.5 );       /* # doesn't change %f with default precision */
+    TEST( "1.5", 3, "%#.1f", 1.5 );          /* # doesn't add trailing zeros with explicit precision */
+
+    /* # with %e */
+    TEST( "1.500000e+00", 12, "%#e", 1.5 );
+    TEST( "1.5e+00", 7, "%#.1e", 1.5 );
+
+    /* # with very small precision */
+    TEST( "1.", 2, "%#.0f", 1.234 );
+    TEST( "1.e+00", 6, "%#.0e", 1.234 );
+
+    /* # with infinity and NaN (should work normally) */
+    TEST( "inf", 3, "%#f", 1.0/0.0 );
+    TEST( "-inf", 4, "%#f", -1.0/0.0 );
+    {
+        double nan_val = 0.0/0.0;
+        TEST( "-nan", 4, "%#f", nan_val );       /* NaN gets negative sign */
+        TEST( "nan", 3, "%#f", -nan_val );       /* Negated NaN loses sign */
+    }
+#endif
+
+    /* ===== Combining # with Other Flags ===== */
+
+    /* # with + flag (+ doesn't apply to unsigned, so only # effect) */
+    TEST( "0x1234", 6, "%#+x", 0x1234 );     /* + ignored for unsigned */
+    TEST( "0X1234", 6, "%#+X", 0x1234 );     /* + ignored, prefix case matches */
+    TEST( "0b1010", 6, "%#+b", 0xA );        /* + ignored for unsigned */
+
+    /* # with space flag (space doesn't apply to unsigned, so only # effect) */
+    TEST( "0x1234", 6, "%# x", 0x1234 );     /* space ignored for unsigned */
+    TEST( "0b1010", 6, "%# b", 0xA );        /* space ignored for unsigned */
+
+    /* Note: + and space don't apply to unsigned conversions, so effect is # only */
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -2664,7 +2868,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
 #endif
-		"^L*\"E";
+		"^L#*\"E";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -2690,6 +2894,7 @@ static void run_tests( char * passes )
 #endif
                 " ^    - comprehensive centering flag tests\n"
                 " L    - comprehensive length modifier tests\n"
+                " #    - comprehensive alternate form (#) flag tests\n"
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -2723,6 +2928,7 @@ static void run_tests( char * passes )
 #endif
             case '^': test_centering(); break;
             case 'L': test_length_modifiers(); break;
+            case '#': test_alternate_form(); break;
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
