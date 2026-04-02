@@ -1536,6 +1536,246 @@ static void test_grouping( void )
 
 /*****************************************************************************/
 /**
+    Test comprehensive centering flag (^) with all conversion specifiers.
+**/
+static void test_centering( void )
+{
+    printf( "Testing comprehensive centering flag (^)\n" );
+
+    /* ===== Centering with All Conversion Specifiers ===== */
+
+    /* Character (%c) - Note: centering may not be supported for %c */
+    TEST( "A", 1, "%^5c", 'A' );          /* %c may not support centering */
+    TEST( "A", 1, "%^4c", 'A' );
+    TEST( "A", 1, "%^3c", 'A' );
+    TEST( "A", 1, "%^1c", 'A' );          /* Width equals output */
+    TEST( "A", 1, "%^2c", 'A' );          /* Width < output */
+
+    /* String (%s) - already tested in basic suite but add more */
+    TEST( "  hello  ", 9, "%^9s", "hello" );
+    TEST( "  hello ", 8, "%^8s", "hello" );
+    TEST( " hello ", 7, "%^7s", "hello" );
+    TEST( " hello", 6, "%^6s", "hello" );
+    TEST( "hello", 5, "%^5s", "hello" );
+    TEST( "hello", 5, "%^3s", "hello" );  /* Width < length: no truncation */
+
+    /* Decimal (%d, %i) */
+    TEST( "  123  ", 7, "%^7d", 123 );
+    TEST( "  123 ", 6, "%^6d", 123 );
+    TEST( " 123 ", 5, "%^5d", 123 );
+    TEST( " 123", 4, "%^4d", 123 );
+    TEST( "123", 3, "%^3d", 123 );
+    TEST( "  -123  ", 8, "%^8d", -123 );
+    TEST( "  -123 ", 7, "%^7d", -123 );
+
+    /* Unsigned (%u) */
+    TEST( "  456  ", 7, "%^7u", 456 );
+    TEST( "  456 ", 6, "%^6u", 456 );
+    TEST( " 456 ", 5, "%^5u", 456 );
+
+    /* Octal (%o) */
+    TEST( "  755  ", 7, "%^7o", 0755 );
+    TEST( "  755 ", 6, "%^6o", 0755 );
+    TEST( " 755 ", 5, "%^5o", 0755 );
+
+    /* Hex (%x, %X) */
+    TEST( "  abc  ", 7, "%^7x", 0xABC );
+    TEST( "  abc ", 6, "%^6x", 0xABC );
+    TEST( " abc ", 5, "%^5x", 0xABC );
+    TEST( "  ABC  ", 7, "%^7X", 0xABC );
+    TEST( "  ABC ", 6, "%^6X", 0xABC );
+
+    /* Binary (%b) */
+    TEST( "  1010  ", 8, "%^8b", 0xA );
+    TEST( "  1010 ", 7, "%^7b", 0xA );
+    TEST( " 1010 ", 6, "%^6b", 0xA );
+    TEST( " 1010", 5, "%^5b", 0xA );
+
+    /* Pointer (%p) - may not support centering, outputs raw value */
+    {
+        void *ptr = (void *)0x1234;
+        TEST( "0000000000001234", 16, "%^21p", ptr );  /* %p may not support centering */
+        TEST( "0000000000001234", 16, "%^20p", ptr );
+    }
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    /* Floating point (%f) */
+    TEST( "  1.5  ", 7, "%^7.1f", 1.5 );
+    TEST( "  1.5 ", 6, "%^6.1f", 1.5 );
+    TEST( " 1.5 ", 5, "%^5.1f", 1.5 );
+    TEST( " 1.5", 4, "%^4.1f", 1.5 );
+
+    /* Exponential (%e, %E) */
+    TEST( "  1.5e+00  ", 11, "%^11.1e", 1.5 );
+    TEST( "  1.5e+00 ", 10, "%^10.1e", 1.5 );
+    TEST( " 1.5e+00 ", 9, "%^9.1e", 1.5 );
+    TEST( "  1.5E+00  ", 11, "%^11.1E", 1.5 );
+
+    /* General (%g, %G) */
+    TEST( "  1.5  ", 7, "%^7.2g", 1.5 );
+    TEST( "  1.5 ", 6, "%^6.2g", 1.5 );
+    TEST( " 1.5 ", 5, "%^5.2g", 1.5 );
+    TEST( "  1.5  ", 7, "%^7.2G", 1.5 );
+
+    /* Hexadecimal float (%a, %A) */
+    TEST( "  0x1.8p+0  ", 12, "%^12.1a", 1.5 );
+    TEST( "  0x1.8p+0 ", 11, "%^11.1a", 1.5 );
+    TEST( " 0x1.8p+0 ", 10, "%^10.1a", 1.5 );
+
+    /* Fixed-point (%k) */
+    {
+        int val = (1 << 4) | 8;  /* 1.5 in 4.4 format */
+        TEST( "  1.500000 ", 11, "%^11{4.4}k", val );   /* 1.500000 = 8 chars, centered in 11 (2 left, 1 right - left-biased) */
+        TEST( " 1.500000 ", 10, "%^10{4.4}k", val );    /* 1.500000 = 8 chars, centered in 10 (1 left, 1 right) */
+        TEST( " 1.500000", 9, "%^9{4.4}k", val );       /* 1.500000 = 8 chars, centered in 9 (1 left, 0 right - left-biased) */
+    }
+#endif
+
+    /* ===== Centering with Sign Flags ===== */
+
+    /* + flag (always show sign) */
+    TEST( "  +123  ", 8, "%^+8d", 123 );
+    TEST( "  +123 ", 7, "%^+7d", 123 );
+    TEST( " +123 ", 6, "%^+6d", 123 );
+    TEST( "  -123  ", 8, "%^+8d", -123 );
+    TEST( "  -123 ", 7, "%^+7d", -123 );
+
+    /* space flag (space for positive) */
+    TEST( "   123  ", 8, "%^ 8d", 123 );
+    TEST( "   123 ", 7, "%^ 7d", 123 );
+    TEST( "  123 ", 6, "%^ 6d", 123 );
+    TEST( "  -123  ", 8, "%^ 8d", -123 );
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    /* Sign flags with floats */
+    TEST( "  +1.5  ", 8, "%^+8.1f", 1.5 );
+    TEST( "  +1.5 ", 7, "%^+7.1f", 1.5 );
+    TEST( "   1.5  ", 8, "%^ 8.1f", 1.5 );
+    TEST( "   1.5 ", 7, "%^ 7.1f", 1.5 );
+#endif
+
+    /* ===== Centering with Alternate Form (#) ===== */
+
+    /* Hex with alternate form */
+    TEST( "  0xabc  ", 9, "%^#9x", 0xABC );
+    TEST( "  0xabc ", 8, "%^#8x", 0xABC );
+    TEST( " 0xabc ", 7, "%^#7x", 0xABC );
+    TEST( " 0XABC ", 7, "%^#7X", 0xABC );  /* Uppercase X uses 0X prefix */
+
+    /* Octal with alternate form */
+    TEST( "  0755  ", 8, "%^#8o", 0755 );
+    TEST( "  0755 ", 7, "%^#7o", 0755 );
+    TEST( " 0755 ", 6, "%^#6o", 0755 );
+
+    /* Binary with alternate form */
+    TEST( "  0b1010  ", 10, "%^#10b", 0xA );
+    TEST( "  0b1010 ", 9, "%^#9b", 0xA );
+    TEST( " 0b1010 ", 8, "%^#8b", 0xA );
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    /* Float with alternate form (keeps decimal point) */
+    TEST( "  1.  ", 6, "%^#6.0f", 1.0 );
+    TEST( "  1. ", 5, "%^#5.0f", 1.0 );
+    TEST( " 1. ", 4, "%^#4.0f", 1.0 );
+#endif
+
+    /* ===== Centering with Precision ===== */
+
+    /* Integer with precision (minimum digits) */
+    TEST( "  00123  ", 9, "%^9.5d", 123 );
+    TEST( "  00123 ", 8, "%^8.5d", 123 );
+    TEST( " 00123 ", 7, "%^7.5d", 123 );
+    TEST( " 00123", 6, "%^6.5d", 123 );
+    TEST( "00123", 5, "%^5.5d", 123 );
+
+    /* String with precision (max chars) */
+    TEST( "  hel  ", 7, "%^7.3s", "hello" );
+    TEST( "  hel ", 6, "%^6.3s", "hello" );
+    TEST( " hel ", 5, "%^5.3s", "hello" );
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    /* Float with precision */
+    TEST( "  1.50  ", 8, "%^8.2f", 1.5 );
+    TEST( "  1.50 ", 7, "%^7.2f", 1.5 );
+    TEST( " 1.50 ", 6, "%^6.2f", 1.5 );
+#endif
+
+    /* ===== Centering with Zero Padding ===== */
+
+    /* Zero-padding with centering: both flags apply (0 pads, ^ centers the padded value) */
+    TEST( "00123  ", 7, "%^07d", 123 );   /* Zero-pads to width, then centers */
+    TEST( "00123 ", 6, "%^06d", 123 );
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    TEST( "001.5  ", 7, "%^07.1f", 1.5 );
+    TEST( "001.5 ", 6, "%^06.1f", 1.5 );
+#endif
+
+    /* ===== Centering with Left-Align Flag Interaction ===== */
+
+    /* - flag with ^ flag: both applied, centering takes effect */
+    TEST( "  123  ", 7, "%-^7d", 123 );   /* Centering still applies with - flag */
+    TEST( " 123  ", 6, "%-^6d", 123 );    /* Even width: left-biased */
+    TEST( " hello ", 7, "%-^7s", "hello" );
+
+    /* ===== Odd vs Even Width Differences ===== */
+
+    /* Test left-bias for even-width centering (%c doesn't support centering) */
+    TEST( "A", 1, "%^3c", 'A' );        /* %c doesn't support centering */
+    TEST( "A", 1, "%^2c", 'A' );        /* %c doesn't support centering */
+
+    TEST( "  123  ", 7, "%^7d", 123 );  /* Odd width: perfectly centered */
+    TEST( "  123 ", 6, "%^6d", 123 );   /* Even width: left-biased */
+
+    TEST( " hello ", 7, "%^7s", "hello" );  /* Odd width: perfectly centered */
+    TEST( " hello", 6, "%^6s", "hello" );   /* Even width: left-biased */
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    TEST( "  1.5  ", 7, "%^7.1f", 1.5 );    /* Odd width: perfectly centered */
+    TEST( "  1.5 ", 6, "%^6.1f", 1.5 );     /* Even width: left-biased */
+#endif
+
+    /* ===== Centering When Output Equals Width ===== */
+
+    TEST( "A", 1, "%^1c", 'A' );
+    TEST( "123", 3, "%^3d", 123 );
+    TEST( "hello", 5, "%^5s", "hello" );
+
+    /* ===== Centering When Width < Output ===== */
+
+    /* Output should not be truncated, returns actual output length */
+    TEST( "A", 1, "%^1c", 'A' );          /* Width equals output */
+    TEST( "12345", 5, "%^3d", 12345 );    /* Width too small: no padding, returns actual length */
+    TEST( "hello", 5, "%^2s", "hello" );  /* Width too small: no padding */
+
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+    /* ===== Centering with Grouping ===== */
+
+    TEST( "  1,234  ", 9, "%^9[,3]d", 1234 );
+    TEST( "  1,234 ", 8, "%^8[,3]d", 1234 );
+    TEST( " 1,234 ", 7, "%^7[,3]d", 1234 );
+    TEST( " 12,34 ", 7, "%^7[,2]d", 1234 );
+#endif
+
+    /* ===== Centering with Multiple Flags Combined ===== */
+
+    TEST( "  +00123  ", 10, "%^+10.5d", 123 );
+    TEST( "  +00123 ", 9, "%^+9.5d", 123 );
+
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    TEST( "  +1.50  ", 9, "%^+9.2f", 1.5 );
+    TEST( "  +1.50 ", 8, "%^+8.2f", 1.5 );
+
+    TEST( "   1.50  ", 9, "%^ 9.2f", 1.5 );
+    TEST( "   1.50 ", 8, "%^ 8.2f", 1.5 );
+#endif
+
+    TEST( "  0x00abc  ", 11, "%^#11.5x", 0xABC );
+    TEST( "  0x00abc ", 10, "%^#10.5x", 0xABC );
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -2159,7 +2399,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
 #endif
-		"*\"E";
+		"^*\"E";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -2183,6 +2423,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
                 " G    - comprehensive grouping tests\n"
 #endif
+                " ^    - comprehensive centering flag tests\n"
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -2214,6 +2455,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
             case 'G': test_grouping(); break;
 #endif
+            case '^': test_centering(); break;
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
