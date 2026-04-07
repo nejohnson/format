@@ -673,7 +673,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
 
     /* For %g, precision is total significant digits; for %e/%f it's digits after DP */
     if ( really_g )
-        n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec - n_left );
+        n_right = MAX( MIN( sigfig - n_left, pspec->prec - n_left ), 0 );
     else
         n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec );
 
