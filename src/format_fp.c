@@ -619,10 +619,16 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     pfx_n = STRLEN( pfx_s );
 
     /* Perform any rounding on the mantissa prior to formatting */
-    /* For %g/%G, use e-style rounding with prec-1 (since e-style has 1 digit before DP,
-     * but %g prec is total significant digits) */
-    if ( really_g )
+    /* For %g/%G, adjust rounding based on chosen style:
+     * - e-style: use prec-1 (1 digit before DP, prec-1 after for prec total sig figs)
+     * - f-style: convert significant digits to decimal places: precision - 1 - exponent */
+    if ( really_g && !is_f )
         round_mantissa( &mantissa, &exponent, pspec->prec - 1, 0, (int)(pspec->flags & FBANG) );
+    else if ( really_g && is_f )
+    {
+        int dec_places = pspec->prec - 1 - exponent;
+        round_mantissa( &mantissa, &exponent, dec_places, 1, (int)(pspec->flags & FBANG) );
+    }
     else
         round_mantissa( &mantissa, &exponent, pspec->prec, is_f, (int)(pspec->flags & FBANG) );
 
