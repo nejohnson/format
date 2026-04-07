@@ -994,18 +994,18 @@ static void test_aAeEfFgG( void )
 
     /*  If the precision is zero, it is taken as 1.
     */
-    TEST( "1.2", 3, "%.0g", 1.2345 );
+    TEST( "1", 1, "%.0g", 1.2345 );
 
     /*  The style used depends on the value converted; style e (or E) is
         used only if the exponent resulting from such a conversion is less
-        than -4 or greater than or equal to the precision. 
+        than -4 or greater than or equal to the precision.
     */
-    TEST( "1.234500e-05", 12, "%g", 1.2345e-5 );
+    TEST( "1.2345e-05", 10, "%g", 1.2345e-5 );  /* Trailing zeros removed */
     TEST( "0.000123", 8, "%g", 1.2345e-4 );
 
-    TEST( "12.35", 5, "%.2g", 12.345 );
-    TEST( "1.23e+02", 8, "%.2g", 123.45 );
-    TEST( "1.23e+03", 8, "%.2g", 1234.5 );
+    TEST( "12", 2, "%.2g", 12.345 );             /* 2 sig figs */
+    TEST( "1.2e+02", 7, "%.2g", 123.45 );        /* 2 sig figs */
+    TEST( "1.2e+03", 7, "%.2g", 1234.5 );        /* 2 sig figs */
 
     /*  Trailing zeros are removed from the fractional portion of the result
         unless the # flag is specified
@@ -1016,8 +1016,8 @@ static void test_aAeEfFgG( void )
     /*  a decimal point character appears only if it
         is followed by a digit.
     */
-    TEST( "1",    1, "%.1g", 1.01 );
-    TEST( "1.01", 4, "%.2g", 1.01 );
+    TEST( "1", 1, "%.1g", 1.01 );
+    TEST( "1", 1, "%.2g", 1.01 );                /* Rounds to 1 with 2 sig figs */
 
     /* Miscellaneous tests */
     TEST( "123", 3, "%.6g", 123.0 );
@@ -2102,9 +2102,9 @@ static void test_alternate_form( void )
     /* ===== Alternate Form with Floating Point ===== */
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
-    /* %#g, %#G - # doesn't modify %g behavior significantly */
-    TEST( "1.000000e+00", 12, "%#g", 1.0 );  /* # doesn't prevent exponential notation */
-    TEST( "1.000000E+00", 12, "%#G", 1.0 );
+    /* %#g, %#G - # preserves trailing zeros */
+    TEST( "1.000000", 8, "%#g", 1.0 );       /* # keeps trailing zeros, uses f-style */
+    TEST( "1.000000", 8, "%#G", 1.0 );
     TEST( "1.2300", 6, "%#.4g", 1.23 );      /* # with explicit precision */
     TEST( "1.5000", 6, "%#.4g", 1.5 );
     TEST( "123.000000", 10, "%#.6g", 123.0 ); /* # doesn't prevent exponential notation */
@@ -2412,6 +2412,127 @@ static void test_g_completeness( void )
     TEST( "+00123.456", 10, "%+010.6g", 123.456 );
     TEST( "+123.456   ", 11, "%+-11.6g", 123.456 );
     TEST( " 0001e+20", 9, "% 09g", 1e20 );
+
+#endif /* CONFIG_WITH_FP_SUPPORT */
+}
+
+/*****************************************************************************/
+/**
+    Test comprehensive engineering notation and SI format (!flag).
+
+    The '!' flag with %e/%E creates engineering notation (exponent multiple of 3).
+    The '!' flag with %f/%F creates SI format with metric prefixes.
+**/
+static void test_engineering_si( void )
+{
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    printf( "Testing engineering notation and SI format\n" );
+
+    /* ===== Engineering Notation (%!e) ===== */
+
+    /* Basic engineering notation - exponent forced to multiple of 3 */
+    TEST( "1.00e+00", 8, "%!.2e", 1.0 );          /* 1.0 = 1.00e+00 */
+    TEST( "10.00e+00", 9, "%!.2e", 10.0 );        /* 10.0 = 10.00e+00 */
+    TEST( "100.00e+00", 10, "%!.2e", 100.0 );     /* 100 = 100.00e+00 */
+    TEST( "1.00e+03", 8, "%!.2e", 1000.0 );       /* 1000 = 1.00e+03 */
+    TEST( "12.35e+03", 9, "%!.2e", 12345.0 );     /* 12345 = 12.35e+03 (example from doc) */
+
+    /* Negative exponents */
+    TEST( "100.00e-03", 10, "%!.2e", 0.1 );       /* 0.1 = 100.00e-03 */
+    TEST( "10.00e-03", 9, "%!.2e", 0.01 );        /* 0.01 = 10.00e-03 */
+    TEST( "1.00e-03", 8, "%!.2e", 0.001 );        /* 0.001 = 1.00e-03 */
+    TEST( "123.00e-06", 10, "%!.2e", 0.000123 );  /* 0.000123 = 123.00e-06 */
+
+    /* Large exponents */
+    TEST( "1.23e+06", 8, "%!.2e", 1.23e6 );
+    TEST( "456.00e+06", 10, "%!.2e", 456e6 );
+    TEST( "1.00e+09", 8, "%!.2e", 1e9 );
+    TEST( "12.30e+09", 9, "%!.2e", 12.3e9 );
+
+    /* Small exponents */
+    TEST( "1.23e-06", 8, "%!.2e", 1.23e-6 );
+    TEST( "456.00e-09", 10, "%!.2e", 456e-9 );
+    TEST( "1.00e-12", 8, "%!.2e", 1e-12 );
+
+    /* Uppercase E */
+    TEST( "12.35E+03", 9, "%!.2E", 12345.0 );
+    TEST( "1.00E-06", 8, "%!.2E", 1e-6 );
+
+    /* Different precisions */
+    TEST( "12.3e+03", 8, "%!.1e", 12345.0 );      /* 1 decimal place */
+    TEST( "12.345e+03", 10, "%!.3e", 12345.0 );   /* 3 decimal places */
+    TEST( "12.34500e+03", 12, "%!.5e", 12345.0 ); /* 5 decimal places */
+
+    /* Edge case: numbers that don't need adjustment */
+    TEST( "1.23e+03", 8, "%!.2e", 1230.0 );
+    TEST( "9.87e-03", 8, "%!.2e", 0.00987 );
+
+    /* ===== SI Format (%!f) ===== */
+
+    /* Basic SI prefixes - positive */
+    TEST( "1.000 k", 7, "%!.3f", 1000.0 );        /* kilo */
+    TEST( "1.500 k", 7, "%!.3f", 1500.0 );
+    TEST( "12.300 k", 8, "%!.3f", 12300.0 );
+    TEST( "123.000 k", 9, "%!.3f", 123000.0 );
+    TEST( "1.000 M", 7, "%!.3f", 1e6 );           /* Mega */
+    TEST( "1.000 G", 7, "%!.3f", 1e9 );           /* Giga */
+    TEST( "1.000 T", 7, "%!.3f", 1e12 );          /* Tera */
+    TEST( "1.000 P", 7, "%!.3f", 1e15 );          /* Peta */
+    TEST( "1.000 E", 7, "%!.3f", 1e18 );          /* Exa */
+    TEST( "1.000 Z", 7, "%!.3f", 1e21 );          /* Zetta */
+    TEST( "1.000 Y", 7, "%!.3f", 1e24 );          /* Yotta */
+
+    /* Basic SI prefixes - negative (small) */
+    TEST( "1.230 m", 7, "%!.3f", 0.00123 );       /* milli (example from doc) */
+    TEST( "1.000 m", 7, "%!.3f", 0.001 );
+    TEST( "100.000 m", 9, "%!.3f", 0.1 );
+    TEST( "1.000 u", 7, "%!.3f", 1e-6 );          /* micro */
+    TEST( "1.000 n", 7, "%!.3f", 1e-9 );          /* nano */
+    TEST( "1.000 p", 7, "%!.3f", 1e-12 );         /* pico */
+    TEST( "1.000 f", 7, "%!.3f", 1e-15 );         /* femto */
+    TEST( "1.000 a", 7, "%!.3f", 1e-18 );         /* atto */
+    TEST( "1.000 z", 7, "%!.3f", 1e-21 );         /* zepto */
+    TEST( "1.000 y", 7, "%!.3f", 1e-24 );         /* yocto */
+
+    /* No prefix (around 1.0) - no trailing space when no SI suffix */
+    TEST( "1.000", 5, "%!.3f", 1.0 );             /* No SI prefix, no space */
+    TEST( "10.000", 6, "%!.3f", 10.0 );
+    TEST( "100.000", 7, "%!.3f", 100.0 );
+    TEST( "500.000", 7, "%!.3f", 500.0 );
+
+    /* Different precisions */
+    TEST( "1.2 m", 5, "%!.1f", 0.00123 );         /* 1 decimal place */
+    TEST( "1.23 m", 6, "%!.2f", 0.00123 );        /* 2 decimal places */
+    TEST( "1.2300 m", 8, "%!.4f", 0.00123 );      /* 4 decimal places */
+
+    /* Uppercase F (same output as lowercase) */
+    TEST( "1.230 m", 7, "%!.3F", 0.00123 );
+    TEST( "1.000 k", 7, "%!.3F", 1000.0 );
+
+    /* Combined with other flags */
+    TEST( "+1.000 k", 8, "%!+.3f", 1000.0 );      /* + flag */
+    TEST( " 1.000 k", 8, "%! .3f", 1000.0 );      /* space flag */
+    TEST( "-1.000 k", 8, "%!.3f", -1000.0 );      /* negative */
+
+    /* Width and alignment */
+    TEST( "  1.000 k", 9, "%!9.3f", 1000.0 );     /* right-aligned */
+    TEST( "1.000 k  ", 9, "%!-9.3f", 1000.0 );    /* left-aligned */
+
+    /* Zero values - no SI suffix, no trailing space */
+    TEST( "0.000", 5, "%!.3f", 0.0 );
+    TEST( "+0.000", 6, "%!+.3f", 0.0 );
+    TEST( "-0.000", 6, "%!.3f", -0.0 );
+
+    /* Edge cases: values at SI prefix boundaries */
+    TEST( "999.000 m", 9, "%!.3f", 0.999 );       /* Just below 1.0 */
+    TEST( "999.000", 7, "%!.3f", 999.0 );         /* Just below k, no space */
+    TEST( "999.000 k", 9, "%!.3f", 999000.0 );    /* Just below M */
+
+    /* ===== Engineering with g/G ===== */
+
+    /* Engineering notation should also work with %!g */
+    /* Note: %!g is mentioned as being turned off in the code,
+       so these tests might not work as expected */
 
 #endif /* CONFIG_WITH_FP_SUPPORT */
 }
@@ -3036,7 +3157,7 @@ static void run_tests( char * passes )
     if ( !passes )
         passes = "S%cnspdb"
 #if defined(CONFIG_WITH_FP_SUPPORT)
-		"akNKg"
+		"akNKg!"
 #endif
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
@@ -3070,6 +3191,7 @@ static void run_tests( char * passes )
                 " #    - comprehensive alternate form (#) flag tests\n"
 #if defined(CONFIG_WITH_FP_SUPPORT)
                 " g    - comprehensive %%g and %%G conversion tests\n"
+                " !    - comprehensive engineering notation and SI format tests\n"
 #endif
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
@@ -3107,6 +3229,7 @@ static void run_tests( char * passes )
             case '#': test_alternate_form(); break;
 #if defined(CONFIG_WITH_FP_SUPPORT)
             case 'g': test_g_completeness(); break;
+            case '!': test_engineering_si(); break;
 #endif
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
