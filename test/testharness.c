@@ -2685,6 +2685,201 @@ static void test_string_char_edge_cases( void )
 
 /*****************************************************************************/
 /**
+    Test pointer edge cases (P3.2).
+**/
+static void test_pointer_edge_cases( void )
+{
+    int ptr_size = sizeof( void * );
+    printf( "Testing pointer edge cases (P3.2) on platform with %d-byte pointers\n", ptr_size );
+
+    /* ===== Explicit NULL Pointer ===== */
+    void *null_ptr = NULL;
+
+    if ( ptr_size == 2 )
+    {
+        TEST( "0000", 4, "%p", null_ptr );
+        TEST( "0000", 4, "%p", NULL );
+    }
+    else if ( ptr_size == 4 )
+    {
+        TEST( "00000000", 8, "%p", null_ptr );
+        TEST( "00000000", 8, "%p", NULL );
+    }
+    else if ( ptr_size == 8 )
+    {
+        TEST( "0000000000000000", 16, "%p", null_ptr );
+        TEST( "0000000000000000", 16, "%p", NULL );
+    }
+
+    /* ===== Pointer Boundaries ===== */
+
+    void *ptr_min = (void *)0x0;
+    void *ptr_max = (void *)(~(uintptr_t)0);
+    void *ptr_mid;
+
+    if ( ptr_size == 2 )
+    {
+        ptr_mid = (void *)0x8000;
+
+        TEST( "0000", 4, "%p", ptr_min );
+        TEST( "FFFF", 4, "%p", ptr_max );
+        TEST( "8000", 4, "%p", ptr_mid );
+
+        /* Specific boundary values */
+        TEST( "0001", 4, "%p", (void *)0x0001 );
+        TEST( "FFFE", 4, "%p", (void *)0xFFFE );
+        TEST( "7FFF", 4, "%p", (void *)0x7FFF );
+    }
+    else if ( ptr_size == 4 )
+    {
+        ptr_mid = (void *)0x80000000UL;
+
+        TEST( "00000000", 8, "%p", ptr_min );
+        TEST( "FFFFFFFF", 8, "%p", ptr_max );
+        TEST( "80000000", 8, "%p", ptr_mid );
+
+        /* Specific boundary values */
+        TEST( "00000001", 8, "%p", (void *)0x00000001UL );
+        TEST( "FFFFFFFE", 8, "%p", (void *)0xFFFFFFFEUL );
+        TEST( "7FFFFFFF", 8, "%p", (void *)0x7FFFFFFFUL );
+    }
+    else if ( ptr_size == 8 )
+    {
+        ptr_mid = (void *)0x8000000000000000ULL;
+
+        TEST( "0000000000000000", 16, "%p", ptr_min );
+        TEST( "FFFFFFFFFFFFFFFF", 16, "%p", ptr_max );
+        TEST( "8000000000000000", 16, "%p", ptr_mid );
+
+        /* Specific boundary values */
+        TEST( "0000000000000001", 16, "%p", (void *)0x0000000000000001ULL );
+        TEST( "FFFFFFFFFFFFFFFE", 16, "%p", (void *)0xFFFFFFFFFFFFFFFEULL );
+        TEST( "7FFFFFFFFFFFFFFF", 16, "%p", (void *)0x7FFFFFFFFFFFFFFFULL );
+    }
+
+    /* ===== Individual Flag Tests (all should be ignored) ===== */
+
+    void *test_ptr = (void *)0x1234;
+
+    if ( ptr_size == 2 )
+    {
+        TEST( "1234", 4, "%-p", test_ptr );    /* left justify */
+        TEST( "1234", 4, "%+p", test_ptr );    /* show sign */
+        TEST( "1234", 4, "% p", test_ptr );    /* space */
+        TEST( "0X1234", 6, "%#p", test_ptr );  /* alternate form adds 0X */
+        TEST( "1234", 4, "%0p", test_ptr );    /* zero pad */
+        TEST( "1234", 4, "%!p", test_ptr );    /* bang flag */
+        TEST( "1234", 4, "%^p", test_ptr );    /* center flag */
+    }
+    else if ( ptr_size == 4 )
+    {
+        TEST( "00001234", 8, "%-p", test_ptr );
+        TEST( "00001234", 8, "%+p", test_ptr );
+        TEST( "00001234", 8, "% p", test_ptr );
+        TEST( "0X00001234", 10, "%#p", test_ptr );  /* alternate form adds 0X */
+        TEST( "00001234", 8, "%0p", test_ptr );
+        TEST( "00001234", 8, "%!p", test_ptr );
+        TEST( "00001234", 8, "%^p", test_ptr );
+    }
+    else if ( ptr_size == 8 )
+    {
+        TEST( "0000000000001234", 16, "%-p", test_ptr );
+        TEST( "0000000000001234", 16, "%+p", test_ptr );
+        TEST( "0000000000001234", 16, "% p", test_ptr );
+        TEST( "0X0000000000001234", 18, "%#p", test_ptr );  /* # flag adds 0X prefix */
+        TEST( "0000000000001234", 16, "%0p", test_ptr );
+        TEST( "0000000000001234", 16, "%!p", test_ptr );
+        TEST( "0000000000001234", 16, "%^p", test_ptr );
+    }
+
+    /* ===== Width and Precision Tests (should be ignored) ===== */
+
+    if ( ptr_size == 2 )
+    {
+        TEST( "1234", 4, "%20p", test_ptr );    /* width */
+        TEST( "1234", 4, "%.20p", test_ptr );   /* precision */
+        TEST( "1234", 4, "%20.20p", test_ptr ); /* both */
+        TEST( "1234", 4, "%*p", 50, test_ptr ); /* variable width */
+        TEST( "1234", 4, "%.*p", 50, test_ptr );/* variable precision */
+    }
+    else if ( ptr_size == 4 )
+    {
+        TEST( "00001234", 8, "%20p", test_ptr );
+        TEST( "00001234", 8, "%.20p", test_ptr );
+        TEST( "00001234", 8, "%20.20p", test_ptr );
+        TEST( "00001234", 8, "%*p", 50, test_ptr );
+        TEST( "00001234", 8, "%.*p", 50, test_ptr );
+    }
+    else if ( ptr_size == 8 )
+    {
+        TEST( "0000000000001234", 16, "%20p", test_ptr );
+        TEST( "0000000000001234", 16, "%.20p", test_ptr );
+        TEST( "0000000000001234", 16, "%20.20p", test_ptr );
+        TEST( "0000000000001234", 16, "%*p", 50, test_ptr );
+        TEST( "0000000000001234", 16, "%.*p", 50, test_ptr );
+    }
+
+    /* ===== Pointer to Pointer ===== */
+
+    int value = 42;
+    int *ptr1 = &value;
+    int **ptr2 = &ptr1;
+    void ***ptr3 = (void ***)&ptr2;
+
+    /* Just verify they format without crashing - exact values are platform-specific */
+    char ptrbuf[100];
+    int len;
+
+    len = test_sprintf( ptrbuf, "%p", (void *)ptr1 );
+    if ( len < 0 ) { printf( "FAIL: pointer to int\n" ); f |= 1; }
+
+    len = test_sprintf( ptrbuf, "%p", (void *)ptr2 );
+    if ( len < 0 ) { printf( "FAIL: pointer to pointer to int\n" ); f |= 1; }
+
+    len = test_sprintf( ptrbuf, "%p", (void *)ptr3 );
+    if ( len < 0 ) { printf( "FAIL: pointer to pointer to pointer\n" ); f |= 1; }
+
+    /* ===== Function Pointers ===== */
+
+    void (*func_ptr)(void) = (void (*)(void))&test_pointer_edge_cases;
+
+    len = test_sprintf( ptrbuf, "%p", (void *)func_ptr );
+    if ( len < 0 ) { printf( "FAIL: function pointer\n" ); f |= 1; }
+
+    /* ===== Pointer Arithmetic Edge Cases ===== */
+
+    char array[100];
+    char *arr_start = array;
+    char *arr_end = array + 99;
+    char *arr_mid = array + 50;
+
+    len = test_sprintf( ptrbuf, "%p", (void *)arr_start );
+    if ( len < 0 ) { printf( "FAIL: array start pointer\n" ); f |= 1; }
+
+    len = test_sprintf( ptrbuf, "%p", (void *)arr_end );
+    if ( len < 0 ) { printf( "FAIL: array end pointer\n" ); f |= 1; }
+
+    len = test_sprintf( ptrbuf, "%p", (void *)arr_mid );
+    if ( len < 0 ) { printf( "FAIL: array mid pointer\n" ); f |= 1; }
+
+    /* ===== Multiple Pointers in One Format String ===== */
+
+    if ( ptr_size == 8 )
+    {
+        TEST( "0000000000000000 0000000000001234 FFFFFFFFFFFFFFFF", 50, "%p %p %p", ptr_min, test_ptr, ptr_max );
+    }
+    else if ( ptr_size == 4 )
+    {
+        TEST( "00000000 00001234 FFFFFFFF", 26, "%p %p %p", ptr_min, test_ptr, ptr_max );
+    }
+    else if ( ptr_size == 2 )
+    {
+        TEST( "0000 1234 FFFF", 14, "%p %p %p", ptr_min, test_ptr, ptr_max );
+    }
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -3308,7 +3503,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
 #endif
-		"^L#3*\"E";
+		"^L#34*\"E";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -3340,6 +3535,7 @@ static void run_tests( char * passes )
                 " !    - comprehensive engineering notation and SI format tests\n"
 #endif
                 " 3    - string and character edge cases (P3.1)\n"
+                " 4    - pointer edge cases (P3.2)\n"
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -3379,6 +3575,7 @@ static void run_tests( char * passes )
             case '!': test_engineering_si(); break;
 #endif
             case '3': test_string_char_edge_cases(); break;
+            case '4': test_pointer_edge_cases(); break;
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
