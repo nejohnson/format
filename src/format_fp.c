@@ -577,6 +577,10 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     DEBUG_LOG( "exponent: %d\n", exponent );
     /************************************************************************/
 
+    /* Apply default precision */
+    if ( pspec->prec < 0 )
+        pspec->prec = 6;
+
     /* "g,G   ... style e (or E) is used only if the exponent resulting from
      *        such a conversion is less than -4 or greater than or equal to the
      *        precision."
@@ -601,11 +605,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     }
 
     if ( code == 'f' || code == 'F' )
-        is_f = 1;   
-
-    /* Apply default precision */
-    if ( pspec->prec < 0 )
-        pspec->prec = 6;
+        is_f = 1;
 
     /* Generate the prefix, if any */
     if ( sign )
@@ -619,7 +619,12 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     pfx_n = STRLEN( pfx_s );
 
     /* Perform any rounding on the mantissa prior to formatting */
-    round_mantissa( &mantissa, &exponent, pspec->prec, is_f, (int)(pspec->flags & FBANG) );
+    /* For %g/%G, use e-style rounding with prec-1 (since e-style has 1 digit before DP,
+     * but %g prec is total significant digits) */
+    if ( really_g )
+        round_mantissa( &mantissa, &exponent, pspec->prec - 1, 0, (int)(pspec->flags & FBANG) );
+    else
+        round_mantissa( &mantissa, &exponent, pspec->prec, is_f, (int)(pspec->flags & FBANG) );
 
     /* Trim trailing zeros from mantissa and compute no. of sig.figures */
     if ( mantissa )
@@ -666,10 +671,14 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         }
     }
 
-    n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec );
+    /* For %g, precision is total significant digits; for %e/%f it's digits after DP */
+    if ( really_g )
+        n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec - n_left );
+    else
+        n_right = MIN( MAX( sigfig - n_left, 0 ), pspec->prec );
 
-    /* The g-as-f conversion strips out additional digits */
-    if ( is_f && really_g )
+    /* The g/G conversion strips out additional digits and trailing zeros */
+    if ( really_g )
     {
         DEC_MANT_REG_TYPE  m = mantissa;
 

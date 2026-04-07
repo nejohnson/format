@@ -2245,6 +2245,178 @@ static void test_alternate_form( void )
 
 /*****************************************************************************/
 /**
+    Test comprehensive %g and %G conversion completeness.
+
+    Tests correct C spec behavior: "The double argument is converted in style f
+    or e (or F or E for G conversions). The precision specifies the number of
+    significant digits. If the precision is missing, 6 digits are given; if the
+    precision is zero, it is treated as 1. Style e is used if the exponent from
+    its conversion is less than -4 or greater than or equal to the precision.
+    Trailing zeros are removed from the fractional part of the result; a decimal
+    point appears only if it is followed by at least one digit."
+**/
+static void test_g_completeness( void )
+{
+#if defined(CONFIG_WITH_FP_SUPPORT)
+    printf( "Testing comprehensive %%g and %%G conversions\n" );
+
+    /* ===== Basic %g Behavior - Default Precision ===== */
+
+    /* Default precision is 6 significant digits. For values where exponent is
+       between -4 and 5 (inclusive), use f-style. Remove trailing zeros. */
+    TEST( "1", 1, "%g", 1.0 );                /* exp=0, use f, "1.00000" -> "1" */
+    TEST( "1.5", 3, "%g", 1.5 );              /* exp=0, use f, "1.50000" -> "1.5" */
+    TEST( "1.25", 4, "%g", 1.25 );            /* exp=0, use f, "1.25000" -> "1.25" */
+    TEST( "0.5", 3, "%g", 0.5 );              /* exp=-1, use f */
+    TEST( "0.125", 5, "%g", 0.125 );          /* exp=-1, use f */
+    TEST( "123.456", 7, "%g", 123.456 );      /* exp=2, use f */
+    TEST( "99999.9", 7, "%g", 99999.9 );      /* exp=4, use f */
+    TEST( "10000", 5, "%g", 10000.0 );        /* exp=4, use f, remove trailing zeros */
+    TEST( "12345", 5, "%g", 12345.0 );        /* exp=4, use f */
+    TEST( "123456", 6, "%g", 123456.0 );      /* exp=5, use f (5 < 6) */
+
+    /* Exponent threshold: exp >= 6 uses e-style */
+    TEST( "1e+06", 5, "%g", 1000000.0 );      /* exp=6, 6>=6, use e */
+    TEST( "1.23456e+06", 11, "%g", 1234560.0 ); /* exp=6, use e */
+    TEST( "1e+10", 5, "%g", 1e10 );           /* exp=10, use e */
+    TEST( "1e+20", 5, "%g", 1e20 );           /* exp=20, use e */
+
+    /* Negative exponent threshold: exp < -4 uses e-style */
+    TEST( "0.001", 5, "%g", 0.001 );          /* exp=-3, use f */
+    TEST( "0.0001", 6, "%g", 0.0001 );        /* exp=-4, use f */
+    TEST( "1e-05", 5, "%g", 0.00001 );        /* exp=-5, -5<-4, use e */
+    TEST( "1e-10", 5, "%g", 1e-10 );          /* exp=-10, use e */
+    TEST( "1.23456e-05", 11, "%g", 0.00001234560 ); /* exp=-5, use e */
+
+    /* ===== %g vs %G - Case of Exponent ===== */
+
+    TEST( "1e+20", 5, "%g", 1e20 );           /* lowercase e */
+    TEST( "1E+20", 5, "%G", 1e20 );           /* uppercase E */
+    TEST( "1e-10", 5, "%g", 1e-10 );
+    TEST( "1E-10", 5, "%G", 1e-10 );
+
+    /* ===== Explicit Precision - Significant Digits ===== */
+
+    /* %.1g - 1 significant digit */
+    TEST( "1", 1, "%.1g", 1.0 );              /* exp=0, 0<1, use f, "1." -> "1" */
+    TEST( "1e+02", 5, "%.1g", 123.456 );      /* exp=2, 2>=1, use e */
+    TEST( "9e+01", 5, "%.1g", 90.0 );         /* exp=1, 1>=1, use e */
+    TEST( "1e+01", 5, "%.1g", 10.0 );         /* exp=1, 1>=1, use e */
+    TEST( "2", 1, "%.1g", 1.9 );              /* exp=0, use f, rounds to 2 */
+
+    /* %.2g - 2 significant digits */
+    TEST( "1.5", 3, "%.2g", 1.5 );            /* exp=0, 0<2, use f */
+    TEST( "1.2", 3, "%.2g", 1.23 );           /* exp=0, use f, round to 2 sig figs */
+    TEST( "10", 2, "%.2g", 10.0 );            /* exp=1, use f */
+    TEST( "12", 2, "%.2g", 12.0 );            /* exp=1, use f */
+    TEST( "1.2e+02", 7, "%.2g", 123.456 );    /* exp=2, 2>=2, use e */
+    TEST( "99", 2, "%.2g", 99.0 );            /* exp=1, use f */
+
+    /* %.3g - 3 significant digits */
+    TEST( "123", 3, "%.3g", 123.0 );          /* exp=2, 2<3, use f */
+    TEST( "123", 3, "%.3g", 123.456 );        /* exp=2, use f, round to 3 sig figs */
+    TEST( "1e+03", 5, "%.3g", 1000.0 );       /* exp=3, 3>=3, use e */
+    TEST( "999", 3, "%.3g", 999.0 );          /* exp=2, use f */
+    TEST( "0.001", 5, "%.3g", 0.001 );        /* exp=-3, use f */
+    TEST( "0.000123", 8, "%.3g", 0.0001234 ); /* exp=-4, use f, 3 sig figs */
+    TEST( "1e-05", 5, "%.3g", 0.00001 );      /* exp=-5, -5<-4, use e */
+
+    /* Precision .0 is treated as 1 */
+    TEST( "1", 1, "%.0g", 1.0 );              /* Same as %.1g */
+    TEST( "1e+02", 5, "%.0g", 123.456 );      /* Same as %.1g */
+    TEST( "2", 1, "%.0g", 1.5 );              /* Rounds */
+
+    /* ===== Trailing Zero Removal ===== */
+
+    /* f-style: trailing zeros after decimal point removed */
+    TEST( "1.5", 3, "%g", 1.5 );              /* Not "1.500000" */
+    TEST( "123", 3, "%.4g", 123.0 );          /* Not "123.0" */
+    TEST( "1", 1, "%.4g", 1.0 );              /* Not "1.000" */
+
+    /* e-style: trailing zeros in mantissa removed */
+    TEST( "1e+20", 5, "%g", 1e20 );           /* Not "1.00000e+20" */
+    TEST( "1.5e+20", 7, "%g", 1.5e20 );       /* Not "1.50000e+20" */
+
+    /* Decimal point removed if no digits follow */
+    TEST( "1", 1, "%.1g", 1.0 );              /* Not "1." */
+    TEST( "10", 2, "%.2g", 10.0 );            /* Not "10." */
+
+    /* ===== Sign Handling ===== */
+
+    TEST( "123.456", 7, "%g", 123.456 );
+    TEST( "+123.456", 8, "%+g", 123.456 );
+    TEST( " 123.456", 8, "% g", 123.456 );
+    TEST( "-123.456", 8, "%g", -123.456 );
+    TEST( "-123.456", 8, "%+g", -123.456 );
+    TEST( "-123.456", 8, "% g", -123.456 );
+
+    /* Zero */
+    TEST( "0", 1, "%g", 0.0 );
+    TEST( "+0", 2, "%+g", 0.0 );
+    TEST( " 0", 2, "% g", 0.0 );
+    TEST( "-0", 2, "%g", -0.0 );
+
+    /* ===== Width and Alignment ===== */
+
+    /* Right-aligned (default) */
+    TEST( " 123.456", 8, "%8g", 123.456 );
+    TEST( "     1e+20", 10, "%10g", 1e20 );
+
+    /* Left-aligned */
+    TEST( "123.456 ", 8, "%-8g", 123.456 );
+    TEST( "1e+20     ", 10, "%-10g", 1e20 );
+
+    /* Zero-padded */
+    TEST( "00123.456", 9, "%09g", 123.456 );
+    TEST( "+0123.456", 9, "%+09g", 123.456 );
+    TEST( "-0123.456", 9, "%09g", -123.456 );
+
+    /* ===== Width + Precision ===== */
+
+    TEST( "     123", 8, "%8.3g", 123.456 );
+    TEST( "  1.2e+02", 9, "%9.2g", 123.456 );
+    TEST( "       1", 8, "%8.1g", 1.234 );
+
+    /* ===== Edge Cases ===== */
+
+    /* Very large exponents */
+    TEST( "1e+50", 5, "%g", 1e50 );
+    TEST( "1e+100", 6, "%g", 1e100 );
+
+    /* Very small exponents */
+    TEST( "1e-50", 5, "%g", 1e-50 );
+    TEST( "1e-100", 6, "%g", 1e-100 );
+
+    /* Values at boundaries */
+    TEST( "99999.9", 7, "%g", 99999.9 );      /* exp=4, uses f */
+    TEST( "1e+05", 5, "%g", 100000.0 );       /* exp=5, uses f */
+    TEST( "999999", 6, "%g", 999999.0 );      /* exp=5, uses f, 6 sig figs */
+    TEST( "1e+06", 5, "%g", 1000000.0 );      /* exp=6, 6>=6, uses e */
+
+    /* Precision boundary testing */
+    TEST( "99", 2, "%.2g", 99.0 );            /* exp=1, uses f */
+    TEST( "1e+02", 5, "%.2g", 100.0 );        /* exp=2, 2>=2, uses e */
+    TEST( "999", 3, "%.3g", 999.0 );          /* exp=2, uses f */
+    TEST( "1e+03", 5, "%.3g", 1000.0 );       /* exp=3, 3>=3, uses e */
+
+    /* ===== Rounding ===== */
+
+    TEST( "1.2", 3, "%.2g", 1.23 );           /* Round to 2 sig figs */
+    TEST( "1.3", 3, "%.2g", 1.25 );           /* Round up */
+    TEST( "100", 3, "%.2g", 99.5 );           /* Rounds to 100, 2 sig figs */
+    TEST( "10", 2, "%.1g", 9.5 );             /* Rounds to 10 */
+
+    /* ===== Combined Flags ===== */
+
+    TEST( "+00123.456", 10, "%+010.6g", 123.456 );
+    TEST( "+123.456   ", 11, "%+-11.6g", 123.456 );
+    TEST( " 0001e+20", 9, "% 09g", 1e20 );
+
+#endif /* CONFIG_WITH_FP_SUPPORT */
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -2863,7 +3035,7 @@ static void run_tests( char * passes )
     if ( !passes )
         passes = "S%cnspdb"
 #if defined(CONFIG_WITH_FP_SUPPORT)
-		"akNK"
+		"akNKg"
 #endif
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
@@ -2895,6 +3067,9 @@ static void run_tests( char * passes )
                 " ^    - comprehensive centering flag tests\n"
                 " L    - comprehensive length modifier tests\n"
                 " #    - comprehensive alternate form (#) flag tests\n"
+#if defined(CONFIG_WITH_FP_SUPPORT)
+                " g    - comprehensive %%g and %%G conversion tests\n"
+#endif
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -2929,6 +3104,9 @@ static void run_tests( char * passes )
             case '^': test_centering(); break;
             case 'L': test_length_modifiers(); break;
             case '#': test_alternate_form(); break;
+#if defined(CONFIG_WITH_FP_SUPPORT)
+            case 'g': test_g_completeness(); break;
+#endif
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
