@@ -2539,6 +2539,152 @@ static void test_engineering_si( void )
 
 /*****************************************************************************/
 /**
+    Test string and character edge cases (P3.1).
+**/
+static void test_string_char_edge_cases( void )
+{
+    printf( "Testing string and character edge cases (P3.1)\n" );
+
+    /* ===== Very Long Strings (>1000 chars) ===== */
+
+    /* 1200 character string */
+    char long_str[1201];
+    int i;
+    for ( i = 0; i < 1200; i++ )
+        long_str[i] = 'A' + (i % 26);
+    long_str[1200] = '\0';
+
+    /* Test basic long string */
+    TEST( long_str, 1200, "%s", long_str );
+
+    /* Test long string with precision */
+    TEST( "ABCDEFGHIJ", 10, "%.10s", long_str );
+
+    /* Test with max width (MAXWIDTH=500) - string shorter than width gets padded */
+    char expected_padded500[501];
+    memset( expected_padded500, ' ', 495 );
+    memcpy( expected_padded500 + 495, "hello", 5 );
+    expected_padded500[500] = '\0';
+    TEST( expected_padded500, 500, "%500s", "hello" );
+
+    /* Long string with width outputs full string (no truncation) */
+    TEST( long_str, 1200, "%500s", long_str );
+
+    /* ===== String with Precision Exactly Matching Length ===== */
+
+    TEST( "hello", 5, "%.5s", "hello" );      /* exact match */
+    TEST( "hello", 5, "%.5s", "hello world" ); /* truncated */
+    TEST( "a", 1, "%.1s", "a" );               /* single char exact */
+    TEST( "", 0, "%.0s", "anything" );         /* zero precision */
+
+    /* Exact match with width */
+    TEST( "     hello", 10, "%10.5s", "hello world" );
+    TEST( "hello     ", 10, "%-10.5s", "hello world" );
+
+    /* ===== %C with Non-ASCII Values (>127) ===== */
+
+    TEST( "\x80", 1, "%.C\x80", UNUSED );      /* 128 */
+    TEST( "\xFF", 1, "%.C\xFF", UNUSED );      /* 255 */
+    TEST( "\x7F", 1, "%.C\x7F", UNUSED );      /* 127 (DEL) */
+    TEST( "\xA0", 1, "%.C\xA0", UNUSED );      /* 160 (nbsp) */
+
+    /* Repetition with non-ASCII */
+    TEST( "\x80\x80\x80", 3, "%.3C\x80", UNUSED );
+    TEST( "\xFF\xFF\xFF\xFF\xFF", 5, "%.5C\xFF", UNUSED );
+
+    /* ===== %c with Special Values ===== */
+
+    TEST( "\0", 1, "%c", 0 );                  /* NUL character */
+    TEST( "\xFF", 1, "%c", 255 );              /* Max unsigned char */
+    TEST( "\xFF", 1, "%c", -1 );               /* EOF / -1 */
+    TEST( "\x01", 1, "%c", 1 );                /* SOH */
+    TEST( "\x7F", 1, "%c", 127 );              /* DEL */
+    TEST( "\x80", 1, "%c", 128 );              /* High bit set */
+
+    /* Repetition with special values */
+    TEST( "\0\0\0", 3, "%.3c", 0 );
+    TEST( "\xFF\xFF\xFF\xFF", 4, "%.4c", 255 );
+
+    /* ===== Strings with All Escape Sequences ===== */
+
+    /* All standard escape sequences */
+    char all_escapes[] = "\a\b\f\n\r\t\v\'\"\\\?";
+    TEST( all_escapes, 11, "%s", all_escapes );
+
+    /* Octal and hex escapes (without leading NUL) */
+    char octal_hex[] = "\1\7\10\77\100\377\x01\xFF";
+    TEST( octal_hex, 8, "%s", octal_hex );
+
+    /* Mix of escapes and regular chars */
+    TEST( "Hello\nWorld\t!", 13, "%s", "Hello\nWorld\t!" );
+
+    /* Embedded NUL terminates string (standard %s behavior) */
+    TEST( "a", 1, "%s", "a\0b" );  /* %s stops at NUL */
+
+    /* ===== Maximum Width and Precision (MAXWIDTH=500, MAXPREC=500) ===== */
+
+    /* Create 600 char string to test with */
+    char str600[601];
+    for ( i = 0; i < 600; i++ )
+        str600[i] = '0' + (i % 10);
+    str600[600] = '\0';
+
+    /* MAXPREC = 500: truncate to 500 chars */
+    char expected500[501];
+    memcpy( expected500, str600, 500 );
+    expected500[500] = '\0';
+    TEST( expected500, 500, "%.500s", str600 );
+
+    /* MAXWIDTH = 500: pad to 500 chars */
+    char expected_padded[501];
+    memset( expected_padded, ' ', 495 );
+    memcpy( expected_padded + 495, "hello", 5 );
+    expected_padded[500] = '\0';
+    TEST( expected_padded, 500, "%500s", "hello" );
+
+    /* Both MAXWIDTH and MAXPREC at 500 */
+    TEST( expected500, 500, "%500.500s", str600 );
+
+    /* ===== Repetition with %C at Boundaries ===== */
+
+    /* %.80C should work in all variants */
+    char expected80[81];
+    memset( expected80, 'X', 80 );
+    expected80[80] = '\0';
+    TEST( expected80, 80, "%.80CX", UNUSED );
+
+#if !defined(CONFIG_TINYFORMAT) && !defined(CONFIG_MICROFORMAT)
+    /* %.81C should work in format.c (no 80-char limit) */
+    char expected81[82];
+    memset( expected81, 'Y', 81 );
+    expected81[81] = '\0';
+    TEST( expected81, 81, "%.81CY", UNUSED );
+
+    /* %.100C should work in format.c */
+    char expected100[101];
+    memset( expected100, 'Z', 100 );
+    expected100[100] = '\0';
+    TEST( expected100, 100, "%.100CZ", UNUSED );
+#endif
+
+    /* ===== Edge Cases with Width and Precision ===== */
+
+    /* Very long strings with centering */
+    TEST( "  hello  ", 9, "%^9s", "hello" );
+    TEST( "     hello     ", 15, "%^15s", "hello" );
+
+    /* Precision limits display of long string */
+    TEST( "012345678", 9, "%.9s", str600 );
+    TEST( "     01234", 10, "%10.5s", str600 );
+
+    /* Zero width and precision edge cases */
+    TEST( "hello", 5, "%0s", "hello" );       /* 0 width ignored */
+    TEST( "", 0, "%.0s", "hello" );           /* 0 precision = empty */
+    TEST( "     ", 5, "%5.0s", "hello" );     /* width with 0 precision */
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -3162,7 +3308,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
 #endif
-		"^L#*\"E";
+		"^L#3*\"E";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -3193,6 +3339,7 @@ static void run_tests( char * passes )
                 " g    - comprehensive %%g and %%G conversion tests\n"
                 " !    - comprehensive engineering notation and SI format tests\n"
 #endif
+                " 3    - string and character edge cases (P3.1)\n"
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -3231,6 +3378,7 @@ static void run_tests( char * passes )
             case 'g': test_g_completeness(); break;
             case '!': test_engineering_si(); break;
 #endif
+            case '3': test_string_char_edge_cases(); break;
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
