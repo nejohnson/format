@@ -2389,7 +2389,7 @@ static void test_g_completeness( void )
 
     /* Values at boundaries */
     TEST( "99999.9", 7, "%g", 99999.9 );      /* exp=4, uses f */
-    TEST( "1e+05", 5, "%g", 100000.0 );       /* exp=5, uses f */
+    TEST( "100000", 6, "%g", 100000.0 );      /* exp=5, 5<6, uses f */
     TEST( "999999", 6, "%g", 999999.0 );      /* exp=5, uses f, 6 sig figs */
     TEST( "1e+06", 5, "%g", 1000000.0 );      /* exp=6, 6>=6, uses e */
 
