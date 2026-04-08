@@ -40,6 +40,7 @@
 #include <float.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <limits.h>
 
 #if defined(__AVR__)
   #include <avr/io.h>
@@ -2880,6 +2881,192 @@ static void test_pointer_edge_cases( void )
 
 /*****************************************************************************/
 /**
+    Test signed integer edge cases (P3.3).
+**/
+static void test_signed_integer_edge_cases( void )
+{
+    printf( "Testing signed integer edge cases (P3.3)\n" );
+
+    /* ===== INT_MIN and INT_MAX Boundaries ===== */
+
+    /* Basic INT_MIN and INT_MAX */
+    TEST( "2147483647", 10, "%d", INT_MAX );
+    TEST( "-2147483648", 11, "%d", INT_MIN );
+    TEST( "2147483647", 10, "%i", INT_MAX );
+    TEST( "-2147483648", 11, "%i", INT_MIN );
+
+    /* INT_MIN and INT_MAX with width */
+    TEST( "  2147483647", 12, "%12d", INT_MAX );
+    TEST( " -2147483648", 12, "%12d", INT_MIN );
+    TEST( "2147483647  ", 12, "%-12d", INT_MAX );
+    TEST( "-2147483648 ", 12, "%-12d", INT_MIN );
+
+    /* INT_MIN and INT_MAX with precision */
+    TEST( "2147483647", 10, "%.10d", INT_MAX );
+    TEST( "-2147483648", 11, "%.10d", INT_MIN );
+    TEST( "002147483647", 12, "%.12d", INT_MAX );
+    TEST( "-002147483648", 13, "%.12d", INT_MIN );
+
+    /* INT_MIN and INT_MAX with + flag */
+    TEST( "+2147483647", 11, "%+d", INT_MAX );
+    TEST( "-2147483648", 11, "%+d", INT_MIN );
+
+    /* INT_MIN and INT_MAX with space flag */
+    TEST( " 2147483647", 11, "% d", INT_MAX );
+    TEST( "-2147483648", 11, "% d", INT_MIN );
+
+    /* INT_MIN and INT_MAX with 0 flag */
+    TEST( "0002147483647", 13, "%013d", INT_MAX );
+    TEST( "-002147483648", 13, "%013d", INT_MIN );
+
+    /* INT_MIN and INT_MAX with multiple flags */
+    TEST( "+2147483647", 11, "%+d", INT_MAX );
+    TEST( "-2147483648", 11, "%+d", INT_MIN );
+    TEST( "+2147483647  ", 13, "%-+13d", INT_MAX );
+    TEST( "-2147483648  ", 13, "%-+13d", INT_MIN );
+
+    /* ===== Overflow and Wrapping Behavior ===== */
+
+    /* INT_MAX + 1 wraps to INT_MIN (with overflow) */
+    TEST( "-2147483648", 11, "%d", (int)(INT_MAX + 1) );
+    TEST( "-2147483648", 11, "%d", (int)2147483648U );
+
+    /* INT_MIN - 1 wraps to INT_MAX (with underflow) */
+    TEST( "2147483647", 10, "%d", (int)(INT_MIN - 1) );
+    TEST( "2147483647", 10, "%d", (int)(-2147483649LL) );
+
+    /* Near-boundary values */
+    TEST( "2147483646", 10, "%d", INT_MAX - 1 );
+    TEST( "-2147483647", 11, "%d", INT_MIN + 1 );
+
+    /* ===== Zero with Various Flags ===== */
+
+    TEST( "0", 1, "%d", 0 );
+    TEST( "+0", 2, "%+d", 0 );
+    TEST( " 0", 2, "% d", 0 );
+    TEST( "00000", 5, "%05d", 0 );
+    TEST( "  0", 3, "%3d", 0 );
+    TEST( "0  ", 3, "%-3d", 0 );
+    TEST( "", 0, "%.0d", 0 );          /* zero with zero precision */
+    TEST( "+", 1, "%+.0d", 0 );        /* + flag shows even with no digits */
+    TEST( " ", 1, "% .0d", 0 );        /* space flag shows even with no digits */
+
+    /* ===== -1 with Various Formats ===== */
+
+    TEST( "-1", 2, "%d", -1 );
+    TEST( "-1", 2, "%+d", -1 );
+    TEST( "-1", 2, "% d", -1 );
+    TEST( "-00001", 6, "%06d", -1 );
+    TEST( "  -1", 4, "%4d", -1 );
+    TEST( "-1  ", 4, "%-4d", -1 );
+    TEST( "-1", 2, "%.0d", -1 );
+    TEST( "-01", 3, "%.2d", -1 );
+
+    /* ===== Arbitrary Bases with Boundaries (%i) ===== */
+
+    /* INT_MAX in different bases */
+    TEST( "1111111111111111111111111111111", 31, "%:2i", INT_MAX );  /* binary */
+    TEST( "17777777777", 11, "%:8i", INT_MAX );                      /* octal */
+    TEST( "7FFFFFFF", 8, "%:16I", INT_MAX );                          /* hex uppercase */
+    TEST( "7fffffff", 8, "%:16i", INT_MAX );                          /* hex lowercase */
+    TEST( "ZIK0ZJ", 6, "%:36I", INT_MAX );                            /* base-36 */
+
+    /* INT_MIN in different bases (shows with minus sign, treated as signed) */
+    TEST( "-10000000000000000000000000000000", 33, "%:2i", INT_MIN );  /* binary */
+    TEST( "-20000000000", 12, "%:8i", INT_MIN );                        /* octal */
+    TEST( "-80000000", 9, "%:16i", INT_MIN );                           /* hex */
+
+    /* -1 in different bases (shows as -1, not bit pattern) */
+    TEST( "-1", 2, "%:2i", -1 );       /* binary */
+    TEST( "-1", 2, "%:8i", -1 );       /* octal */
+    TEST( "-1", 2, "%:16I", -1 );      /* hex */
+
+    /* Negative values in arbitrary bases (lowercase for %i, not uppercase) */
+    TEST( "-ff", 3, "%:16i", -255 );
+    TEST( "-1111", 5, "%:2i", -15 );
+    TEST( "-zz", 3, "%:36i", -1295 );
+
+    /* ===== Precision with Boundaries ===== */
+
+    /* Precision less than number of digits */
+    TEST( "2147483647", 10, "%.5d", INT_MAX );
+    TEST( "-2147483648", 11, "%.5d", INT_MIN );
+
+    /* Precision equal to number of digits */
+    TEST( "2147483647", 10, "%.10d", INT_MAX );
+    TEST( "-2147483648", 11, "%.10d", INT_MIN );
+
+    /* Large precision */
+    TEST( "0000002147483647", 16, "%.16d", INT_MAX );
+    TEST( "-0000002147483648", 17, "%.16d", INT_MIN );
+
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+    /* ===== Grouping with Boundaries ===== */
+
+    TEST( "2,147,483,647", 13, "%[,3]d", INT_MAX );
+    TEST( "-2,147,483,648", 14, "%[,3]d", INT_MIN );
+    TEST( "21_4748_3647", 12, "%[_4]d", INT_MAX );
+    TEST( "-21_4748_3648", 13, "%[_4]d", INT_MIN );
+
+    /* Grouping with precision */
+    TEST( "002,147,483,647", 15, "%.12[,3]d", INT_MAX );
+    TEST( "-002,147,483,648", 16, "%.12[,3]d", INT_MIN );
+#endif
+
+    /* ===== Centering with Boundaries ===== */
+
+    TEST( " 2147483647 ", 12, "%^12d", INT_MAX );
+    TEST( " -2147483648", 12, "%^12d", INT_MIN );  /* odd space goes left */
+    TEST( "  2147483647  ", 14, "%^14d", INT_MAX );
+    TEST( "  -2147483648 ", 14, "%^14d", INT_MIN ); /* 2 left, 1 right */
+
+    /* ===== Width and Precision Combined ===== */
+
+    TEST( "  2147483647", 12, "%12.10d", INT_MAX );
+    TEST( " -2147483648", 12, "%12.10d", INT_MIN );
+    TEST( "  002147483647", 14, "%14.12d", INT_MAX );
+    TEST( " -002147483648", 14, "%14.12d", INT_MIN );
+
+    /* ===== Length Modifiers with Boundaries ===== */
+
+#if SHRT_MAX == 32767
+    TEST( "32767", 5, "%hd", SHRT_MAX );
+    TEST( "-32768", 6, "%hd", SHRT_MIN );
+#endif
+
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    TEST( "9223372036854775807", 19, "%lld", LLONG_MAX );
+    TEST( "-9223372036854775808", 20, "%lld", LLONG_MIN );
+#endif
+
+    /* ===== Edge Cases for Single-Digit Boundaries ===== */
+
+    TEST( "9", 1, "%d", 9 );
+    TEST( "-9", 2, "%d", -9 );
+    TEST( "10", 2, "%d", 10 );
+    TEST( "-10", 3, "%d", -10 );
+    TEST( "99", 2, "%d", 99 );
+    TEST( "-99", 3, "%d", -99 );
+    TEST( "100", 3, "%d", 100 );
+    TEST( "-100", 4, "%d", -100 );
+
+    /* ===== All Flags Combined with Boundaries ===== */
+
+    /* +, 0, width */
+    TEST( "+002147483647", 13, "%+013d", INT_MAX );
+    TEST( "-002147483648", 13, "%+013d", INT_MIN );
+
+    /* +, -, width */
+    TEST( "+2147483647  ", 13, "%-+13d", INT_MAX );
+    TEST( "-2147483648  ", 13, "%-+13d", INT_MIN );
+
+    /* space, 0, width */
+    TEST( " 002147483647", 13, "% 013d", INT_MAX );
+    TEST( "-002147483648", 13, "% 013d", INT_MIN );
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -3503,7 +3690,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
 #endif
-		"^L#34*\"E";
+		"^L#345*\"E";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -3536,6 +3723,7 @@ static void run_tests( char * passes )
 #endif
                 " 3    - string and character edge cases (P3.1)\n"
                 " 4    - pointer edge cases (P3.2)\n"
+                " 5    - signed integer edge cases (P3.3)\n"
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -3576,6 +3764,7 @@ static void run_tests( char * passes )
 #endif
             case '3': test_string_char_edge_cases(); break;
             case '4': test_pointer_edge_cases(); break;
+            case '5': test_signed_integer_edge_cases(); break;
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
