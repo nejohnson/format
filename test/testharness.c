@@ -3067,6 +3067,255 @@ static void test_signed_integer_edge_cases( void )
 
 /*****************************************************************************/
 /**
+    Test unsigned integer edge cases (P3.4).
+**/
+static void test_unsigned_integer_edge_cases( void )
+{
+    printf( "Testing unsigned integer edge cases (P3.4)\n" );
+
+    /* ===== UINT_MAX Boundaries ===== */
+
+    /* Basic UINT_MAX with different conversions */
+    TEST( "4294967295", 10, "%u", UINT_MAX );
+    TEST( "11111111111111111111111111111111", 32, "%b", UINT_MAX );
+    TEST( "37777777777", 11, "%o", UINT_MAX );
+    TEST( "ffffffff", 8, "%x", UINT_MAX );
+    TEST( "FFFFFFFF", 8, "%X", UINT_MAX );
+
+    /* UINT_MAX with width */
+    TEST( "  4294967295", 12, "%12u", UINT_MAX );
+    TEST( "4294967295  ", 12, "%-12u", UINT_MAX );
+    TEST( "  ffffffff", 10, "%10x", UINT_MAX );
+    TEST( "ffffffff  ", 10, "%-10x", UINT_MAX );
+
+    /* UINT_MAX with precision */
+    TEST( "4294967295", 10, "%.10u", UINT_MAX );
+    TEST( "004294967295", 12, "%.12u", UINT_MAX );
+    TEST( "ffffffff", 8, "%.8x", UINT_MAX );
+    TEST( "00ffffffff", 10, "%.10x", UINT_MAX );
+
+    /* UINT_MAX with 0 flag */
+    TEST( "004294967295", 12, "%012u", UINT_MAX );
+    TEST( "00ffffffff", 10, "%010x", UINT_MAX );
+    TEST( "00FFFFFFFF", 10, "%010X", UINT_MAX );
+
+    /* ===== Zero with Various Formats ===== */
+
+    TEST( "0", 1, "%u", 0 );
+    TEST( "0", 1, "%b", 0 );
+    TEST( "0", 1, "%o", 0 );
+    TEST( "0", 1, "%x", 0 );
+    TEST( "0", 1, "%X", 0 );
+    TEST( "", 0, "%.0u", 0 );
+    TEST( "", 0, "%.0b", 0 );
+    TEST( "", 0, "%.0o", 0 );
+    TEST( "", 0, "%.0x", 0 );
+    TEST( "", 0, "%.0X", 0 );
+    TEST( "00000", 5, "%05u", 0 );
+    TEST( "00000", 5, "%05x", 0 );
+
+    /* ===== Wrapping Behavior ===== */
+
+    /* UINT_MAX + 1 wraps to 0 */
+    TEST( "0", 1, "%u", (unsigned int)(UINT_MAX + 1U) );
+    TEST( "0", 1, "%x", (unsigned int)(UINT_MAX + 1U) );
+
+    /* 0 - 1 wraps to UINT_MAX */
+    TEST( "4294967295", 10, "%u", (unsigned int)(0U - 1U) );
+    TEST( "ffffffff", 8, "%x", (unsigned int)(0U - 1U) );
+
+    /* Near-boundary values */
+    TEST( "4294967294", 10, "%u", UINT_MAX - 1 );
+    TEST( "1", 1, "%u", 0 + 1 );
+    TEST( "fffffffe", 8, "%x", UINT_MAX - 1 );
+    TEST( "1", 1, "%x", 0 + 1 );
+
+    /* ===== Alternate Form (# flag) ===== */
+
+    TEST( "0", 1, "%#o", 0 );           /* 0 with # stays as "0" */
+    TEST( "0", 1, "%#x", 0 );           /* 0 with # stays as "0" (no prefix) */
+    TEST( "0", 1, "%#X", 0 );
+    TEST( "01234", 5, "%#o", 01234 );   /* octal gets leading 0 */
+    TEST( "0x1234", 6, "%#x", 0x1234 ); /* hex gets 0x prefix */
+    TEST( "0X1234", 6, "%#X", 0X1234 ); /* hex gets 0X prefix */
+    TEST( "0xffffffff", 10, "%#x", UINT_MAX );
+    TEST( "0XFFFFFFFF", 10, "%#X", UINT_MAX );
+    TEST( "037777777777", 12, "%#o", UINT_MAX );
+
+    /* ===== All Bases 2-36 with %U and %I ===== */
+
+    unsigned int test_val = 1234567;
+
+    /* Bases 2-10 */
+    TEST( "100101101011010000111", 21, "%:2U", test_val );  /* binary */
+    TEST( "2022201111201", 13, "%:3U", test_val );          /* base-3 */
+    TEST( "10231122013", 11, "%:4U", test_val );            /* base-4 */
+    TEST( "304001232", 9, "%:5U", test_val );               /* base-5 */
+    TEST( "42243331", 8, "%:6U", test_val );                /* base-6 */
+    TEST( "13331215", 8, "%:7U", test_val );                /* base-7 */
+    TEST( "4553207", 7, "%:8U", test_val );                 /* octal */
+    TEST( "2281451", 7, "%:9U", test_val );                 /* base-9 */
+    TEST( "1234567", 7, "%:10U", test_val );                /* decimal */
+
+    /* Bases 11-20 */
+    TEST( "773604", 6, "%:11I", test_val );                 /* base-11 uppercase */
+    TEST( "4B6547", 6, "%:12I", test_val );
+    TEST( "342C19", 6, "%:13I", test_val );
+    TEST( "241CB5", 6, "%:14I", test_val );
+    TEST( "195BE7", 6, "%:15I", test_val );
+    TEST( "12D687", 6, "%:16I", test_val );                 /* hex */
+    TEST( "ED4EA", 5, "%:17I", test_val );
+    TEST( "BDC71", 5, "%:18I", test_val );
+    TEST( "98IG4", 5, "%:19I", test_val );
+    TEST( "7E687", 5, "%:20I", test_val );
+
+    /* Bases 21-30 */
+    TEST( "6769J", 5, "%:21I", test_val );
+    TEST( "55KGF", 5, "%:22I", test_val );
+    TEST( "49AHJ", 5, "%:23I", test_val );
+    TEST( "3H787", 5, "%:24I", test_val );
+    TEST( "3407H", 5, "%:25I", test_val );
+    TEST( "2I679", 5, "%:26I", test_val );
+    TEST( "28JDJ", 5, "%:27I", test_val );
+    TEST( "206JJ", 5, "%:28I", test_val );
+    TEST( "1LHS8", 5, "%:29I", test_val );
+    TEST( "1FLM7", 5, "%:30I", test_val );
+
+    /* Bases 31-36 */
+    TEST( "1ADKN", 5, "%:31I", test_val );
+    TEST( "15LK7", 5, "%:32I", test_val );
+    TEST( "11BM4", 5, "%:33I", test_val );
+    TEST( "VDWR", 4, "%:34I", test_val );
+    TEST( "SRSC", 4, "%:35I", test_val );
+    TEST( "QGLJ", 4, "%:36I", test_val );                   /* max base */
+
+    /* ===== Uppercase vs Lowercase ===== */
+
+    TEST( "1234abcd", 8, "%x", 0x1234abcd );
+    TEST( "1234ABCD", 8, "%X", 0x1234ABCD );
+    TEST( "1234abcd", 8, "%:16i", 0x1234abcd );   /* lowercase %i */
+    TEST( "1234ABCD", 8, "%:16I", 0x1234ABCD );   /* uppercase %I */
+
+    /* Lowercase vs uppercase in base-36 */
+    TEST( "qglj", 4, "%:36u", test_val );         /* lowercase %u */
+    TEST( "QGLJ", 4, "%:36U", test_val );         /* uppercase %U */
+
+    /* ===== UINT_MAX in Various Bases ===== */
+
+    TEST( "4294967295", 10, "%u", UINT_MAX );
+    TEST( "11111111111111111111111111111111", 32, "%:2U", UINT_MAX );
+    TEST( "102002022201221111210", 21, "%:3U", UINT_MAX );
+    TEST( "3333333333333333", 16, "%:4U", UINT_MAX );
+    TEST( "32244002423140", 14, "%:5U", UINT_MAX );
+    TEST( "37777777777", 11, "%o", UINT_MAX );
+    TEST( "37777777777", 11, "%:8U", UINT_MAX );
+    TEST( "ffffffff", 8, "%x", UINT_MAX );
+    TEST( "FFFFFFFF", 8, "%X", UINT_MAX );
+    TEST( "-1", 2, "%:36I", UINT_MAX );          /* UINT_MAX = -1 as signed */
+
+    /* ===== Precision with Boundaries ===== */
+
+    /* Precision less than number of digits */
+    TEST( "4294967295", 10, "%.5u", UINT_MAX );
+    TEST( "ffffffff", 8, "%.5x", UINT_MAX );
+
+    /* Precision equal to number of digits */
+    TEST( "4294967295", 10, "%.10u", UINT_MAX );
+    TEST( "ffffffff", 8, "%.8x", UINT_MAX );
+
+    /* Large precision */
+    TEST( "004294967295", 12, "%.12u", UINT_MAX );
+    TEST( "00ffffffff", 10, "%.10x", UINT_MAX );
+    TEST( "00FFFFFFFF", 10, "%.10X", UINT_MAX );
+
+#if defined(CONFIG_WITH_GROUPING_SUPPORT)
+    /* ===== Grouping with Boundaries ===== */
+
+    TEST( "4,294,967,295", 13, "%[,3]u", UINT_MAX );
+    TEST( "42_9496_7295", 12, "%[_4]u", UINT_MAX );
+    TEST( "ffff_ffff", 9, "%[_4]x", UINT_MAX );
+
+    /* Grouping with precision */
+    TEST( "004,294,967,295", 15, "%.12[,3]u", UINT_MAX );
+#endif
+
+    /* ===== Width and Precision Combined ===== */
+
+    TEST( "  4294967295", 12, "%12.10u", UINT_MAX );
+    TEST( "004294967295", 12, "%12.12u", UINT_MAX );
+    TEST( "    ffffffff", 12, "%12.8x", UINT_MAX );
+    TEST( "  00ffffffff", 12, "%12.10x", UINT_MAX );
+
+    /* ===== Centering with Boundaries ===== */
+
+    TEST( " 4294967295 ", 12, "%^12u", UINT_MAX );
+    TEST( "  ffffffff  ", 12, "%^12x", UINT_MAX );
+    TEST( "  FFFFFFFF  ", 12, "%^12X", UINT_MAX );
+
+    /* ===== Length Modifiers with Boundaries ===== */
+
+#if USHRT_MAX == 65535
+    TEST( "65535", 5, "%hu", USHRT_MAX );
+    TEST( "ffff", 4, "%hx", USHRT_MAX );
+    TEST( "FFFF", 4, "%hX", USHRT_MAX );
+#endif
+
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+    TEST( "18446744073709551615", 20, "%llu", ULLONG_MAX );
+    TEST( "ffffffffffffffff", 16, "%llx", ULLONG_MAX );
+    TEST( "FFFFFFFFFFFFFFFF", 16, "%llX", ULLONG_MAX );
+#endif
+
+    /* ===== Single-Digit Boundaries ===== */
+
+    TEST( "9", 1, "%u", 9 );
+    TEST( "10", 2, "%u", 10 );
+    TEST( "99", 2, "%u", 99 );
+    TEST( "100", 3, "%u", 100 );
+    TEST( "255", 3, "%u", 255 );
+    TEST( "256", 3, "%u", 256 );
+    TEST( "ff", 2, "%x", 255 );
+    TEST( "100", 3, "%x", 256 );
+
+    /* ===== Power of 2 Boundaries ===== */
+
+    TEST( "1", 1, "%u", 1 );
+    TEST( "2", 1, "%u", 2 );
+    TEST( "4", 1, "%u", 4 );
+    TEST( "8", 1, "%u", 8 );
+    TEST( "16", 2, "%u", 16 );
+    TEST( "32", 2, "%u", 32 );
+    TEST( "64", 2, "%u", 64 );
+    TEST( "128", 3, "%u", 128 );
+    TEST( "256", 3, "%u", 256 );
+    TEST( "512", 3, "%u", 512 );
+    TEST( "1024", 4, "%u", 1024 );
+    TEST( "2048", 4, "%u", 2048 );
+    TEST( "4096", 4, "%u", 4096 );
+    TEST( "8192", 4, "%u", 8192 );
+    TEST( "16384", 5, "%u", 16384 );
+    TEST( "32768", 5, "%u", 32768 );
+    TEST( "65536", 5, "%u", 65536 );
+
+    /* ===== All Flags Combined ===== */
+
+    /* # flag with width and precision */
+    TEST( "  0xffffffff", 12, "%#12x", UINT_MAX );
+    TEST( "0x00ffffffff", 12, "%#.10x", UINT_MAX );
+    TEST( "  0x00ffffff", 12, "%#12.8x", 0xffffff );
+
+    /* 0 flag with width */
+    TEST( "00004294967295", 14, "%014u", UINT_MAX );
+    TEST( "0x00ffffffff", 12, "%#012x", UINT_MAX );
+
+    /* - flag with width */
+    TEST( "4294967295    ", 14, "%-14u", UINT_MAX );
+    TEST( "ffffffff    ", 12, "%-12x", UINT_MAX );
+    TEST( "0xffffffff  ", 12, "%#-12x", UINT_MAX );
+}
+
+/*****************************************************************************/
+/**
     Test comprehensive error paths and validation.
 **/
 static void test_errors( void )
@@ -3690,7 +3939,7 @@ static void run_tests( char * passes )
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
 		"G"
 #endif
-		"^L#345*\"E";
+		"^L#3456*\"E";
 
     if ( !strcmp( passes, "-help" ) )
     {
@@ -3724,6 +3973,7 @@ static void run_tests( char * passes )
                 " 3    - string and character edge cases (P3.1)\n"
                 " 4    - pointer edge cases (P3.2)\n"
                 " 5    - signed integer edge cases (P3.3)\n"
+                " 6    - unsigned integer edge cases (P3.4)\n"
                 " E    - error paths and validation\n"
                 " C    - consumer function failures\n"
                 );
@@ -3765,6 +4015,7 @@ static void run_tests( char * passes )
             case '3': test_string_char_edge_cases(); break;
             case '4': test_pointer_edge_cases(); break;
             case '5': test_signed_integer_edge_cases(); break;
+            case '6': test_unsigned_integer_edge_cases(); break;
             case 'E': test_errors();   break;
             case 'C': test_consumer_failures(); break;
             default: printf( "Unknown test '%c'\n", *passes ); break;
