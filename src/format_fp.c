@@ -638,8 +638,6 @@ static int do_conv_efg( T_FormatSpec *     pspec,
             if ( mantissa % 10 )
                 break;
 
-    DEBUG_LOG( "sigfig: %d\n", sigfig );
-
     /* Work out how many digits on each side of the DP */
     if ( is_f )
     {
@@ -689,10 +687,12 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         DEC_MANT_REG_TYPE  m = mantissa;
 
         /* strip extraneous digits */
-        for ( i = sigfig; i > n_left + n_right; i--, m /= 10 );
+        for ( i = sigfig; i > n_left + n_right; i--, m /= 10 )
+            ;
 
         /* strip trailing zeros */
-        for ( ; n_right > 0 && m % 10 == 0; m /= 10, n_right-- );
+        for ( ; n_right > 0 && m % 10 == 0; m /= 10, n_right-- )
+            ;
     }
 
     DEBUG_LOG( "n_left: %d ", n_left );
@@ -751,7 +751,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
         pz4 = pspec->prec - pz3 - n_right;
         length += pz4;
     }
-    else if ( is_f && (int)(pz3 + n_right) > pspec->prec )
+    else if ( is_f && !really_g && (int)(pz3 + n_right) > pspec->prec )
     {
         int x = (int)pz3 + n_right - pspec->prec;
         length  -= x;

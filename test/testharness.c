@@ -1002,7 +1002,7 @@ static void test_aAeEfFgG( void )
         than -4 or greater than or equal to the precision.
     */
     TEST( "1.2345e-05", 10, "%g", 1.2345e-5 );  /* Trailing zeros removed */
-    TEST( "0.000123", 8, "%g", 1.2345e-4 );
+    TEST( "0.00012345", 10, "%g", 1.2345e-4 );  /* 5 sig figs, all displayed */
 
     TEST( "12", 2, "%.2g", 12.345 );             /* 2 sig figs */
     TEST( "1.2e+02", 7, "%.2g", 123.45 );        /* 2 sig figs */
