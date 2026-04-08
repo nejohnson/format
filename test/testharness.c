@@ -57,7 +57,7 @@
 /**
     Set the size of the test buffers
 **/
-#define BUF_SZ      ( 1024 )
+#define BUF_SZ      ( 2048 )
 
 #define UNUSED      0
 
