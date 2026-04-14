@@ -112,21 +112,6 @@ Also, if your application is able to query the output device for the width then 
 format( cons, arg, "%.*C-", terminal.width );
 ```
 
-# Alternate String Pointers #
-
-The `#` flag can be used on certain target platforms to indicate that the corresponding pointer argument is of an alternate form, typically a pointer to a string in FLASH ROM.  An example would be a string in the AVR microcontroller's code memory.  This provides for far more compact programs as string constants, including format strings, can be placed in the FLASH ROM rather than in the smaller RAM.  The following example illustrates both format string and string argument in FLASH ROM:
-
-```
-char fmtstring[] PROGMEM = "hello %#s";
-char hellostr[] PROGMEM = "world";
-
-format( cons, arg, "%#", fmtstring, hellostr );
-```
-
-Note: this example uses the AVR extensions for GCC.  Other compilers may use slightly different ways of expressing this information, but the basic principle is the same.
-
-On target platforms that do not support nor need this alternate pointer form the `#` flag is ignored by the continuation and `s` conversions.
-
 # Grouping #
 
 The new grouping feature offers a convenient way to format numeric fields in a natural way, somewhat similar to the locale functionality offered in larger C libraries.

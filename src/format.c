@@ -108,19 +108,8 @@
 **/
 #define ABS(a)          ( (a) < 0 ? -(a) : (a) )
 
-/*****************************************************************************/
-/**
-    Some devices have separate memory spaces for normal data and read-only
-    (or "ROM") data.  We classify these as NORMAL and ALT memory pointers.
-**/
-enum ptr_mode            { NORMAL_PTR, ALT_PTR };
-
 /** A generic macro to read a character from memory **/
-#if defined(CONFIG_HAVE_ALT_PTR)
-  #define READ_CHAR(m,p)   (((m)==NORMAL_PTR) ? *(const char *)(p) : ROM_CHAR(p))
-  #else
-  #define READ_CHAR(m,p)   (*(const char *)(p))
-#endif
+#define READ_CHAR(p)   (*(const char *)(p))
 
 /** It is nonsensical to increment a void pointer directly, so we kind-of-cheat
     by casting it to a char pointer and then incrementing. **/
@@ -148,7 +137,6 @@ enum ptr_mode            { NORMAL_PTR, ALT_PTR };
     #define STRLEN(s)       (xx_strlen(s))
 #endif
 
-#define STRLEN_ALT(s)       (xx_strlen_alt(s))
 
 /*****************************************************************************/
 /**
@@ -190,9 +178,6 @@ typedef struct {
     char            repchar;/**< Repetition character               **/
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
     struct {
-#if defined(CONFIG_HAVE_ALT_PTR)
-        enum ptr_mode mode; /**< grouping spec pointer type         **/
-#endif
         const void *  ptr;  /**< ptr to grouping specification      **/
         size_t        len;  /**< length of grouping spec            **/
     } grouping;
@@ -280,20 +265,6 @@ static size_t xx_strlen( const char *s )
 }
 #endif
 
-/** Additional support function that computes the length of a string held in
-     ROM memory.  Because this is a non-standard function we always use our
-     own version, irrespective of what machine-specific support libraries may
-     offer.
-**/
-#if defined(CONFIG_HAVE_ALT_PTR)
-static size_t xx_strlen_alt( ROM_PTR_T s )
-{
-    ROM_PTR_T p;
-    for ( p = s; ROM_CHAR(p) != '\0'; p++ )
-        ;
-    return (size_t)(p-s);
-}
-#endif
 
 /*****************************************************************************/
 /**
@@ -572,69 +543,6 @@ static int do_conv_s( T_FormatSpec * pspec,
 
 /*****************************************************************************/
 /**
-    Process a %s conversion that uses the alternate pointer type.
-
-    We split out the alternate functionality into a separate function so that
-    platforms that do not have this behaviour are not unduly loaded with
-    additional code, and it helps keep the main code cleaner.
-
-    @param pspec    Pointer to format specification.
-    @param ap       Reference to optional format arguments list.
-    @param code     Conversion specifier code.
-    @param cons     Pointer to consumer function.
-    @param parg     Pointer to opaque pointer updated by cons.
-
-    @return Number of emitted characters, or EXBADFORMAT if failure
-**/
-
-#if defined(CONFIG_HAVE_ALT_PTR)
-static int do_conv_s_alt( T_FormatSpec * pspec,
-                          va_list *      ap,
-                          char           code,
-                          void *      (* cons)(void *, const char *, size_t),
-                          void * *       parg )
-{
-    size_t length = 0;
-    size_t ps1 = 0, ps2 = 0;
-    size_t n = 0;
-    static ROM_DECL(char const null_string[]) = "(null)";
-
-    const void *vp = (const void*)va_arg( *ap, ROM_PTR_T );
-
-    if ( vp == NULL )
-        vp = null_string;
-
-    length = STRLEN_ALT( (ROM_PTR_T)vp);
-    if ( pspec->prec >= 0 )
-        length = MIN( pspec->prec, length );
-
-    calc_space_padding( pspec, length, &ps1, &ps2 );
-
-    /* Inline the relevant parts of gen_out() here as we need to handle
-     *  alternate memory pointers.
-     */
-    if ( ps1 && pad( spaces, ps1, cons, parg ) < 0 )
-        return EXBADFORMAT;
-    n += ps1;
-
-    while ( length-- )
-    {
-        char c = ROM_CHAR(vp++);
-        if ( emit( &c, 1, cons, parg ) < 0 )
-            return EXBADFORMAT;
-        n++;
-    }
-
-    if ( ps2 && pad( spaces, ps2, cons, parg ) < 0 )
-        return EXBADFORMAT;
-    n += ps2;
-
-    return (int)n;
-}
-#endif
-
-/*****************************************************************************/
-/**
     Process the numeric conversions (%b, %d, %i, %I, %o, %u, %U, %x, %X).
 
     @param pspec    Pointer to format specification.
@@ -782,9 +690,6 @@ static int do_conv_numeric( T_FormatSpec * pspec,
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
     if ( pspec->grouping.len )
     {
-#if defined(CONFIG_HAVE_ALT_PTR)
-        enum ptr_mode mode  = pspec->grouping.mode;
-#endif
         const void *  ptr   = pspec->grouping.ptr;
         size_t        glen  = pspec->grouping.len;
         char          grp   = 0;
@@ -800,7 +705,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         {
             if ( glen )
             {
-                grp = READ_CHAR( mode, ptr );
+                grp = READ_CHAR( ptr );
 
                 if ( grp == '-' )
                     break;
@@ -819,7 +724,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                 {
                     for ( wid = 0, decade = 1;
                           glen != 0
-                             && ( grp = READ_CHAR( mode, ptr ) ) != '\0'
+                             && ( grp = READ_CHAR( ptr ) ) != '\0'
                              && ISDIGIT( grp );
                           DEC_VOID_PTR(ptr), --glen )
                     {
@@ -831,7 +736,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
                 if ( !glen )
                     break;
 
-                grp = READ_CHAR( mode, ptr );
+                grp = READ_CHAR( ptr );
                 DEC_VOID_PTR(ptr);
                 --glen;
             }
@@ -917,12 +822,7 @@ static int do_conv( T_FormatSpec * pspec,
 
     if ( code == 's' )
     {
-#if defined(CONFIG_HAVE_ALT_PTR)
-        if ( pspec->flags & FHASH )
-            return do_conv_s_alt( pspec, ap, code, cons, parg );
-        else
-#endif
-            return do_conv_s( pspec, ap, cons, parg );
+        return do_conv_s( pspec, ap, cons, parg );
     }
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
@@ -1009,9 +909,6 @@ int format( void *    (* cons) (void *, const char * , size_t),
             va_list      apx )
 {
     T_FormatSpec fspec;
-#if defined(CONFIG_HAVE_ALT_PTR)
-    enum ptr_mode  mode = NORMAL_PTR;
-#endif
     char           c;
     const void   * ptr = (const void *)fmt;
     va_list        ap;
@@ -1025,12 +922,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
     fspec.nChars = 0;
 
-    while ( ( c = READ_CHAR( mode, ptr ) ) )
+    while ( ( c = READ_CHAR( ptr ) ) )
     {
         /* scan for % or \0 */
-#if defined(CONFIG_HAVE_ALT_PTR)
-        if ( mode == NORMAL_PTR )
-#endif
         {
             size_t n = 0;
             const char *s = (const char *)ptr;
@@ -1050,25 +944,8 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
             ptr = (const void *)s;
         }
-#if defined(CONFIG_HAVE_ALT_PTR)
-        else
-        {
-            /* Alternate pointers are treated one character at a time to keep
-             *  the interface to emit() common across all string pointer
-             *  types.
-             */
-            while ( ( c = ROM_CHAR(ptr) ) && c != '%' )
-            {
-                if ( emit( &c, 1, cons, &arg ) < 0 )
-                    goto exit_badformat;
 
-                fspec.nChars++;
-                ptr++;
-            }
-        }
-#endif
-
-        if ( READ_CHAR( mode, ptr ) )
+        if ( READ_CHAR( ptr ) )
         {
             /* found conversion specifier */
             char convspec;
@@ -1082,19 +959,19 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
             /* If next char is not '\0', we're parsing a conversion specification.
              * If it IS '\0', it's bare '%' continuation (don't set flag). */
-            if ( READ_CHAR( mode, ptr ) != '\0' )
+            if ( READ_CHAR( ptr ) != '\0' )
                 parsing_conversion = 1;
 
             /* process conversion flags */
             for ( fspec.flags = 0;
-                  (c = READ_CHAR( mode, ptr )) && (t = STRCHR(fchar, c)) != NULL;
+                  (c = READ_CHAR( ptr )) && (t = STRCHR(fchar, c)) != NULL;
                   INC_VOID_PTR(ptr) )
             {
                 fspec.flags |= fbit[t - fchar];
             }
 
             /* process width */
-            if ( READ_CHAR( mode, ptr ) == '*' )
+            if ( READ_CHAR( ptr ) == '*' )
             {
                 int w = va_arg( ap, int );
                 if ( w < 0 )
@@ -1108,7 +985,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
             {
                 for ( fspec.width = 0;
-                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && fspec.width < MAXWIDTH;
+                      ( c = READ_CHAR( ptr ) ) && ISDIGIT( c ) && fspec.width < MAXWIDTH;
                       INC_VOID_PTR(ptr) )
                 {
                     fspec.width = fspec.width * 10 + c - '0';
@@ -1119,9 +996,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 goto exit_badformat;
 
             /* process precision */
-            if ( READ_CHAR( mode, ptr ) != '.' )
+            if ( READ_CHAR( ptr ) != '.' )
                 fspec.prec = -1; /* precision is missing */
-            else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
+            else if ( READ_CHAR( INC_VOID_PTR(ptr) ) == '*' )
             {
                 fspec.prec = va_arg( ap, int );
 
@@ -1133,7 +1010,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
             {
                 for ( fspec.prec = 0;
-                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && fspec.prec < MAXPREC;
+                      ( c = READ_CHAR( ptr ) ) && ISDIGIT( c ) && fspec.prec < MAXPREC;
                       INC_VOID_PTR(ptr) )
                 {
                     fspec.prec = fspec.prec * 10 + c - '0';
@@ -1143,9 +1020,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
 
             /* process base */
-            if ( READ_CHAR( mode, ptr ) != ':' )
+            if ( READ_CHAR( ptr ) != ':' )
                 fspec.base = 0;
-            else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
+            else if ( READ_CHAR( INC_VOID_PTR(ptr) ) == '*' )
             {
                 int v = va_arg( ap, int );
 
@@ -1161,7 +1038,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             else
             {
                 for ( fspec.base = 0;
-                      ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c ) && fspec.base < MAXBASE;
+                      ( c = READ_CHAR( ptr ) ) && ISDIGIT( c ) && fspec.base < MAXBASE;
                       INC_VOID_PTR(ptr) )
                 {
                     fspec.base = fspec.base * 10 + c - '0';
@@ -1179,12 +1056,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
             /* test for grouping qualifier */
             fspec.grouping.len = 0;
             fspec.grouping.ptr = NULL;
-#if defined(CONFIG_HAVE_ALT_PTR)
-            fspec.grouping.mode = NORMAL_PTR;
-#endif
 #endif
 
-            switch( READ_CHAR( mode, ptr ) )
+            switch( READ_CHAR( ptr ) )
             {
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
             case '[': /* grouping specifier */
@@ -1195,13 +1069,10 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 INC_VOID_PTR(ptr);
 
                 /* set the pointer mode */
-#if defined(CONFIG_HAVE_ALT_PTR)
-                fspec.grouping.mode = mode;
-#endif
                 fspec.grouping.ptr  = ptr;
 
                 /* scan to end of grouping string */
-                while ( ( c = READ_CHAR( mode, ptr ) ) && c != ']' )
+                while ( ( c = READ_CHAR( ptr ) ) && c != ']' )
                 {
                     INC_VOID_PTR(ptr);
                     ++gplen;
@@ -1226,7 +1097,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 INC_VOID_PTR( ptr );
 
                 /* get integer width */
-                if ( READ_CHAR( mode, ptr ) == '*' )
+                if ( READ_CHAR( ptr ) == '*' )
                 {
                     p = va_arg( ap, int );
                     p = MAX( MIN_XP_INT, p );  /* clamp negative values to minimum */
@@ -1236,7 +1107,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 else
                 {
                     for ( p = 0;
-                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c );
+                         ( c = READ_CHAR( ptr ) ) && ISDIGIT( c );
                          INC_VOID_PTR( ptr ) )
                     {
                         p = p * 10 + c - '0';
@@ -1250,9 +1121,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 }
 
                 /* get fractional width */
-                if ( READ_CHAR( mode, ptr ) != '.' )
+                if ( READ_CHAR( ptr ) != '.' )
                     goto exit_badformat; /* fractional width is missing */
-                else if ( READ_CHAR( mode, INC_VOID_PTR(ptr) ) == '*' )
+                else if ( READ_CHAR( INC_VOID_PTR(ptr) ) == '*' )
                 {
                     q = va_arg( ap, int );
                     q = MAX( MIN_XP_FRAC, q );  /* clamp negative values to minimum */
@@ -1262,7 +1133,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 else
                 {
                     for ( q = 0;
-                         ( c = READ_CHAR( mode, ptr ) ) && ISDIGIT( c );
+                         ( c = READ_CHAR( ptr ) ) && ISDIGIT( c );
                          INC_VOID_PTR( ptr ) )
                     {
                         q = q * 10 + c - '0';
@@ -1292,18 +1163,18 @@ int format( void *    (* cons) (void *, const char * , size_t),
             } /* switch(..) */
 
             /* test for length qualifier */
-            c = READ_CHAR( mode, ptr );
+            c = READ_CHAR( ptr );
             fspec.qual = ( c && STRCHR( "hljztL", c ) ) ? (INC_VOID_PTR(ptr), c) : '\0';
 
             /* catch double qualifiers */
-            if ( fspec.qual && (c = READ_CHAR( mode, ptr )) && c == fspec.qual )
+            if ( fspec.qual && (c = READ_CHAR( ptr )) && c == fspec.qual )
             {
                 fspec.qual = DOUBLE_QUAL( fspec.qual );
                 INC_VOID_PTR(ptr);
             }
 
             /* Continuation */
-            c = READ_CHAR( mode, ptr );
+            c = READ_CHAR( ptr );
             if ( c == '\0' )
             {
                 /* If we're in middle of parsing a conversion, it's incomplete */
@@ -1311,20 +1182,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     goto exit_badformat;
 
                 /* Otherwise, bare '%' continuation is valid */
-#if defined(CONFIG_HAVE_ALT_PTR)
-                if ( fspec.flags & FHASH )
-                {
-                    mode = ALT_PTR;
-                    ptr = va_arg( ap, ROM_PTR_T );
-                }
-                else
-                {
-                    mode = NORMAL_PTR;
-#endif
-                    ptr = va_arg( ap, const char * );
-#if defined(CONFIG_HAVE_ALT_PTR)
-                }
-#endif
+                ptr = va_arg( ap, const char * );
                 continue;
             }
 
@@ -1332,7 +1190,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
 
             if ( convspec == 'C' )
             {
-                c = READ_CHAR( mode, INC_VOID_PTR(ptr) );
+                c = READ_CHAR( INC_VOID_PTR(ptr) );
                 if ( c == '\0' )
                     goto exit_badformat;
                 fspec.repchar = c;
