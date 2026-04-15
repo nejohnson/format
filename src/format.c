@@ -433,6 +433,7 @@ static void calc_space_padding( T_FormatSpec * pspec,
 static int do_conv_n( T_FormatSpec * pspec,
                       va_list *      ap )
 {
+#if defined(CONFIG_WITH_N_CONVERSION)
     void *vp = va_arg( *ap, void * );
 
     if ( vp )
@@ -457,6 +458,10 @@ static int do_conv_n( T_FormatSpec * pspec,
             *(int *)vp = (int)pspec->nChars;
     }
     return 0;
+#else
+    (void)pspec; (void)ap;
+    return EXBADFORMAT;
+#endif
 }
 
 /*****************************************************************************/
@@ -477,6 +482,7 @@ static int do_conv_c( T_FormatSpec * pspec,
                       void *      (* cons)(void *, const char *, size_t),
                       void * *       parg )
 {
+#if defined(CONFIG_WITH_CHAR_CONVERSION)
     char cc;
     int n = 0;
     unsigned int rep;
@@ -501,6 +507,10 @@ static int do_conv_c( T_FormatSpec * pspec,
     }
 
     return n;
+#else
+    (void)pspec; (void)ap; (void)code; (void)cons; (void)parg;
+    return EXBADFORMAT;
+#endif
 }
 
 /*****************************************************************************/

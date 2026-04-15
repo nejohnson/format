@@ -264,6 +264,7 @@ static void test_cC( void )
 {
     printf( "Testing \"%%c\"\n" );
 
+#if defined(CONFIG_WITH_CHAR_CONVERSION)
     /* Basic test */
     TEST( "a", 1, "%c", 'a' );
 
@@ -289,6 +290,11 @@ static void test_cC( void )
     /* Check variable repetition */
     TEST( "----", 4, "%.*c", 4, '-' );
     TEST( "aaaa", 4, "%.*Ca", 4 );
+#else
+    /* Test that %c fails gracefully when disabled */
+    FAIL( "%c", 'a' );
+    FAIL( "%.4Ca", UNUSED );
+#endif
 }
 
 /*****************************************************************************/
@@ -297,6 +303,7 @@ static void test_cC( void )
 **/
 static void test_n( void )
 {
+#if defined(CONFIG_WITH_N_CONVERSION)
     int n;
     short s;
     long l;
@@ -304,9 +311,11 @@ static void test_n( void )
     long long ll;
 #endif
     char c;
+#endif
 
     printf( "Testing \"%%n\"\n" );
 
+#if defined(CONFIG_WITH_N_CONVERSION)
     /* Basic positional tests */
     TEST( "hello", 5, "hello%n", &n ); CHECK( n, 5 );
     TEST( "hello", 5, "hel%nlo", &n ); CHECK( n, 3 );
@@ -350,6 +359,10 @@ static void test_n( void )
 
     /* Check all flags, precision, and width are ignored */
     TEST( "hello", 5, "hello%-+ #0!^12.24n", &n ); CHECK( n, 5 );
+#else
+    /* Test that %n fails gracefully when disabled */
+    FAIL( "hello%n", NULL );
+#endif
 }
 
 /*****************************************************************************/
