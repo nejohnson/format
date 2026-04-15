@@ -401,12 +401,14 @@ static void calc_space_padding( T_FormatSpec * pspec,
     else
         left = width;
 
+#if defined(CONFIG_WITH_CENTERING)
     if ( pspec->flags & FCARET )
     {
         size_t tot = left + right;
         left       = ( tot + !( pspec->flags & FMINUS ) ) / 2;
         right      = tot - left;
     }
+#endif
 
     if ( ps1 ) *ps1 = left;
     if ( ps2 ) *ps2 = right;

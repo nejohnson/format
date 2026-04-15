@@ -1558,6 +1558,7 @@ static void test_centering( void )
 {
     printf( "Testing comprehensive centering flag (^)\n" );
 
+#if defined(CONFIG_WITH_CENTERING)
     /* ===== Centering with All Conversion Specifiers ===== */
 
     /* Character (%c) - Note: centering may not be supported for %c */
@@ -1788,6 +1789,11 @@ static void test_centering( void )
 
     TEST( "  0x00abc  ", 11, "%^#11.5x", 0xABC );
     TEST( "  0x00abc ", 10, "%^#10.5x", 0xABC );
+#else
+    /* Test that ^ flag is ignored when CONFIG_WITH_CENTERING is disabled */
+    TEST( "hello  ", 7, "%^7s", "hello" );      /* Left-aligned instead of centered */
+    TEST( "123  ", 5, "%^5d", 123 );
+#endif
 }
 
 /*****************************************************************************/
