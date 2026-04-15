@@ -2061,6 +2061,7 @@ static void test_alternate_form( void )
 {
     printf( "Testing comprehensive alternate form (#) flag\n" );
 
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     /* ===== Alternate Form with All Bases ===== */
 
     /* Binary (%#b) - adds 0b prefix */
@@ -2255,6 +2256,12 @@ static void test_alternate_form( void )
     TEST( "0b1010", 6, "%# b", 0xA );        /* space ignored for unsigned */
 
     /* Note: + and space don't apply to unsigned conversions, so effect is # only */
+#else
+    /* Test that # flag is ignored when CONFIG_WITH_ALTERNATE_FORM is disabled */
+    TEST( "a", 1, "%#x", 10 );           /* No 0x prefix */
+    TEST( "12", 2, "%#o", 10 );          /* No 0 prefix */
+    TEST( "1010", 4, "%#b", 10 );        /* No 0b prefix */
+#endif
 }
 
 /*****************************************************************************/

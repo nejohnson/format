@@ -656,6 +656,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         prefix[0] = '0';
     }
 
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     if ( code == 'o' && uv )
         pfxWidth = 1;
 
@@ -672,6 +673,7 @@ static int do_conv_numeric( T_FormatSpec * pspec,
         if ( pspec->flags & FBANG )
             prefix[1] |= 0x20;
     }
+#endif
 
     if ( pspec->flags & FHASH )
     {
