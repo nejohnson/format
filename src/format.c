@@ -83,14 +83,10 @@
 /**
     Set limits.
 **/
-#define MAXWIDTH        ( 500 )
-#define MAXPREC         ( 500 )
+#define MAXWIDTH        CONFIG_MAXWIDTH
+#define MAXPREC         CONFIG_MAXPREC
 #define MAXBASE         ( 36 )
-#define BUFLEN          ( 130 )  /* Must be long enough for 64-bit pointers
-                                  * in binary with maximum grouping chars and
-                                  * prefix:
-                                  *  "0b" + 64 digits + 64 grouping chars
-                                  */
+#define BUFLEN          CONFIG_BUFLEN
 
 /**
     Return the maximum/minimum of two scalar values.

@@ -42,23 +42,139 @@
   #define CONFIG_HAVE_LIBC
 #endif
 
+/*****************************************************************************/
+/* Configuration Profiles                                                    */
+/*                                                                           */
+/* Define ONE of these profiles for preset configurations:                  */
+/*   CONFIG_PROFILE_FULL  - Full-featured version (~16KB)                   */
+/*   CONFIG_PROFILE_TINY  - Reduced feature set (~3KB)                      */
+/*   CONFIG_PROFILE_MICRO - Minimal feature set (~2.8KB)                    */
+/*                                                                           */
+/* If no profile is defined, CONFIG_PROFILE_FULL is assumed.                */
+/*                                                                           */
+/* Advanced users can override individual CONFIG_WITH_* flags below the     */
+/* profile definitions to create custom configurations.                     */
+/*****************************************************************************/
+
+/* Uncomment ONE of these to select a profile: */
+/* #define CONFIG_PROFILE_MICRO */
+/* #define CONFIG_PROFILE_TINY */
+/* #define CONFIG_PROFILE_FULL */
+
+/* Default to FULL profile if none specified */
+#if !defined(CONFIG_PROFILE_FULL) && !defined(CONFIG_PROFILE_TINY) && !defined(CONFIG_PROFILE_MICRO)
+  #define CONFIG_PROFILE_FULL
+#endif
 
 /*****************************************************************************/
-/** Provide support for floating point output.  Many smaller embedded systems
-    simply do not need this functionality so make it possible to remove it at
-    build time.  If used at runtime the call to format will return EXBADFORMAT.
-**/
-#define CONFIG_WITH_FP_SUPPORT
+/* Granular Feature Flags                                                    */
+/*                                                                           */
+/* These flags control individual features. They are automatically set by   */
+/* the profiles above, but can be overridden for custom configurations.     */
+/*****************************************************************************/
 
-/****************************************************************************/
-/** Provide support for long long arguments but only if needed, otherwise we
-    can pull in unwanted libraries on most platforms.
-**/
-#define CONFIG_WITH_LONG_LONG_SUPPORT
+/* ---- MICRO Profile Configuration ---- */
+#if defined(CONFIG_PROFILE_MICRO)
 
-/****************************************************************************/
-/** Provide support for the grouping feature if needed.
-**/
-#define CONFIG_WITH_GROUPING_SUPPORT
+  /* API: Use direct putchar interface (requires format_putchar()) */
+  #define CONFIG_API_PUTCHAR
+
+  /* Size limits */
+  #define CONFIG_MAXWIDTH 80
+  #define CONFIG_MAXPREC 80
+  #define CONFIG_BUFLEN 50     /* 32-bit binary (34) + margin */
+
+  /* Minimal feature set - only basic conversions enabled */
+  /* No floating point, no grouping, no long long */
+  /* No character conversion, no n conversion, no continuation */
+  /* No alternate form, no engineering notation, no centering */
+
+/* ---- TINY Profile Configuration ---- */
+#elif defined(CONFIG_PROFILE_TINY)
+
+  /* API: Use consumer function interface */
+  #define CONFIG_API_CONSUMER
+
+  /* Size limits */
+  #define CONFIG_MAXWIDTH 80
+  #define CONFIG_MAXPREC 80
+  #define CONFIG_BUFLEN 50     /* 32-bit binary (34) + margin */
+
+  /* Enabled features */
+  #define CONFIG_WITH_CHAR_CONVERSION        /* %c support */
+  #define CONFIG_WITH_CONTINUATION           /* %" specifier */
+
+  /* Disabled features (commented for clarity) */
+  /* No CONFIG_WITH_FP_SUPPORT */
+  /* No CONFIG_WITH_LONG_LONG_SUPPORT */
+  /* No CONFIG_WITH_GROUPING_SUPPORT */
+  /* No CONFIG_WITH_N_CONVERSION */
+  /* No CONFIG_WITH_FIXED_POINT_SUPPORT */
+  /* No CONFIG_WITH_ALTERNATE_FORM */
+  /* No CONFIG_WITH_ENGINEERING_NOTATION */
+  /* No CONFIG_WITH_CENTERING */
+
+/* ---- FULL Profile Configuration ---- */
+#else /* CONFIG_PROFILE_FULL */
+
+  /* API: Use consumer function interface */
+  #define CONFIG_API_CONSUMER
+
+  /* Size limits */
+  #define CONFIG_MAXWIDTH 500
+  #define CONFIG_MAXPREC 500
+  #define CONFIG_BUFLEN 130    /* 64-bit binary + grouping (130) */
+
+  /* All features enabled (can be individually disabled if needed) */
+  #ifndef CONFIG_WITH_FP_SUPPORT
+    #define CONFIG_WITH_FP_SUPPORT           /* Floating point (%f,%e,%g,%a) */
+  #endif
+
+  #ifndef CONFIG_WITH_LONG_LONG_SUPPORT
+    #define CONFIG_WITH_LONG_LONG_SUPPORT    /* long long support (ll qualifier) */
+  #endif
+
+  #ifndef CONFIG_WITH_GROUPING_SUPPORT
+    #define CONFIG_WITH_GROUPING_SUPPORT     /* Digit grouping ([,3]) */
+  #endif
+
+  #ifndef CONFIG_WITH_CHAR_CONVERSION
+    #define CONFIG_WITH_CHAR_CONVERSION      /* %c support */
+  #endif
+
+  #ifndef CONFIG_WITH_N_CONVERSION
+    #define CONFIG_WITH_N_CONVERSION         /* %n support */
+  #endif
+
+  #ifndef CONFIG_WITH_FIXED_POINT_SUPPORT
+    #define CONFIG_WITH_FIXED_POINT_SUPPORT  /* %k support (requires FP) */
+  #endif
+
+  #ifndef CONFIG_WITH_ALTERNATE_FORM
+    #define CONFIG_WITH_ALTERNATE_FORM       /* # flag support */
+  #endif
+
+  #ifndef CONFIG_WITH_ENGINEERING_NOTATION
+    #define CONFIG_WITH_ENGINEERING_NOTATION /* ! flag support */
+  #endif
+
+  #ifndef CONFIG_WITH_CENTERING
+    #define CONFIG_WITH_CENTERING            /* ^ flag support */
+  #endif
+
+  #ifndef CONFIG_WITH_CONTINUATION
+    #define CONFIG_WITH_CONTINUATION         /* %" specifier */
+  #endif
+
+#endif /* Profile selection */
+
+/*****************************************************************************/
+/* Dependency Checks                                                         */
+/*****************************************************************************/
+
+/* Fixed-point support requires floating point support */
+#if defined(CONFIG_WITH_FIXED_POINT_SUPPORT) && !defined(CONFIG_WITH_FP_SUPPORT)
+  #error "CONFIG_WITH_FIXED_POINT_SUPPORT requires CONFIG_WITH_FP_SUPPORT"
+#endif
 
 #endif /* FORMAT_CONFIG_H */
