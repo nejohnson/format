@@ -177,4 +177,9 @@
   #error "CONFIG_WITH_FIXED_POINT_SUPPORT requires CONFIG_WITH_FP_SUPPORT"
 #endif
 
+/* Engineering notation requires floating point support */
+#if defined(CONFIG_WITH_ENGINEERING_NOTATION) && !defined(CONFIG_WITH_FP_SUPPORT)
+  #error "CONFIG_WITH_ENGINEERING_NOTATION requires CONFIG_WITH_FP_SUPPORT"
+#endif
+
 #endif /* FORMAT_CONFIG_H */

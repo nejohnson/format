@@ -2449,6 +2449,8 @@ static void test_engineering_si( void )
 #if defined(CONFIG_WITH_FP_SUPPORT)
     printf( "Testing engineering notation and SI format\n" );
 
+#if defined(CONFIG_WITH_ENGINEERING_NOTATION)
+
     /* ===== Engineering Notation (%!e) ===== */
 
     /* Basic engineering notation - exponent forced to multiple of 3 */
@@ -2554,6 +2556,12 @@ static void test_engineering_si( void )
     /* Engineering notation should also work with %!g */
     /* Note: %!g is mentioned as being turned off in the code,
        so these tests might not work as expected */
+
+#else
+    /* Test that ! flag is ignored when engineering notation is disabled */
+    TEST( "1.23e+03", 8, "%!.2e", 1234.5 );      /* ! flag ignored */
+    TEST( "1000.000", 8, "%!.3f", 1000.0 );      /* No SI prefix */
+#endif /* CONFIG_WITH_ENGINEERING_NOTATION */
 
 #endif /* CONFIG_WITH_FP_SUPPORT */
 }

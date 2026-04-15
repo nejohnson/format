@@ -641,10 +641,11 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     /* Work out how many digits on each side of the DP */
     if ( is_f )
     {
+#if defined(CONFIG_WITH_ENGINEERING_NOTATION)
         if ( pspec->flags & FBANG )
         {
             static char sitab[] = { 'y', 'z', 'a', 'f', 'p', 'n', 'u', 'm',
-                                    '\0', 
+                                    '\0',
                                     'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' };
             int idx = (int)NELEMS(sitab) / 2;
 
@@ -656,6 +657,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
             }
             si = sitab[idx];
         }
+#endif
 
         n_left = exponent > -1 ? 1 + exponent : 0;
     }
@@ -663,6 +665,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
     {
         n_left = 1;
 
+#if defined(CONFIG_WITH_ENGINEERING_NOTATION)
         /* Engineering format forces exponent to multiple of 3 */
         if ( pspec->flags & FBANG )
         {
@@ -673,6 +676,7 @@ static int do_conv_efg( T_FormatSpec *     pspec,
            n_left   += m;
            exponent -= m;
         }
+#endif
     }
 
     /* For %g, precision is total significant digits; for %e/%f it's digits after DP */
