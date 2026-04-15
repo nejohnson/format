@@ -42,11 +42,6 @@
 #include <stddef.h>
 #include <limits.h>
 
-#if defined(__AVR__)
-  #include <avr/io.h>
-  #include <avr/pgmspace.h>
-#endif
-
 #include "format.h"
 #include "format_config.h"
 
@@ -395,13 +390,6 @@ static void test_s( void )
     /* Check unused flags and lengths are ignored */
     TEST( "hello", 5, "%+ 0!ls", "hello" );
     TEST( "hello", 5, "%+ 0!hs", "hello" );
-
-#if defined(__AVR__)
-    {
-        static char s_string[] PROGMEM = "funky monkey";
-        TEST( "funky monkey", 12, "%#s", (PGM_P)s_string );
-    }
-#endif
 }
 
 /*****************************************************************************/
@@ -4067,42 +4055,8 @@ static void run_tests( char * passes )
 /* Public functions.                                                         */
 /*****************************************************************************/
 
-/* Target platform specific functionality */
-
-#if defined(__AVR__)
-
-/* For the simulator in AVRstudio we can talk to the UART and view on HAPSIM.
-   Tested on the ATmega2560.
-   Note that in the simulator we don't need to set up the baud rate.
-*/
-static int avr_putchar( char c, FILE *fp)
-{
-    UDR0 = c;
-    return 0;
-}
-
-static void system_init( void )
-{
-    fdevopen(&avr_putchar,NULL);
-    UCSR0B = 0x08;
-}
-
-#else
-
-/* Default system initialiser does nothing */
-
-static void system_init( void )
-{
-    /* empty */
-}
-
-#endif
-
-
 int main( int argc, char *argv[] )
 {
-    system_init();
-
     printf( ":: format test harness ::\n");
     run_tests( argc > 1 ? argv[1] : NULL);
     return 0;
