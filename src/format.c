@@ -1191,9 +1191,14 @@ int format( void *    (* cons) (void *, const char * , size_t),
                 if ( parsing_conversion )
                     goto exit_badformat;
 
+#if defined(CONFIG_WITH_CONTINUATION)
                 /* Otherwise, bare '%' continuation is valid */
                 ptr = va_arg( ap, const char * );
                 continue;
+#else
+                /* Continuation not supported - treat as incomplete format */
+                goto exit_badformat;
+#endif
             }
 
             convspec = c;

@@ -1384,6 +1384,7 @@ static void test_cont( void )
 {
     printf( "Testing format continuation\n" );
 
+#if defined(CONFIG_WITH_CONTINUATION)
     /* Basic string continuation */
     TEST( "hello world", 11, "hello %", "world" );
     TEST( "hello old world", 15, "hello %", "old %", "world" );
@@ -1397,13 +1398,9 @@ static void test_cont( void )
      * Old behavior: treated as continuation, modifiers ignored.
      * New behavior: incomplete specification → EXBADFORMAT */
     /* TEST( "hello world", 11, "hello % +-!^12.24l", "world" ); */  /* No longer valid */
-
-#if defined(__AVR__)
-    {
-        static char cont_string[] PROGMEM = "brave %s %";
-        TEST( "hello brave new world", 21,
-                         "hello %#", (PGM_P)cont_string, "new", "world" );
-    }
+#else
+    /* Test that continuation fails when disabled */
+    FAIL( "hello %", "world" );
 #endif
 }
 
@@ -3567,6 +3564,7 @@ static void test_errors( void )
 
     /* ===== Continuation Feature (verify still works after Bug #1 fix) ===== */
 
+#if defined(CONFIG_WITH_CONTINUATION)
     /* Bare % continuation should work */
     TEST( "hello world", 11, "hello %", "world" );
     TEST( "hello old world", 15, "hello %", "old %", "world" );
@@ -3575,6 +3573,10 @@ static void test_errors( void )
     TEST( "One: 1,Two: 2,Three: 3", 22, "One: %d,%", 1,
                                         "Two: %c,%", '2',
                                         "Three: %s", "3" );
+#else
+    /* Continuation disabled - bare % should fail */
+    FAIL( "hello %", "world" );
+#endif
 }
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
