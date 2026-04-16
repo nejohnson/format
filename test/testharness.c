@@ -2268,8 +2268,13 @@ static void test_length_modifiers( void )
     /* ===== Invalid Combinations (should work with conversion, modifier ignored) ===== */
 
     /* Length modifiers are generally ignored for %c, %s, %p, %n handles them */
+#if defined(CONFIG_WITH_CHAR_CONVERSION)
     TEST( "A", 1, "%lc", 'A' );     /* l ignored for %c */
     TEST( "A", 1, "%hc", 'A' );     /* h ignored for %c */
+#else
+    FAIL( "%lc", 'A' );  /* %c disabled */
+    FAIL( "%hc", 'A' );  /* %c disabled */
+#endif
     TEST( "hello", 5, "%hs", "hello" );  /* h ignored for %s */
     TEST( "hello", 5, "%ls", "hello" );  /* l ignored for %s */
 
@@ -2839,6 +2844,7 @@ static void test_string_char_edge_cases( void )
     TEST( "     hello", 10, "%10.5s", "hello world" );
     TEST( "hello     ", 10, "%-10.5s", "hello world" );
 
+#if defined(CONFIG_WITH_CHAR_CONVERSION)
     /* ===== %C with Non-ASCII Values (>127) ===== */
 
     TEST( "\x80", 1, "%.C\x80", UNUSED );      /* 128 */
@@ -2862,6 +2868,11 @@ static void test_string_char_edge_cases( void )
     /* Repetition with special values */
     TEST( "\0\0\0", 3, "%.3c", 0 );
     TEST( "\xFF\xFF\xFF\xFF", 4, "%.4c", 255 );
+#else
+    /* %c and %C conversions disabled in MICRO profile */
+    FAIL( "%.C\x80", UNUSED );
+    FAIL( "%c", 0 );
+#endif
 
     /* ===== Strings with All Escape Sequences ===== */
 
@@ -2916,11 +2927,16 @@ static void test_string_char_edge_cases( void )
 
     /* ===== Repetition with %C at Boundaries ===== */
 
+#if defined(CONFIG_WITH_CHAR_CONVERSION)
     /* %.80C should work in all variants */
     char expected80[81];
     memset( expected80, 'X', 80 );
     expected80[80] = '\0';
     TEST( expected80, 80, "%.80CX", UNUSED );
+#else
+    /* %C conversion disabled in MICRO profile */
+    FAIL( "%.80CX", UNUSED );
+#endif
 
 #if CONFIG_MAXPREC > 80
     /* %.81C should work in FULL profile (no 80-char limit) */
