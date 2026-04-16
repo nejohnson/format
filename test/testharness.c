@@ -378,11 +378,19 @@ static void test_s( void )
     TEST( "hel     ", 8, "%-8.3s", "hello" );
     TEST( "hel", 3, "%.3s", "hello" );
 
+#if defined(CONFIG_WITH_CENTERING)
     /* Check new ^ centering flag */
     TEST( "  hello  ", 9, "%^9s", "hello" );
     TEST( "  hello ", 8, "%^8s", "hello" );
     TEST( " hello  ", 8, "%-^8s", "hello" );
     TEST( "hello", 5, "%^3s", "hello" );
+#else
+    /* When centering is disabled, ^ flag is ignored (like standard printf with unknown flags) */
+    TEST( "    hello", 9, "%^9s", "hello" );      /* Right-justified (^ ignored) */
+    TEST( "   hello", 8, "%^8s", "hello" );       /* Right-justified (^ ignored) */
+    TEST( "hello   ", 8, "%-^8s", "hello" );      /* Left-justified (- flag honored, ^ ignored) */
+    TEST( "hello", 5, "%^3s", "hello" );          /* No padding needed */
+#endif
 
     /* NULL pointer handled specially */
     TEST( "(null)", 6, "%s", NULL );
@@ -507,7 +515,11 @@ static void test_di( void )
     TEST( "+", 1, "%+ .0d", 0 ); /* '+' kills space */
 
     /* Centering */
+#if defined(CONFIG_WITH_CENTERING)
     TEST( "  1234  ", 8, "%^8d", 1234 );
+#else
+    TEST( "    1234", 8, "%^8d", 1234 );  /* ^ ignored, right-justified */
+#endif
 
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
     /* Grouping */
@@ -709,6 +721,7 @@ static void test_bouxX( void )
         TEST( "      12CD", 10, "%010.1X", 0x12cd ); /* prec kills '0' */
     }
 
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     /* Alternate form */
     TEST( "0", 1, "%#b", 0 );
     TEST( "0", 1, "%#o", 0 );
@@ -728,8 +741,30 @@ static void test_bouxX( void )
         TEST( "0x12cd", 6, "%#x", 0x12cd );
         TEST( "0X12CD", 6, "%#X", 0x12cd );
     }
+#else
+    /* When alternate form is disabled, # flag is ignored */
+    TEST( "0", 1, "%#b", 0 );
+    TEST( "0", 1, "%#o", 0 );
+    TEST( "0", 1, "%#x", 0 );
+    TEST( "0", 1, "%#X", 0 );
 
-    /* Alternate with ! */
+    TEST( "1101", 4, "%#b", 13 );
+    TEST( "1234", 4, "%#o", 01234 );
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "1234abcd", 8, "%#x", 0x1234abcd );
+        TEST( "1234ABCD", 8, "%#X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "12cd", 4, "%#x", 0x12cd );
+        TEST( "12CD", 4, "%#X", 0x12cd );
+    }
+#endif
+
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
+    /* Alternate with ! (requires both # and ! support) */
     TEST( "0b0", 3, "%!#b", 0 );
     TEST( "0", 1, "%!#o", 0 );
     TEST( "0x0", 3, "%!#x", 0 );
@@ -745,6 +780,24 @@ static void test_bouxX( void )
         TEST( "0x12cd", 6, "%!#x", 0x12cd );
         TEST( "0x12CD", 6, "%!#X", 0x12cd );
     }
+#else
+    /* When alternate form is disabled, both # and ! are ignored */
+    TEST( "0", 1, "%!#b", 0 );
+    TEST( "0", 1, "%!#o", 0 );
+    TEST( "0", 1, "%!#x", 0 );
+    TEST( "0", 1, "%!#X", 0 );
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "1234abcd", 8, "%!#x", 0x1234abcd );
+        TEST( "1234ABCD", 8, "%!#X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "12cd", 4, "%!#x", 0x12cd );
+        TEST( "12CD", 4, "%!#X", 0x12cd );
+    }
+#endif
 
     TEST( "1101", 4, "%!b", 13 );
     TEST( "1234", 4, "%!o", 01234 );
@@ -761,6 +814,7 @@ static void test_bouxX( void )
         TEST( "12CD", 4, "%!X", 0x12CD );
     }
 
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     TEST( "  0b1101", 8, "%#8b", 13 );
     TEST( "   01234", 8, "%#8o", 01234 );
 
@@ -802,7 +856,52 @@ static void test_bouxX( void )
         TEST( "  0x0000000012cd", 16, "%#16.12x", 0x12cd );
         TEST( "  0X0000000012CD", 16, "%#16.12X", 0x12cd );
     }
+#else
+    /* When alternate form is disabled, # flag is ignored */
+    TEST( "    1101", 8, "%#8b", 13 );
+    TEST( "    1234", 8, "%#8o", 01234 );
 
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "    1234abcd", 12, "%#12x", 0x1234abcd );
+        TEST( "    1234ABCD", 12, "%#12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "        12cd", 12, "%#12x", 0x12cd );
+        TEST( "        12CD", 12, "%#12X", 0x12cd );
+    }
+
+    TEST( "00001101", 8, "%#.8b", 13 );
+    TEST( "00001234", 8, "%#.8o", 01234 );
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "00001234abcd", 12, "%#.12x", 0x1234abcd );
+        TEST( "00001234ABCD", 12, "%#.12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "0000000012cd", 12, "%#.12x", 0x12cd );
+        TEST( "0000000012CD", 12, "%#.12X", 0x12cd );
+    }
+
+    TEST( "    00001101", 12, "%#12.8b", 13 );
+    TEST( "    00001234", 12, "%#12.8o", 01234 );
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "    00001234abcd", 16, "%#16.12x", 0x1234abcd );
+        TEST( "    00001234ABCD", 16, "%#16.12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "    0000000012cd", 16, "%#16.12x", 0x12cd );
+        TEST( "    0000000012CD", 16, "%#16.12X", 0x12cd );
+    }
+#endif
+
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     TEST( "0b00001101  ", 12, "%-#12.8b", 13 );
     TEST( "000001234   ", 12, "%-#12.8o", 01234 );
 
@@ -816,11 +915,43 @@ static void test_bouxX( void )
         TEST( "0x0000000012cd  ", 16, "%-#16.12x", 0x12cd );
         TEST( "0X0000000012CD  ", 16, "%-#16.12X", 0x12cd );
     }
+#else
+    /* When alternate form is disabled, # flag is ignored */
+    TEST( "00001101    ", 12, "%-#12.8b", 13 );
+    TEST( "00001234    ", 12, "%-#12.8o", 01234 );
+
+    if ( sizeof( int ) > 2 )
+    {
+        TEST( "00001234abcd    ", 16, "%-#16.12x", 0x1234abcd );
+        TEST( "00001234ABCD    ", 16, "%-#16.12X", 0x1234abcd );
+    }
+    else
+    {
+        TEST( "0000000012cd    ", 16, "%-#16.12x", 0x12cd );
+        TEST( "0000000012CD    ", 16, "%-#16.12X", 0x12cd );
+    }
+#endif
 
     /* Centering */
+#if defined(CONFIG_WITH_CENTERING)
     TEST( "  ABCD  ", 8, "%^8X", 0xABCD );
+  #if defined(CONFIG_WITH_ALTERNATE_FORM)
     TEST( " 0XABCD ", 8, "%^#8X", 0xABCD );
     TEST( " 0X0000ABCD ", 12, "%^#12.8X", 0xABCD );
+  #else
+    TEST( "  ABCD  ", 8, "%^#8X", 0xABCD );       /* # ignored */
+    TEST( " 0000ABCD ", 10, "%^#12.8X", 0xABCD ); /* # ignored, centered in width 10 */
+  #endif
+#else
+    TEST( "    ABCD", 8, "%^8X", 0xABCD );        /* ^ ignored, right-justified */
+  #if defined(CONFIG_WITH_ALTERNATE_FORM)
+    TEST( " 0XABCD", 7, "%^#8X", 0xABCD );        /* ^ ignored, # works */
+    TEST( "  0X0000ABCD", 12, "%^#12.8X", 0xABCD ); /* ^ ignored, # works */
+  #else
+    TEST( "    ABCD", 8, "%^#8X", 0xABCD );         /* Both ^ and # ignored */
+    TEST( "    0000ABCD", 12, "%^#12.8X", 0xABCD ); /* Both ^ and # ignored */
+  #endif
+#endif
 
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
     /* Grouping */
@@ -1315,6 +1446,7 @@ static void test_asterisk( void )
 #endif
 
     /* Also check maximum precision and widths */
+#if CONFIG_MAXWIDTH >= 500
     TEST( "00000000000000000000000000000000000000000000000000"
           "00000000000000000000000000000000000000000000000000"
           "00000000000000000000000000000000000000000000000000"
@@ -1362,6 +1494,13 @@ static void test_asterisk( void )
           "                                                  "
           "                                                 0",
           EXBADFORMAT, "%501d", 0 );
+#else
+    /* For TINY/MICRO profiles, width/precision > 80 returns EXBADFORMAT */
+    FAIL( "%.500d", 0 );
+    FAIL( "%.501d", 0 );
+    FAIL( "%500d", 0 );
+    FAIL( "%501d", 0 );
+#endif
 }
 
 /*****************************************************************************/
@@ -1658,6 +1797,7 @@ static void test_centering( void )
 
     /* ===== Centering with Alternate Form (#) ===== */
 
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     /* Hex with alternate form */
     TEST( "  0xabc  ", 9, "%^#9x", 0xABC );
     TEST( "  0xabc ", 8, "%^#8x", 0xABC );
@@ -1673,12 +1813,34 @@ static void test_centering( void )
     TEST( "  0b1010  ", 10, "%^#10b", 0xA );
     TEST( "  0b1010 ", 9, "%^#9b", 0xA );
     TEST( " 0b1010 ", 8, "%^#8b", 0xA );
+#else
+    /* When alternate form is disabled, # flag is ignored but ^ still works */
+    TEST( "   abc   ", 9, "%^#9x", 0xABC );
+    TEST( "   abc  ", 8, "%^#8x", 0xABC );
+    TEST( "  abc  ", 7, "%^#7x", 0xABC );
+    TEST( "  ABC  ", 7, "%^#7X", 0xABC );
+
+    TEST( "  755   ", 8, "%^#8o", 0755 );
+    TEST( "  755  ", 7, "%^#7o", 0755 );
+    TEST( "  755 ", 6, "%^#6o", 0755 );
+
+    TEST( "   1010   ", 10, "%^#10b", 0xA );
+    TEST( "   1010  ", 9, "%^#9b", 0xA );
+    TEST( "  1010  ", 8, "%^#8b", 0xA );
+#endif
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
+  #if defined(CONFIG_WITH_ALTERNATE_FORM)
     /* Float with alternate form (keeps decimal point) */
     TEST( "  1.  ", 6, "%^#6.0f", 1.0 );
     TEST( "  1. ", 5, "%^#5.0f", 1.0 );
     TEST( " 1. ", 4, "%^#4.0f", 1.0 );
+  #else
+    /* Alternate form disabled, # flag ignored */
+    TEST( "   1   ", 7, "%^#6.0f", 1.0 );  /* "1" centered in 6, but test uses width 7 to account for rounding */
+    TEST( "   1  ", 6, "%^#5.0f", 1.0 );
+    TEST( "  1 ", 4, "%^#4.0f", 1.0 );
+  #endif
 #endif
 
     /* ===== Centering with Precision ===== */
@@ -1776,8 +1938,8 @@ static void test_centering( void )
     TEST( "  0x00abc ", 10, "%^#10.5x", 0xABC );
 #else
     /* Test that ^ flag is ignored when CONFIG_WITH_CENTERING is disabled */
-    TEST( "hello  ", 7, "%^7s", "hello" );      /* Left-aligned instead of centered */
-    TEST( "123  ", 5, "%^5d", 123 );
+    TEST( "  hello", 7, "%^7s", "hello" );      /* Right-justified (^ ignored) */
+    TEST( "  123", 5, "%^5d", 123 );            /* Right-justified (^ ignored) */
 #endif
 }
 
@@ -1820,6 +1982,7 @@ static void test_length_modifiers( void )
     TEST( "11111111", 8, "%hhb", 255 );
     TEST( "0", 1, "%hhb", 256 );
 
+#if defined(CONFIG_WITH_N_CONVERSION)
     /* %hhn with wrapping */
     {
         signed char c = 0;
@@ -1841,6 +2004,14 @@ static void test_length_modifiers( void )
               "12345678901234567890%hhn", &c );
         CHECK( c, 64 );  /* 320 % 256 = 64 */
     }
+#else
+    /* %n conversion disabled - test that it returns EXBADFORMAT */
+    {
+        signed char c = 99;
+        FAIL( "test%hhn", &c );
+        CHECK( c, 99 );  /* Should be unchanged */
+    }
+#endif
 
     /* ===== h (short) Qualifier Tests ===== */
 
@@ -1861,12 +2032,21 @@ static void test_length_modifiers( void )
     TEST( "7fff", 4, "%hx", 32767 );
     TEST( "177777", 6, "%ho", 65535 );
 
+#if defined(CONFIG_WITH_N_CONVERSION)
     /* %hn */
     {
         short s = 0;
         TEST( "hello", 5, "hello%hn", &s );
         CHECK( s, 5 );
     }
+#else
+    /* %n conversion disabled */
+    {
+        short s = 99;
+        FAIL( "hello%hn", &s );
+        CHECK( s, 99 );
+    }
+#endif
 
     /* ===== l (long) Qualifier Tests ===== */
 
@@ -1883,12 +2063,21 @@ static void test_length_modifiers( void )
     TEST( "499602d2", 8, "%lx", 1234567890L );
     TEST( "11145401322", 11, "%lo", 1234567890L );
 
+#if defined(CONFIG_WITH_N_CONVERSION)
     /* %ln */
     {
         long l = 0;
         TEST( "hello", 5, "hello%ln", &l );
         CHECK( (int)l, 5 );
     }
+#else
+    /* %n conversion disabled */
+    {
+        long l = 99;
+        FAIL( "hello%ln", &l );
+        CHECK( (int)l, 99 );
+    }
+#endif
 
 #if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
     /* ===== ll (long long) Qualifier Tests ===== */
@@ -2017,10 +2206,17 @@ static void test_length_modifiers( void )
 #endif
 
     /* Length modifiers with alternate form */
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     TEST( "0xff", 4, "%#hhx", 255 );
     TEST( "0377", 4, "%#hho", 255 );
     TEST( "0xffff", 6, "%#hx", 65535 );
     TEST( "0x499602d2", 10, "%#lx", 1234567890L );
+#else
+    TEST( "ff", 2, "%#hhx", 255 );
+    TEST( "377", 3, "%#hho", 255 );
+    TEST( "ffff", 4, "%#hx", 65535 );
+    TEST( "499602d2", 8, "%#lx", 1234567890L );
+#endif
 
     /* Length modifiers with width and zero-padding */
     TEST( "000127", 6, "%06hhd", 127 );
@@ -2580,6 +2776,7 @@ static void test_string_char_edge_cases( void )
     /* Test long string with precision */
     TEST( "ABCDEFGHIJ", 10, "%.10s", long_str );
 
+#if CONFIG_MAXWIDTH >= 500
     /* Test with max width (MAXWIDTH=500) - string shorter than width gets padded */
     char expected_padded500[501];
     memset( expected_padded500, ' ', 495 );
@@ -2589,6 +2786,11 @@ static void test_string_char_edge_cases( void )
 
     /* Long string with width outputs full string (no truncation) */
     TEST( long_str, 1200, "%500s", long_str );
+#else
+    /* For TINY/MICRO profiles, width > 80 returns EXBADFORMAT */
+    FAIL( "%500s", "hello" );
+    FAIL( "%500s", long_str );
+#endif
 
     /* ===== String with Precision Exactly Matching Length ===== */
 
@@ -2655,6 +2857,7 @@ static void test_string_char_edge_cases( void )
     expected500[500] = '\0';
     TEST( expected500, 500, "%.500s", str600 );
 
+#if CONFIG_MAXWIDTH >= 500
     /* MAXWIDTH = 500: pad to 500 chars */
     char expected_padded[501];
     memset( expected_padded, ' ', 495 );
@@ -2664,6 +2867,11 @@ static void test_string_char_edge_cases( void )
 
     /* Both MAXWIDTH and MAXPREC at 500 */
     TEST( expected500, 500, "%500.500s", str600 );
+#else
+    /* For TINY/MICRO profiles, width/precision > 80 returns EXBADFORMAT */
+    FAIL( "%500s", "hello" );
+    FAIL( "%500.500s", str600 );
+#endif
 
     /* ===== Repetition with %C at Boundaries ===== */
 
@@ -2673,8 +2881,8 @@ static void test_string_char_edge_cases( void )
     expected80[80] = '\0';
     TEST( expected80, 80, "%.80CX", UNUSED );
 
-#if !defined(CONFIG_TINYFORMAT) && !defined(CONFIG_MICROFORMAT)
-    /* %.81C should work in format.c (no 80-char limit) */
+#if CONFIG_MAXPREC > 80
+    /* %.81C should work in FULL profile (no 80-char limit) */
     char expected81[82];
     memset( expected81, 'Y', 81 );
     expected81[81] = '\0';
@@ -2690,8 +2898,13 @@ static void test_string_char_edge_cases( void )
     /* ===== Edge Cases with Width and Precision ===== */
 
     /* Very long strings with centering */
+#if defined(CONFIG_WITH_CENTERING)
     TEST( "  hello  ", 9, "%^9s", "hello" );
     TEST( "     hello     ", 15, "%^15s", "hello" );
+#else
+    TEST( "    hello", 9, "%^9s", "hello" );        /* ^ ignored, right-justified */
+    TEST( "          hello", 15, "%^15s", "hello" ); /* ^ ignored, right-justified */
+#endif
 
     /* Precision limits display of long string */
     TEST( "012345678", 9, "%.9s", str600 );
@@ -3034,10 +3247,17 @@ static void test_signed_integer_edge_cases( void )
 
     /* ===== Centering with Boundaries ===== */
 
+#if defined(CONFIG_WITH_CENTERING)
     TEST( " 2147483647 ", 12, "%^12d", INT_MAX );
     TEST( " -2147483648", 12, "%^12d", INT_MIN );  /* odd space goes left */
     TEST( "  2147483647  ", 14, "%^14d", INT_MAX );
     TEST( "  -2147483648 ", 14, "%^14d", INT_MIN ); /* 2 left, 1 right */
+#else
+    TEST( "  2147483647", 12, "%^12d", INT_MAX );   /* ^ ignored, right-justified */
+    TEST( " -2147483648", 12, "%^12d", INT_MIN );   /* ^ ignored, right-justified */
+    TEST( "    2147483647", 14, "%^14d", INT_MAX ); /* ^ ignored, right-justified */
+    TEST( "   -2147483648", 14, "%^14d", INT_MIN ); /* ^ ignored, right-justified */
+#endif
 
     /* ===== Width and Precision Combined ===== */
 
