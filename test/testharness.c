@@ -2095,12 +2095,21 @@ static void test_length_modifiers( void )
     TEST( "1b69b4bacd05f15", 15, "%llx", 123456789123456789LL );
     TEST( "6664664565464057425", 19, "%llo", 123456789123456789LL );
 
+  #if defined(CONFIG_WITH_N_CONVERSION)
     /* %lln */
     {
         long long ll = 0;
         TEST( "hello", 5, "hello%lln", &ll );
         CHECK( (int)ll, 5 );
     }
+  #else
+    /* %n conversion disabled */
+    {
+        long long ll = 99;
+        FAIL( "hello%lln", &ll );
+        CHECK( (int)ll, 99 );
+    }
+  #endif
 #endif
 
     /* ===== j (intmax_t) Qualifier Tests ===== */
@@ -2118,12 +2127,21 @@ static void test_length_modifiers( void )
     TEST( "499602d2", 8, "%jx", (intmax_t)1234567890 );
     TEST( "11145401322", 11, "%jo", (intmax_t)1234567890 );
 
+#if defined(CONFIG_WITH_N_CONVERSION)
     /* %jn */
     {
         intmax_t j = 0;
         TEST( "hello", 5, "hello%jn", &j );
         CHECK( (int)j, 5 );
     }
+#else
+    /* %n conversion disabled */
+    {
+        intmax_t j = 99;
+        FAIL( "hello%jn", &j );
+        CHECK( (int)j, 99 );
+    }
+#endif
 
     /* ===== z (size_t) Qualifier Tests ===== */
 
@@ -2139,12 +2157,21 @@ static void test_length_modifiers( void )
     TEST( "499602d2", 8, "%zx", (size_t)1234567890 );
     TEST( "11145401322", 11, "%zo", (size_t)1234567890 );
 
+#if defined(CONFIG_WITH_N_CONVERSION)
     /* %zn */
     {
         size_t z = 0;
         TEST( "hello", 5, "hello%zn", &z );
         CHECK( (int)z, 5 );
     }
+#else
+    /* %n conversion disabled */
+    {
+        size_t z = 99;
+        FAIL( "hello%zn", &z );
+        CHECK( (int)z, 99 );
+    }
+#endif
 
     /* ===== t (ptrdiff_t) Qualifier Tests ===== */
 
@@ -2161,12 +2188,21 @@ static void test_length_modifiers( void )
     TEST( "499602d2", 8, "%tx", (ptrdiff_t)1234567890 );
     TEST( "11145401322", 11, "%to", (ptrdiff_t)1234567890 );
 
+#if defined(CONFIG_WITH_N_CONVERSION)
     /* %tn */
     {
         ptrdiff_t t = 0;
         TEST( "hello", 5, "hello%tn", &t );
         CHECK( (int)t, 5 );
     }
+#else
+    /* %n conversion disabled */
+    {
+        ptrdiff_t t = 99;
+        FAIL( "hello%tn", &t );
+        CHECK( (int)t, 99 );
+    }
+#endif
 
 #if defined(CONFIG_WITH_FP_SUPPORT) && 0  /* Long double not currently supported */
     /* ===== L (long double) Qualifier Tests ===== */
@@ -2851,11 +2887,16 @@ static void test_string_char_edge_cases( void )
         str600[i] = '0' + (i % 10);
     str600[600] = '\0';
 
+#if CONFIG_MAXPREC >= 500
     /* MAXPREC = 500: truncate to 500 chars */
     char expected500[501];
     memcpy( expected500, str600, 500 );
     expected500[500] = '\0';
     TEST( expected500, 500, "%.500s", str600 );
+#else
+    /* For TINY/MICRO profiles, precision > 80 returns EXBADFORMAT */
+    FAIL( "%.500s", str600 );
+#endif
 
 #if CONFIG_MAXWIDTH >= 500
     /* MAXWIDTH = 500: pad to 500 chars */
@@ -3371,6 +3412,7 @@ static void test_unsigned_integer_edge_cases( void )
 
     /* ===== Alternate Form (# flag) ===== */
 
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     TEST( "0", 1, "%#o", 0 );           /* 0 with # stays as "0" */
     TEST( "0", 1, "%#x", 0 );           /* 0 with # stays as "0" (no prefix) */
     TEST( "0", 1, "%#X", 0 );
@@ -3380,6 +3422,18 @@ static void test_unsigned_integer_edge_cases( void )
     TEST( "0xffffffff", 10, "%#x", UINT_MAX );
     TEST( "0XFFFFFFFF", 10, "%#X", UINT_MAX );
     TEST( "037777777777", 12, "%#o", UINT_MAX );
+#else
+    /* When alternate form is disabled, # flag is ignored */
+    TEST( "0", 1, "%#o", 0 );
+    TEST( "0", 1, "%#x", 0 );
+    TEST( "0", 1, "%#X", 0 );
+    TEST( "1234", 4, "%#o", 01234 );
+    TEST( "1234", 4, "%#x", 0x1234 );
+    TEST( "1234", 4, "%#X", 0X1234 );
+    TEST( "ffffffff", 8, "%#x", UINT_MAX );
+    TEST( "FFFFFFFF", 8, "%#X", UINT_MAX );
+    TEST( "37777777777", 11, "%#o", UINT_MAX );
+#endif
 
     /* ===== All Bases 2-36 with %U and %I ===== */
 
@@ -3487,9 +3541,15 @@ static void test_unsigned_integer_edge_cases( void )
 
     /* ===== Centering with Boundaries ===== */
 
+#if defined(CONFIG_WITH_CENTERING)
     TEST( " 4294967295 ", 12, "%^12u", UINT_MAX );
     TEST( "  ffffffff  ", 12, "%^12x", UINT_MAX );
     TEST( "  FFFFFFFF  ", 12, "%^12X", UINT_MAX );
+#else
+    TEST( "  4294967295", 12, "%^12u", UINT_MAX );  /* ^ ignored, right-justified */
+    TEST( "    ffffffff", 12, "%^12x", UINT_MAX );  /* ^ ignored, right-justified */
+    TEST( "    FFFFFFFF", 12, "%^12X", UINT_MAX );  /* ^ ignored, right-justified */
+#endif
 
     /* ===== Length Modifiers with Boundaries ===== */
 
@@ -3538,6 +3598,7 @@ static void test_unsigned_integer_edge_cases( void )
 
     /* ===== All Flags Combined ===== */
 
+#if defined(CONFIG_WITH_ALTERNATE_FORM)
     /* # flag with width and precision */
     TEST( "  0xffffffff", 12, "%#12x", UINT_MAX );
     TEST( "0x00ffffffff", 12, "%#.10x", UINT_MAX );
@@ -3551,6 +3612,21 @@ static void test_unsigned_integer_edge_cases( void )
     TEST( "4294967295    ", 14, "%-14u", UINT_MAX );
     TEST( "ffffffff    ", 12, "%-12x", UINT_MAX );
     TEST( "0xffffffff  ", 12, "%#-12x", UINT_MAX );
+#else
+    /* When alternate form is disabled, # flag is ignored */
+    TEST( "    ffffffff", 12, "%#12x", UINT_MAX );
+    TEST( "00ffffffff", 10, "%#.10x", UINT_MAX );
+    TEST( "    00ffffff", 12, "%#12.8x", 0xffffff );
+
+    /* 0 flag with width */
+    TEST( "00004294967295", 14, "%014u", UINT_MAX );
+    TEST( "0000ffffffff", 12, "%#012x", UINT_MAX );
+
+    /* - flag with width */
+    TEST( "4294967295    ", 14, "%-14u", UINT_MAX );
+    TEST( "ffffffff    ", 12, "%-12x", UINT_MAX );
+    TEST( "ffffffff    ", 12, "%#-12x", UINT_MAX );
+#endif
 }
 
 /*****************************************************************************/
@@ -3637,6 +3713,7 @@ static void test_errors( void )
 
     /* ===== Width Boundary Violations ===== */
 
+#if CONFIG_MAXWIDTH >= 500
     /* Width at limit should work */
     TEST( "                                                  "
           "                                                  "
@@ -3652,6 +3729,13 @@ static void test_errors( void )
 
     /* Width beyond limit should fail */
     FAIL( "%501d", 0 );
+#else
+    /* For TINY/MICRO profiles, width at or beyond 80 is tested elsewhere */
+    /* These tests exceed MAXWIDTH=80, so they should fail */
+    FAIL( "%500d", 0 );
+    FAIL( "%501d", 0 );
+#endif
+
     FAIL( "%600d", 0 );
     FAIL( "%1000d", 0 );
     FAIL( "%9999d", 0 );
@@ -3664,6 +3748,7 @@ static void test_errors( void )
 
     /* ===== Precision Boundary Violations ===== */
 
+#if CONFIG_MAXPREC >= 500
     /* Precision at limit should work */
     TEST( "00000000000000000000000000000000000000000000000000"
           "00000000000000000000000000000000000000000000000000"
@@ -3679,6 +3764,13 @@ static void test_errors( void )
 
     /* Precision beyond limit should fail */
     FAIL( "%.501d", 0 );
+#else
+    /* For TINY/MICRO profiles, precision at or beyond 80 is tested elsewhere */
+    FAIL( "%.500d", 0 );
+    FAIL( "%.501d", 0 );
+#endif
+
+    /* Precision beyond limit should fail */
     FAIL( "%.600d", 0 );
     FAIL( "%.1000d", 0 );
     FAIL( "%.9999d", 0 );
