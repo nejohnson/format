@@ -43,10 +43,16 @@ all: testharness perftest libtest
 format.o: ../src/format.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-tinyformat.o: ../src/tinyformat.c
+tinyformat.o: ../src/format.c
+	$(CC) $(CFLAGS) -DCONFIG_PROFILE_TINY -c $< -o $@
+
+microformat.o: ../src/format.c
+	$(CC) $(CFLAGS) -DCONFIG_PROFILE_MICRO -c $< -o $@
+
+tinytestharness.o: tinytestharness.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-microformat.o: ../src/microformat.c
+microtestharness.o: microtestharness.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 lib.o: ../lib/printf.c
