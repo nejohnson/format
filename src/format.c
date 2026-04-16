@@ -852,13 +852,33 @@ static int do_conv( T_FormatSpec * pspec,
      *  pre-defined format.  In this case we convert it to "%!#N.NX"
      *  where N is double the machine-word size, as each byte converts into
      *  two characters.
+     *
+     *  Without long long support, we limit pointer formatting to unsigned long
+     *  size (typically 32 bits), which truncates 64-bit pointers on 64-bit
+     *  platforms but avoids requiring long long support.
      */
     if ( code == 'p' )
     {
-        code          = 'X';
-        pspec->qual   = ( sizeof( void * ) > sizeof( int ) ) ? DOUBLE_QUAL('l') : 0;
-        pspec->width  = (unsigned int)(sizeof( void * ) * 2);
-        pspec->prec   = (int)(sizeof( void * ) * 2);
+        size_t ptr_size = sizeof( void * );
+
+        code = 'X';
+
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+        /* With long long support, format full pointer size */
+        pspec->qual   = ( ptr_size > sizeof( int ) ) ? DOUBLE_QUAL('l') : 0;
+        pspec->width  = (unsigned int)(ptr_size * 2);
+        pspec->prec   = (int)(ptr_size * 2);
+#else
+        /* Without long long support, limit to 32-bit (4 bytes) to avoid
+         * requiring 64-bit integer support. This truncates 64-bit pointers
+         * to their lower 32 bits on 64-bit platforms. */
+        if ( ptr_size > 4 )
+            ptr_size = 4;
+
+        pspec->qual   = ( ptr_size > sizeof( int ) ) ? 'l' : 0;
+        pspec->width  = (unsigned int)(ptr_size * 2);
+        pspec->prec   = (int)(ptr_size * 2);
+#endif
     }
 
     /* -------------------------------------------------------------------- */

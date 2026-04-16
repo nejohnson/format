@@ -438,6 +438,8 @@ static void test_p( void )
     }
     else if ( ptr_size == 8 )
     {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
+        /* With long long support, full 64-bit pointer formatting */
         TEST( "0000000000000000", 16, "%p", p0 );
         TEST( "0000000000001234", 16, "%p", p1 );
         TEST( "FFFFFFFFFFFFFFFF", 16, "%p", p2 );
@@ -445,6 +447,23 @@ static void test_p( void )
         /* Check all flags, precision, width, length are ignored */
         TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!^24.48lp", p2 );
         TEST( "0xFFFFFFFFFFFFFFFF", 18, "%-+ #0!^24.48hp", p2 );
+#else
+        /* Without long long support, 64-bit pointers are formatted as 32-bit
+         * (lower 32 bits only), producing 8-character hex output */
+        TEST( "00000000", 8, "%p", p0 );
+        TEST( "00001234", 8, "%p", p1 );
+        TEST( "FFFFFFFF", 8, "%p", p2 );  /* Upper 32 bits truncated */
+
+        /* Check all flags, precision, width, length are ignored */
+  #if defined(CONFIG_WITH_ALTERNATE_FORM)
+        TEST( "0xFFFFFFFF", 10, "%-+ #0!^24.48lp", p2 );
+        TEST( "0xFFFFFFFF", 10, "%-+ #0!^24.48hp", p2 );
+  #else
+        /* Without alternate form, # flag is ignored */
+        TEST( "FFFFFFFF", 8, "%-+ #0!^24.48lp", p2 );
+        TEST( "FFFFFFFF", 8, "%-+ #0!^24.48hp", p2 );
+  #endif
+#endif
     }
     else
     {
@@ -2997,8 +3016,14 @@ static void test_pointer_edge_cases( void )
     }
     else if ( ptr_size == 8 )
     {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
         TEST( "0000000000000000", 16, "%p", null_ptr );
         TEST( "0000000000000000", 16, "%p", NULL );
+#else
+        /* Without long long support, 64-bit pointers formatted as 32-bit */
+        TEST( "00000000", 8, "%p", null_ptr );
+        TEST( "00000000", 8, "%p", NULL );
+#endif
     }
 
     /* ===== Pointer Boundaries ===== */
@@ -3035,6 +3060,7 @@ static void test_pointer_edge_cases( void )
     }
     else if ( ptr_size == 8 )
     {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
         ptr_mid = (void *)0x8000000000000000ULL;
 
         TEST( "0000000000000000", 16, "%p", ptr_min );
@@ -3045,6 +3071,19 @@ static void test_pointer_edge_cases( void )
         TEST( "0000000000000001", 16, "%p", (void *)0x0000000000000001ULL );
         TEST( "FFFFFFFFFFFFFFFE", 16, "%p", (void *)0xFFFFFFFFFFFFFFFEULL );
         TEST( "7FFFFFFFFFFFFFFF", 16, "%p", (void *)0x7FFFFFFFFFFFFFFFULL );
+#else
+        /* Without long long support, 64-bit pointers formatted as 32-bit */
+        ptr_mid = (void *)0x8000000000000000ULL;
+
+        TEST( "00000000", 8, "%p", ptr_min );
+        TEST( "FFFFFFFF", 8, "%p", ptr_max );  /* Truncated to lower 32 bits */
+        TEST( "00000000", 8, "%p", ptr_mid );  /* Upper bit lost */
+
+        /* Specific boundary values - all truncated to lower 32 bits */
+        TEST( "00000001", 8, "%p", (void *)0x0000000000000001ULL );
+        TEST( "FFFFFFFE", 8, "%p", (void *)0xFFFFFFFFFFFFFFFEULL );
+        TEST( "FFFFFFFF", 8, "%p", (void *)0x7FFFFFFFFFFFFFFFULL );  /* Lower 32 bits */
+#endif
     }
 
     /* ===== Individual Flag Tests (all should be ignored) ===== */
@@ -3073,6 +3112,7 @@ static void test_pointer_edge_cases( void )
     }
     else if ( ptr_size == 8 )
     {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
         TEST( "0000000000001234", 16, "%-p", test_ptr );
         TEST( "0000000000001234", 16, "%+p", test_ptr );
         TEST( "0000000000001234", 16, "% p", test_ptr );
@@ -3080,6 +3120,20 @@ static void test_pointer_edge_cases( void )
         TEST( "0000000000001234", 16, "%0p", test_ptr );
         TEST( "0000000000001234", 16, "%!p", test_ptr );
         TEST( "0000000000001234", 16, "%^p", test_ptr );
+#else
+        /* Without long long support, 64-bit pointers formatted as 32-bit */
+        TEST( "00001234", 8, "%-p", test_ptr );
+        TEST( "00001234", 8, "%+p", test_ptr );
+        TEST( "00001234", 8, "% p", test_ptr );
+  #if defined(CONFIG_WITH_ALTERNATE_FORM)
+        TEST( "0X00001234", 10, "%#p", test_ptr );
+  #else
+        TEST( "00001234", 8, "%#p", test_ptr );  /* # flag ignored */
+  #endif
+        TEST( "00001234", 8, "%0p", test_ptr );
+        TEST( "00001234", 8, "%!p", test_ptr );
+        TEST( "00001234", 8, "%^p", test_ptr );
+#endif
     }
 
     /* ===== Width and Precision Tests (should be ignored) ===== */
@@ -3102,11 +3156,20 @@ static void test_pointer_edge_cases( void )
     }
     else if ( ptr_size == 8 )
     {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
         TEST( "0000000000001234", 16, "%20p", test_ptr );
         TEST( "0000000000001234", 16, "%.20p", test_ptr );
         TEST( "0000000000001234", 16, "%20.20p", test_ptr );
         TEST( "0000000000001234", 16, "%*p", 50, test_ptr );
         TEST( "0000000000001234", 16, "%.*p", 50, test_ptr );
+#else
+        /* Without long long support, 64-bit pointers formatted as 32-bit */
+        TEST( "00001234", 8, "%20p", test_ptr );
+        TEST( "00001234", 8, "%.20p", test_ptr );
+        TEST( "00001234", 8, "%20.20p", test_ptr );
+        TEST( "00001234", 8, "%*p", 50, test_ptr );
+        TEST( "00001234", 8, "%.*p", 50, test_ptr );
+#endif
     }
 
     /* ===== Pointer to Pointer ===== */
@@ -3156,7 +3219,12 @@ static void test_pointer_edge_cases( void )
 
     if ( ptr_size == 8 )
     {
+#if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
         TEST( "0000000000000000 0000000000001234 FFFFFFFFFFFFFFFF", 50, "%p %p %p", ptr_min, test_ptr, ptr_max );
+#else
+        /* Without long long support, 64-bit pointers formatted as 32-bit */
+        TEST( "00000000 00001234 FFFFFFFF", 26, "%p %p %p", ptr_min, test_ptr, ptr_max );
+#endif
     }
     else if ( ptr_size == 4 )
     {
