@@ -169,7 +169,9 @@ typedef struct {
     unsigned int    flags;  /**< flags                              **/
     unsigned int    width;  /**< width                              **/
     int             prec;   /**< precision, -1 == default precision **/
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     unsigned int    base;   /**< numeric base                       **/
+#endif
     char            qual;   /**< length qualifier                   **/
     char            repchar;/**< Repetition character               **/
 #if defined(CONFIG_WITH_GROUPING_SUPPORT)
@@ -582,7 +584,11 @@ static int do_conv_numeric( T_FormatSpec * pspec,
     char prefix[2];
     size_t pfxWidth = 0;
     size_t grp_insertions = 0;
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     static const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+#else
+    static const char digits[] = "0123456789ABCDEF";  /* hex only */
+#endif
 
     /* Get the value.
      * Signed values need special handling for negative values and the
@@ -887,21 +893,32 @@ static int do_conv( T_FormatSpec * pspec,
      *  flag is ignored.  We set the F_IS_SIGNED internal flag to guide later
      *  processing.
      */
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     if ( code == 'd' || code == 'i' || code == 'I' )
+#else
+    if ( code == 'd' || code == 'i' )
+#endif
     {
         pspec->flags |= F_IS_SIGNED;
         base = 10;
         pspec->flags &= ~FHASH;
 
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
         if ( ( code == 'i' || code == 'I' ) && pspec->base )
            base = pspec->base;
+#endif
     }
 
     if ( code == 'x' || code == 'X' )
         base = 16;
 
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     if ( code == 'u' || code == 'U' )
        base = pspec->base ? pspec->base : 10;
+#else
+    if ( code == 'u' )
+       base = 10;
+#endif
 
     if ( code == 'o' )
         base = 8;
@@ -1050,6 +1067,7 @@ int format( void *    (* cons) (void *, const char * , size_t),
             }
 
             /* process base */
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
             if ( READ_CHAR( ptr ) != ':' )
                 fspec.base = 0;
             else if ( READ_CHAR( INC_VOID_PTR(ptr) ) == '*' )
@@ -1074,8 +1092,9 @@ int format( void *    (* cons) (void *, const char * , size_t),
                     fspec.base = fspec.base * 10 + c - '0';
                 }
                 if ( fspec.base > MAXBASE )
-                    goto exit_badformat; 
+                    goto exit_badformat;
             }
+#endif
 
 #if defined(CONFIG_WITH_FP_SUPPORT)
             fspec.xp.w_int  = -1;

@@ -560,6 +560,7 @@ static void test_di( void )
     /* no effect */
     TEST( "1234", 4, "%!#d", 1234 );
 
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     /* Non-standard bases */
     TEST( "11", 2, "%:3i", 4 );
     TEST( "11", 2, "%:*i", 3, 4 );
@@ -578,6 +579,21 @@ static void test_di( void )
     FAIL( "%:1i", 0 );        /* base of 1 makes no sense */
     FAIL( "%:9999i", 0 );     /* very large base */
     FAIL( "%:*i", 9999, 0 );  /* ditto */
+#else
+    /* Without arbitrary base support, :base modifier should fail */
+    FAIL( "%:3i", 4 );
+    FAIL( "%:*i", 3, 4 );
+    FAIL( "%:i", 11 );
+    FAIL( "%:*i", -1, 12 );
+    FAIL( "%:17i", 16 );
+    FAIL( "%:17I", 16 );
+    FAIL( "%:36I", 44027 );
+    FAIL( "%6.4:36I", 44027 );
+    FAIL( "%:17I", -16 );
+    FAIL( "%:1i", 0 );
+    FAIL( "%:9999i", 0 );
+    FAIL( "%:*i", 9999, 0 );
+#endif
 
     /* lengths */
     TEST( "24", 2, "%hd", si );
@@ -994,12 +1010,21 @@ static void test_bouxX( void )
         TEST( "12CD", 4, "%+ X", 0x12cd );
     }
 
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     /* Non-standard bases */
     TEST( "11", 2, "%:3u", 4 );
     TEST( "g", 1, "%:17u", 16 );
     TEST( "G", 1, "%:17U", 16 );
     TEST( "XYZ", 3, "%:36U", 44027 );
     TEST( " 00XYZ", 6, "%6.5:36U", 44027 );
+#else
+    /* Without arbitrary base support, :base modifier should fail */
+    FAIL( "%:3u", 4 );
+    FAIL( "%:17u", 16 );
+    FAIL( "%:17U", 16 );
+    FAIL( "%:36U", 44027 );
+    FAIL( "%6.5:36U", 44027 );
+#endif
 
 #if defined(CONFIG_WITH_LONG_LONG_SUPPORT)
     TEST( "123456789123456789", 18, "%llu", ulli );
@@ -3321,6 +3346,7 @@ static void test_signed_integer_edge_cases( void )
 
     /* ===== Arbitrary Bases with Boundaries (%i) ===== */
 
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     /* INT_MAX in different bases */
     TEST( "1111111111111111111111111111111", 31, "%:2i", INT_MAX );  /* binary */
     TEST( "17777777777", 11, "%:8i", INT_MAX );                      /* octal */
@@ -3342,6 +3368,23 @@ static void test_signed_integer_edge_cases( void )
     TEST( "-ff", 3, "%:16i", -255 );
     TEST( "-1111", 5, "%:2i", -15 );
     TEST( "-zz", 3, "%:36i", -1295 );
+#else
+    /* Without arbitrary base support, :base modifier should fail */
+    FAIL( "%:2i", INT_MAX );
+    FAIL( "%:8i", INT_MAX );
+    FAIL( "%:16I", INT_MAX );
+    FAIL( "%:16i", INT_MAX );
+    FAIL( "%:36I", INT_MAX );
+    FAIL( "%:2i", INT_MIN );
+    FAIL( "%:8i", INT_MIN );
+    FAIL( "%:16i", INT_MIN );
+    FAIL( "%:2i", -1 );
+    FAIL( "%:8i", -1 );
+    FAIL( "%:16I", -1 );
+    FAIL( "%:16i", -255 );
+    FAIL( "%:2i", -15 );
+    FAIL( "%:36i", -1295 );
+#endif
 
     /* ===== Precision with Boundaries ===== */
 
@@ -3523,6 +3566,7 @@ static void test_unsigned_integer_edge_cases( void )
 
     unsigned int test_val = 1234567;
 
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     /* Bases 2-10 */
     TEST( "100101101011010000111", 21, "%:2U", test_val );  /* binary */
     TEST( "2022201111201", 13, "%:3U", test_val );          /* base-3 */
@@ -3589,6 +3633,25 @@ static void test_unsigned_integer_edge_cases( void )
     TEST( "ffffffff", 8, "%x", UINT_MAX );
     TEST( "FFFFFFFF", 8, "%X", UINT_MAX );
     TEST( "-1", 2, "%:36I", UINT_MAX );          /* UINT_MAX = -1 as signed */
+#else
+    /* Without arbitrary base support, standard bases still work */
+    TEST( "1234abcd", 8, "%x", 0x1234abcd );
+    TEST( "1234ABCD", 8, "%X", 0x1234ABCD );
+    TEST( "4294967295", 10, "%u", UINT_MAX );
+    TEST( "37777777777", 11, "%o", UINT_MAX );
+    TEST( "ffffffff", 8, "%x", UINT_MAX );
+    TEST( "FFFFFFFF", 8, "%X", UINT_MAX );
+    /* :base modifier should fail */
+    FAIL( "%:2U", test_val );
+    FAIL( "%:3U", test_val );
+    FAIL( "%:10U", test_val );
+    FAIL( "%:16i", 0x1234abcd );
+    FAIL( "%:16I", 0x1234ABCD );
+    FAIL( "%:36u", test_val );
+    FAIL( "%:36U", test_val );
+    FAIL( "%:2U", UINT_MAX );
+    FAIL( "%:36I", UINT_MAX );
+#endif
 
     /* ===== Precision with Boundaries ===== */
 
@@ -3773,12 +3836,15 @@ static void test_errors( void )
     FAIL( "test%.*", 5, 0 ); /* Asterisk precision without conversion */
 
     /* Base specification without conversion */
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     FAIL( "test%:", 0 );    /* Incomplete base (just colon) */
     FAIL( "test%:5", 0 );   /* Base without conversion */
     FAIL( "test%:10", 0 );  /* Base without conversion */
+#endif
 
     /* ===== Base Boundary Violations ===== */
 
+#if defined(CONFIG_WITH_ARBITRARY_BASE)
     /* Invalid bases */
     /* Note: Base 0 is treated as default (base 10), so it doesn't fail */
     /* TEST( "0", 1, "%:0i", 0 );    Base 0 defaults to base 10 */
@@ -3794,6 +3860,7 @@ static void test_errors( void )
     FAIL( "%:*i", 100, 0 );          /* Base 100 */
     FAIL( "%:*i", 9999, 0 );         /* Base 9999 */
     /* TEST( "0", 1, "%:*i", -5, 0 ); Negative base treated as base 10 */
+#endif
 
     /* ===== Width Boundary Violations ===== */
 

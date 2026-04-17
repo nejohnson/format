@@ -88,6 +88,7 @@
   /* No floating point, no grouping, no long long */
   /* No character conversion, no n conversion, no continuation */
   /* No alternate form, no engineering notation, no centering */
+  /* No arbitrary base support (only binary, octal, decimal, hex) */
 
 /* ---- TINY Profile Configuration ---- */
 #elif defined(CONFIG_PROFILE_TINY)
@@ -164,6 +165,10 @@
 
   #ifndef CONFIG_WITH_CONTINUATION
     #define CONFIG_WITH_CONTINUATION         /* %" specifier */
+  #endif
+
+  #ifndef CONFIG_WITH_ARBITRARY_BASE
+    #define CONFIG_WITH_ARBITRARY_BASE       /* %I/%U with :base modifier */
   #endif
 
 #endif /* Profile selection */
