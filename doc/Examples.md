@@ -21,6 +21,8 @@ GPIO = 00100101
 
 # Arbitrary Integer Base Conversion #
 
+**Note:** This feature is only available in the FULL profile. It is disabled in TINY and MICRO profiles to reduce code size.
+
 The `i`, `I`, `u` and `U` conversions can take any number base specified by a base modifier, in exactly the same way as precision and width.
 
 For example, formatting a number for a our three-fingered Martian friends can be done quite easily:

@@ -22,6 +22,9 @@ set down to a minimal core, described below, while retaining the
 same API as the original `format` library.  Target machine support is limited
 to CPUs with 16-bit pointer and integer sizes.
 
+For the full feature set and documentation, see ManPage.md. This manual
+documents only the features available in the TINY profile.
+
 
 # SYNOPSIS #
 

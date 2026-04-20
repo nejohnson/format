@@ -9,15 +9,19 @@ functions with significant extensions for formatting output.
 
 # INTRODUCTION #
 
-In most standard C libraries the `printf` family of functions can be rather 
-heavy to use - they pull in quite a lot of additional library code, and they 
+In most standard C libraries the `printf` family of functions can be rather
+heavy to use - they pull in quite a lot of additional library code, and they
 often require considerable additional effort to support on small or even
  medium-sized embedded projects.
 
-The `format` library answers this need.  It provides a small, efficient core 
-function which implements the majority of the `printf` conversions, requires 
-little in the way of system support, and can be easily ported to work with a 
+The `format` library answers this need.  It provides a small, efficient core
+function which implements the majority of the `printf` conversions, requires
+little in the way of system support, and can be easily ported to work with a
 wide range of output devices.
+
+**Note:** This manual page describes the full-featured `format` library
+(CONFIG_PROFILE_FULL). For feature-reduced versions, see TinyManPage.md
+and MicroManPage.md.
 
 
 # SYNOPSIS #

@@ -52,7 +52,7 @@ The following features from the ANSI C99 printf() format specifications are not 
   * `c` conversion treats precision as a repetition count.
   * `C` conversion is same as `c` but gets character from format string itself.
   * `#` flag with continuation and `s` conversions to select alternate ROM-based string pointers
-  * `I` and `U` conversions, together with a numeric base modifier, for arbitrary numeric base conversions (base 2-36)
+  * `I` and `U` conversions, together with a numeric base modifier, for arbitrary numeric base conversions (base 2-36) _(FULL profile only)_
   * `k` fixed-point conversion specifier
   * grouping modifier for formatting the output in useful ways
 

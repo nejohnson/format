@@ -21,6 +21,9 @@ wide range of output devices.  Based on the `format` library it reduces the feat
 set down to a very minimal core, described below.  Target machine support is limited
 to CPUs with 16-bit pointer and integer sizes.
 
+For the full feature set and documentation, see ManPage.md. This manual
+documents only the features available in the MICRO profile.
+
 
 # SYNOPSIS #
 

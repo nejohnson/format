@@ -106,8 +106,13 @@ Note from lib/README.txt: These have no dedicated test harness and are provided 
   - Uses `TEST(expected, return_value, format, args...)` macro
   - Validates both output string and return value
 
-- **tinytestharness.c**: Test suite for tinyformat
-- **microtestharness.c**: Test suite for microformat
+- **tinytestharness.c**: Wrapper file for tinyformat testing
+  - Defines CONFIG_PROFILE_TINY and includes testharness.c
+  - Enables profile-specific testing using unified test code
+
+- **microtestharness.c**: Wrapper file for microformat testing
+  - Defines CONFIG_PROFILE_MICRO and includes testharness.c
+  - Enables profile-specific testing using unified test code
 - **performance.c**: Floating point performance benchmarks
 - **libtest.c**: Tests for the printf-compatible library wrappers
 
@@ -137,7 +142,7 @@ Note from lib/README.txt: These have no dedicated test harness and are provided 
 - `b` conversion: Binary output (base-2)
 - `!` flag: Modify `#` behavior for bases, engineering/SI notation for floats
 - `^` flag: Center-justify output
-- `I`/`U` conversions: Arbitrary base conversions (2-36) with `:base` modifier
+- `I`/`U` conversions: Arbitrary base conversions (2-36) with `:base` modifier _(FULL profile only)_
 - `k` conversion: Fixed-point numbers
 - `C` conversion: Character from format string itself
 - Grouping modifiers: `[symbol-count]` for digit grouping (e.g., `%[,3]d` for 1,234,567)
@@ -184,6 +189,7 @@ To reduce code size, edit format_config.h:
 - Undefine `CONFIG_WITH_FP_SUPPORT` (saves ~4kB)
 - Undefine `CONFIG_WITH_LONG_LONG_SUPPORT` (saves library dependencies)
 - Undefine `CONFIG_WITH_GROUPING_SUPPORT` (saves grouping logic)
+- Undefine `CONFIG_WITH_ARBITRARY_BASE` (saves ~260 bytes on MICRO profile)
 - Or use tinyformat.c or microformat.c variants
 
 ### Testing Changes
