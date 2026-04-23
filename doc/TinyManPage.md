@@ -1,6 +1,6 @@
 # tinyformat #
 
-Copyright (c) 2010-2023 Neil Johnson
+Copyright (c) 2010-2026 Neil Johnson
 
 # SUMMARY #
 
