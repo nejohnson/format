@@ -1,1 +1,16 @@
+# IDE and editor files
 /.project
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Build outputs
+test/testharness
+test/tinytestharness
+test/microtestharness
+test/perftest
+test/libtest
+test/*.o

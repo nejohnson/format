@@ -38,7 +38,7 @@ LDFLAGS +=
 all: testharness perftest libtest
 	./testharness
 	./perftest
-	./libtest
+	./libtest && echo "libtest: PASS"
 
 format.o: ../src/format.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -55,11 +55,29 @@ tinytestharness.o: tinytestharness.c
 microtestharness.o: microtestharness.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-lib.o: ../lib/printf.c
+lib_printf.o: ../lib/printf.c
 	$(CC) $(CFLAGS) -I../lib -c $< -o $@
 
-libtest.o: libtest.c
+lib_sprintf.o: ../lib/sprintf.c
 	$(CC) $(CFLAGS) -I../lib -c $< -o $@
+
+lib_snprintf.o: ../lib/snprintf.c
+	$(CC) $(CFLAGS) -I../lib -c $< -o $@
+
+lib_scprintf.o: ../lib/scprintf.c
+	$(CC) $(CFLAGS) -I../lib -c $< -o $@
+
+lib_asprintf.o: ../lib/asprintf.c
+	$(CC) $(CFLAGS) -I../lib -c $< -o $@
+
+lib_asnprintf.o: ../lib/asnprintf.c
+	$(CC) $(CFLAGS) -I../lib -c $< -o $@
+
+LIB_OBJS = lib_printf.o lib_sprintf.o lib_snprintf.o lib_scprintf.o \
+           lib_asprintf.o lib_asnprintf.o
+
+libtest.o: libtest.c
+	$(CC) $(CFLAGS) -I../lib -Wno-format-truncation -c $< -o $@
 
 testharness: testharness.o format.o
 	$(CC) $(LDFLAGS) testharness.o format.o -o testharness
@@ -73,8 +91,8 @@ microtestharness: microtestharness.o microformat.o
 perftest: performance.o format.o
 	$(CC) $(LDFLAGS) performance.o format.o -o perftest
 
-libtest: libtest.o format.o lib.o
-	$(CC) $(LDFLAGS) libtest.o format.o lib.o -o libtest
+libtest: libtest.o format.o $(LIB_OBJS)
+	$(CC) $(LDFLAGS) libtest.o format.o $(LIB_OBJS) -o libtest
 
 clean:
 	rm -f testharness
@@ -82,7 +100,7 @@ clean:
 	rm -f microtestharness
 	rm -f perftest
 	rm -f libtest
-	rm -f *.o
+	rm -f *.o lib_*.o
 
 what:
 	@echo "make targets:"
@@ -91,6 +109,6 @@ what:
 	@echo "   tinytestharness  -- test harness for tinyformat"
 	@echo "   microtestharness -- test harness for microformat"
 	@echo "   perftest         -- runs some float performance tests"
-	@echo "   libtest          -- library tests"
+	@echo "   libtest          -- library wrapper tests (all lib/ functions)"
 	@echo "   clean            -- deletes all build artifacts"
 

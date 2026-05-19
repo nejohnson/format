@@ -43,6 +43,18 @@ extern int vprintf( const char *, va_list );
 extern int vsprintf( char *, const char *, va_list );
 extern int vsnprintf( char *, size_t, const char *, va_list );
 
+/* Count characters that would be written, without producing any output */
+extern int scprintf( const char *, ... );
+extern int vscprintf( const char *, va_list );
+
+/* Allocate a buffer and write formatted output into it (requires malloc) */
+extern int asprintf( char **, const char *, ... );
+extern int vasprintf( char **, const char *, va_list );
+
+/* Write into caller-supplied buffer if it fits, otherwise allocate (requires malloc) */
+extern char * asnprintf( char *, size_t *, const char *, ... );
+extern char * vasnprintf( char *, size_t *, const char *, va_list );
+
 #endif /* PRINTF_H */
 
 /*****************************************************************************/
