@@ -1,66 +1,73 @@
-A lightweight low-overhead library for processing printf-style format descriptions and arguments designed for the constrained environments of embedded systems.
+# format
 
-# News #
-  * 15-Oct-2023: Implement the `a` and `A` hexadecimal floating point conversion specifiers.
-  * 18-Sep-2023: Add new `microformat` for a version smaller than `tinyformat` for extremely small platforms.
-  * 06-Sep-2023: Shrinking `tinyformat` for smaller code footprint.
-  * 29-Jun-2023: Add optional support (via config flag) for long long integers with the `ll` qualifier.
-  * 21-Jun-2023: Add `tinyformat` for an even smaller feature-reduced version of format for very small embedded systems (compiles to around 1,300 bytes of code for the atmega8 with AVR-GCC).
-  * March-2023: Tidyups in files and documentation.
-  * 10-Mar-2015: Release 1.2 now available.
-  * 05-Feb-2015: Add support for fixed-point numbers with the `k` conversion specifier.
-  * 06-Nov-2014: Add support for denormalized floating point numbers, for people who like _really small_ numbers.
-  * 17-Mar-2014: **Rounding bug fixed** ([Issue 7](https://code.google.com/p/format/issues/detail?id=7)).  Remaining work to get %g and %G conversion specifiers working properly.
-  * 20-Jan-2014: Bug in floating-point rounding code caused incorrect output for some values.
-  * 19-Aug-2013: Enhanced the `e`, `E`, `f` and `F` floating point conversions with the use of the `!` flag to implement formatting to Engineering (x10<sup>3</sup> etc) or SI (mega, micro, etc) units.
-  * 08-Aug-2013: Sincere apologies to those who have raised issues over the last couple of years.  For some reason google did not notify me and I have only just found them.  Hopefully now fixed.
-  * 19-Mar-2013: Added support for `e`, `E`, `f`, `F`, `g` and `G` floating point conversions.
-  * 19-mar-2013: After much consideration I have decided to change the way grouping is specified into a more natural form.  This unfortunately breaks existing code. _Sorry_
-  * 16-Aug-2012: Added arbitrary numeric base conversions.
-  * 22-May-2012: Centre flag '^' uses '-' flag to bias left in %s conversions.  It now also defaults to right bias in the same way that non-centred %s conversions are right-aligned by default.
-  * 07-Feb-2011: Added grouping specifiers to numeric conversions.
-  * 09-Dec-2010: Added support for ROM-located strings.
-  * 08-Dec-2010: Release 1.1 now available.
-  * 23-Nov-2010: Extended %c and added %C.
-  * 12-Nov-2010: Initial port to 8-bit AVR shows good size of about 2.5-2.8kB
-  * 11-Nov-2010: Added TestedPlatforms page
-  * 28-Sept-2010: Added support for length modifiers `hh`, `j`, `z`, `t`
-  * 23-June-2010: Release 1.0 now available.
+> A lightweight, low-overhead printf-style formatting library for embedded systems.
 
-# Features #
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE.txt)
+![Standard: C99](https://img.shields.io/badge/standard-C99-brightgreen.svg)
+![Target: Embedded](https://img.shields.io/badge/target-embedded-orange.svg)
 
-  * Small code size (4kB code size without floating point formats, 8kB code with float support, compiled for ARM with GCC 12.2)
-  * Low system overheads (no large buffers)
-  * Fully re-entrant
-  * Supports most of ANSI C99 printf() format specifications (see below for exceptions) with many useful additional features
+A platform-independent implementation of printf-style formatting designed for
+constrained environments where the standard C library is too heavy or unavailable.
+Three profiles are provided to suit different targets:
 
-## ANSI Exceptions ##
+| Profile | Description | Typical code size |
+|:--------|:------------|:------------------|
+| **format** | Full-featured, all conversions | ~4 kB (no FP) / ~8 kB (with FP) on ARM GCC 12.2 |
+| **tinyformat** | Feature-reduced for 16-bit MCUs | ~1.3 kB on atmega8 with AVR-GCC |
+| **microformat** | Minimal for the most constrained platforms | smallest possible footprint |
 
-The following features from the ANSI C99 printf() format specifications are not supported in the current version of **format**
-
-  * Length modifier `L` (long double)
-
-## New Features ##
-
-**format** brings new features to the world of printf, including
-
-  * `b` binary conversion for formatting unsigned values in base-2
-  * `!` flag modifies the behaviour of the `#` flag in binary, octal and hexadecimal conversions to always add the prefix (the default is to drop the prefix for zero results)
-  * `!` flag modifies the behaviour of the `e`, `E`, `f` and `F` floating point conversions to use engineering (for `e`/`E`) or SI (`f`/`F`) formatting
-  * Interspersing format specifications and arguments using a new continuation specifier (`%"`)
-  * `^` flag centre-justifies conversion results if the field is wide enough to require padding
-  * `c` conversion treats precision as a repetition count.
-  * `C` conversion is same as `c` but gets character from format string itself.
-  * `#` flag with continuation and `s` conversions to select alternate ROM-based string pointers
-  * `I` and `U` conversions, together with a numeric base modifier, for arbitrary numeric base conversions (base 2-36) _(FULL profile only)_
-  * `k` fixed-point conversion specifier
-  * grouping modifier for formatting the output in useful ways
-
-For examples of all these features please see `testharness.c` in the `test` folder.
-
-# Producing Output #
-
-**format** itself does not send any output characters to any device.  Instead, it calls a _consumer function_, supplied by the caller, to process any output.  A simple example would be a function to send the characters to a UART.  A more advanced use might be sending characters to an LCD.
+A set of standard printf-compatible wrapper functions (sprintf, snprintf, asprintf, etc.)
+is provided in `lib/` for drop-in use — see [`lib/README.md`](lib/README.md).
 
 ---
 
+## Releases
+
+  * **1.3** (May 2026) — `tinyformat` and `microformat` profiles; `ll` qualifier; `a`/`A` hex float specifiers; six new `lib/` wrappers (`scprintf`, `asprintf`, `asnprintf` and `v`-variants); full lib test harness.
+  * **1.2** (Mar 2015) — Floating point (`e`/`E`/`f`/`F`/`g`/`G`), fixed-point (`k`), engineering and SI notation, arbitrary numeric bases, denormalized float support, rounding bug fixes.
+  * **1.1** (Dec 2010) — ROM string support, length modifiers (`hh`, `j`, `z`, `t`), character repetition, grouping modifiers.
+  * **1.0** (Jun 2010) — Initial release.
+
+---
+
+## Features
+
+  * Small code size (4 kB without floating point, 8 kB with, compiled for ARM with GCC 12.2)
+  * Low system overheads — no large internal buffers
+  * Fully re-entrant — no global state
+  * Supports most of ANSI C99 printf() format specifications (see exceptions below)
+  * Output via a caller-supplied consumer function — works with any device (UART, LCD, buffer, …)
+
+### ANSI Exceptions
+
+The following C99 printf() features are not currently supported:
+
+  * Length modifier `L` (long double)
+
+### Extensions
+
+**format** adds several useful features beyond standard printf:
+
+  * `b` — binary conversion for unsigned values (base-2)
+  * `!` flag — with `#` on `b`/`x`/`X`: always emit the prefix even for zero; with `e`/`E`: engineering notation (exponent forced to multiple of 3); with `f`/`F`: SI prefix formatting (µ, m, k, M, …)
+  * `^` flag — centre-justify output within the field width
+  * `I` / `U` conversions with `:base` modifier — arbitrary numeric base (2–36) _(FULL profile only)_
+  * `k` — fixed-point conversion specifier
+  * `%"` continuation specifier — intersperse format strings and arguments
+  * `c` precision — repetition count for the character
+  * `C` — character taken directly from the format string (with optional repetition)
+  * `#` with `s` and continuation — select ROM-based string pointers (AVR PROGMEM)
+  * `[sym count]` grouping modifier — digit grouping for numeric output (e.g. `%[,3]d` → `1,234,567`)
+
+For examples see `doc/Examples.md` and the test cases in `test/testharness.c`.
+
+---
+
+## Producing Output
+
+**format** never writes to any device directly. Instead it calls a _consumer function_
+supplied by the caller, passing it chunks of formatted text. A simple example sends
+characters to a UART; a more complex one might track an (x, y) position on an LCD.
+
+See `doc/ManPage.md` for the full API and `lib/README.md` for the ready-made
+printf-compatible wrappers.
